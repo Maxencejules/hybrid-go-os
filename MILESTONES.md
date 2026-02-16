@@ -1,6 +1,6 @@
 # Hybrid Go OS: Repo-ready Milestones, Issues, and Acceptance Tests
 
-Date: 2026-02-16  
+Date: 2026-02-16
 Defaults assumed: x86-64, QEMU-first, Limine boot protocol, freestanding C userland first (init + early servers), Go-heavy services later.
 
 This file is meant to be dropped into your repo as `MILESTONES.md` and used as a checklist to create GitHub issues. It includes:
@@ -46,7 +46,7 @@ Keep early structure simple and stable:
 
 ```
 /boot/                 # Limine config, linker scripts, kernel image packaging
-/kernel/               # Go kernel (mechanisms): mm, traps, sched, ipc, syscalls
+/kernel/               # Kernel code (target: mostly Go). Early M0 may include C while Go bootstraps.
 /rtshim/               # minimal runtime integration layer (Go runtime support glue)
 /arch/x86_64/          # asm stubs: entry, isr/syscall stubs, context switch
 /user/                 # userland programs (start: freestanding C)
@@ -90,13 +90,14 @@ For early milestones, you can skip UEFI and boot via Limine BIOS mode if that is
 
 ## 4) Milestones overview
 
-M0: Boot + serial logging  
-M1: Paging + traps (IDT) + stable Go kernel entry  
-M2: Scheduler + kernel threads  
-M3: User mode + syscall ABI v0  
-M4: IPC + shared memory + service discovery v0  
-M5: User space drivers (VirtIO block first) + block service  
-M6: Filesystem service + package manager + shell runs a packaged app  
+M0: Boot + serial logging (C/asm OK)
+G0: First Go kernel entry executes (Go+rtshim+linking)
+M1: Paging + traps (IDT) in Go kernel (asm stubs remain) + page fault reporting
+M2: Scheduler + kernel threads
+M3: User mode + syscall ABI v0
+M4: IPC + shared memory + service discovery v0
+M5: User space drivers (VirtIO block first) + block service
+M6: Filesystem service + package manager + shell runs a packaged app
 Optional M7: VirtIO net + net service + minimal UDP demo
 
 Each milestone has:
@@ -132,20 +133,59 @@ Each milestone has:
     - `KERNEL: panic code=...`
   - Assert QEMU exits via debug-exit with failure code
 
+
 ---
 
-## M1: Paging + traps + stable Go kernel entry
+## G0: First Go kernel entry executes (Go + rtshim + linking)
+
+### Purpose
+Make the kernel able to execute **real Go code** in kernel context, while keeping the low-level entry/exit in asm.
+This avoids mixing "bring up Go runtime/linking" with "bring up paging/IDT" in the same milestone.
+
+### Definition of done
+- Kernel image contains Go code and successfully jumps into a Go entry point.
+- A minimal runtime integration layer (`/rtshim`) reserves a Go heap region and supports basic Go execution.
+- Serial output proves Go ran by printing a deterministic marker.
+- M0 tests still pass unchanged.
+
+### Issues
+- [ ] (p0, area:tooling) Add Go cross-build toolchain wiring to the build system
+  - Goal: produce Go object/archive suitable for linking into `kernel.elf`
+  - Deliverables: documented build steps in `docs/build/go_toolchain.md`
+- [ ] (p0, area:rtshim) Implement minimal runtime integration layer v0
+  - Reserve heap region early
+  - Provide any required runtime stubs/glue for bare-metal start
+  - Keep trap/interrupt paths allocation-free
+- [ ] (p0, area:arch-x86_64) Add an asm-to-Go jump glue
+  - Call a Go entry symbol (for example `kmain_go`)
+- [ ] (p0, area:boot) Ensure serial logging works from Go path (reuse the C serial driver or expose a tiny call boundary)
+
+### Acceptance tests
+- `tests/boot/test_go_entry.py`
+  - Run QEMU, assert serial contains:
+    - `GO: kmain ok`
+  - Assert M0 markers are still present:
+    - `KERNEL: boot ok`
+    - `KERNEL: halt ok`
+
+Notes (why this milestone exists):
+- Kernels written primarily in Go have been demonstrated (e.g., Biscuit), but they rely on a runtime strategy and low-level assembly stubs.
+
+
+## M1: Paging + traps + page fault reporting (Go kernel)
 
 ### Definition of done
 - Paging enabled with a known kernel mapping strategy (higher-half or identity + higher-half).
 - IDT installed; page fault handler prints fault address and error bits, then halts or recovers for known cases.
-- Go kernel code runs reliably after paging is enabled.
+- Go kernel code (already proven in G0) continues to run reliably after paging is enabled.
 
 ### Issues
 - [ ] (p0, area:mm) Parse bootloader memory map and build a physical page allocator
 - [ ] (p0, area:mm) Build initial page tables and enable paging
 - [ ] (p0, area:trap) Install GDT and IDT
 - [ ] (p0, area:trap) Exception handlers: page fault, general protection fault, double fault (halt path)
+- [ ] (p1, area:mm) Move paging/mm logic into Go kernel modules (asm remains for CR3 writes, etc.)
+- [ ] (p1, area:trap) Trap dispatch table in Go (asm stubs only save/restore + jump)
 - [ ] (p1, area:rtshim) Minimal runtime integration layer v0
   - No allocation in trap context
   - Preallocated per-CPU data structures
