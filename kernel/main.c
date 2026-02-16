@@ -81,6 +81,12 @@ extern const char user_shm_reader_start[];
 extern const uint64_t user_shm_reader_size;
 extern const char user_blkdevd_start[];
 extern const uint64_t user_blkdevd_size;
+extern const char user_fsd_start[];
+extern const uint64_t user_fsd_size;
+extern const char user_pkg_start[];
+extern const uint64_t user_pkg_size;
+extern const char user_sh_start[];
+extern const uint64_t user_sh_size;
 
 /* ------------------------------------------------------------------ */
 /*  Kernel entry                                                      */
@@ -160,6 +166,11 @@ void kmain(void) {
 
     /* M5: Block device server */
     process_create(user_blkdevd_start, user_blkdevd_size);
+
+    /* M6: Filesystem, package manager, shell */
+    process_create(user_fsd_start, user_fsd_size);
+    process_create(user_pkg_start, user_pkg_size);
+    process_create(user_sh_start, user_sh_size);
 
     /* Enable interrupts — preemption begins */
     __asm__ volatile ("sti");

@@ -42,7 +42,7 @@ OBJS = $(OUT)/entry.o $(OUT)/isr.o $(OUT)/context.o \
 
 # --- Targets ------------------------------------------------------------------
 
-build: $(OUT)/kernel.elf
+build: $(OUT)/kernel.elf $(OUT)/hello.bin
 
 $(OUT):
 	mkdir -p $(OUT)
@@ -73,6 +73,18 @@ $(OUT)/shm_reader_user.o: user/shm_reader.c user/syscall.h | $(OUT)
 $(OUT)/blkdevd_user.o: user/blkdevd.c user/syscall.h | $(OUT)
 	$(CC) $(USER_CFLAGS) $< -o $@
 
+$(OUT)/fsd_user.o: user/fsd.c user/syscall.h user/fs_protocol.h | $(OUT)
+	$(CC) $(USER_CFLAGS) $< -o $@
+
+$(OUT)/pkg_user.o: user/pkg.c user/syscall.h user/fs_protocol.h | $(OUT)
+	$(CC) $(USER_CFLAGS) $< -o $@
+
+$(OUT)/sh_user.o: user/sh.c user/syscall.h user/fs_protocol.h | $(OUT)
+	$(CC) $(USER_CFLAGS) $< -o $@
+
+$(OUT)/hello_user.o: user/hello.c user/syscall.h | $(OUT)
+	$(CC) $(USER_CFLAGS) $< -o $@
+
 $(OUT)/init.elf: $(OUT)/crt0.o $(OUT)/init_user.o user/user.ld | $(OUT)
 	$(LD) $(USER_LDFLAGS) -o $@ $(OUT)/crt0.o $(OUT)/init_user.o
 
@@ -93,6 +105,18 @@ $(OUT)/shm_reader.elf: $(OUT)/crt0.o $(OUT)/shm_reader_user.o user/user.ld | $(O
 
 $(OUT)/blkdevd.elf: $(OUT)/crt0.o $(OUT)/blkdevd_user.o user/user.ld | $(OUT)
 	$(LD) $(USER_LDFLAGS) -o $@ $(OUT)/crt0.o $(OUT)/blkdevd_user.o
+
+$(OUT)/fsd.elf: $(OUT)/crt0.o $(OUT)/fsd_user.o user/user.ld | $(OUT)
+	$(LD) $(USER_LDFLAGS) -o $@ $(OUT)/crt0.o $(OUT)/fsd_user.o
+
+$(OUT)/pkg.elf: $(OUT)/crt0.o $(OUT)/pkg_user.o user/user.ld | $(OUT)
+	$(LD) $(USER_LDFLAGS) -o $@ $(OUT)/crt0.o $(OUT)/pkg_user.o
+
+$(OUT)/sh.elf: $(OUT)/crt0.o $(OUT)/sh_user.o user/user.ld | $(OUT)
+	$(LD) $(USER_LDFLAGS) -o $@ $(OUT)/crt0.o $(OUT)/sh_user.o
+
+$(OUT)/hello.elf: $(OUT)/crt0.o $(OUT)/hello_user.o user/user.ld | $(OUT)
+	$(LD) $(USER_LDFLAGS) -o $@ $(OUT)/crt0.o $(OUT)/hello_user.o
 
 $(OUT)/init.bin: $(OUT)/init.elf
 	$(OBJCOPY) -O binary $< $@
@@ -115,7 +139,19 @@ $(OUT)/shm_reader.bin: $(OUT)/shm_reader.elf
 $(OUT)/blkdevd.bin: $(OUT)/blkdevd.elf
 	$(OBJCOPY) -O binary $< $@
 
-$(OUT)/user_bins.o: kernel/user_bins.asm $(OUT)/init.bin $(OUT)/fault.bin $(OUT)/ping.bin $(OUT)/pong.bin $(OUT)/shm_writer.bin $(OUT)/shm_reader.bin $(OUT)/blkdevd.bin | $(OUT)
+$(OUT)/fsd.bin: $(OUT)/fsd.elf
+	$(OBJCOPY) -O binary $< $@
+
+$(OUT)/pkg.bin: $(OUT)/pkg.elf
+	$(OBJCOPY) -O binary $< $@
+
+$(OUT)/sh.bin: $(OUT)/sh.elf
+	$(OBJCOPY) -O binary $< $@
+
+$(OUT)/hello.bin: $(OUT)/hello.elf
+	$(OBJCOPY) -O binary $< $@
+
+$(OUT)/user_bins.o: kernel/user_bins.asm $(OUT)/init.bin $(OUT)/fault.bin $(OUT)/ping.bin $(OUT)/pong.bin $(OUT)/shm_writer.bin $(OUT)/shm_reader.bin $(OUT)/blkdevd.bin $(OUT)/fsd.bin $(OUT)/pkg.bin $(OUT)/sh.bin | $(OUT)
 	$(NASM) $(NASMFLAGS) -I$(OUT)/ $< -o $@
 
 # --- Kernel assembly ----------------------------------------------------------
@@ -146,7 +182,7 @@ $(OUT)/pmm.o: kernel/pmm.c kernel/pmm.h kernel/limine.h kernel/serial.h | $(OUT)
 $(OUT)/vmm.o: kernel/vmm.c kernel/vmm.h kernel/pmm.h kernel/limine.h kernel/serial.h kernel/string.h | $(OUT)
 	$(CC) $(CFLAGS) $< -o $@
 
-$(OUT)/syscall.o: kernel/syscall.c kernel/syscall.h kernel/serial.h kernel/sched.h kernel/ipc.h kernel/shm.h kernel/service_registry.h kernel/virtio_blk.h | $(OUT)
+$(OUT)/syscall.o: kernel/syscall.c kernel/syscall.h kernel/serial.h kernel/sched.h kernel/ipc.h kernel/shm.h kernel/service_registry.h kernel/virtio_blk.h kernel/process.h | $(OUT)
 	$(CC) $(CFLAGS) $< -o $@
 
 $(OUT)/process.o: kernel/process.c kernel/process.h kernel/vmm.h kernel/pmm.h kernel/sched.h kernel/serial.h kernel/string.h | $(OUT)

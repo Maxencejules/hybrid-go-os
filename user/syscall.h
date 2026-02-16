@@ -19,6 +19,7 @@ typedef unsigned char uint8_t;
 #define SYS_SERVICE_LOOKUP  13
 #define SYS_BLK_READ       14
 #define SYS_BLK_WRITE      15
+#define SYS_PROCESS_SPAWN  16
 
 static inline int64_t syscall0(uint64_t num) {
     int64_t ret;
@@ -104,6 +105,10 @@ static inline int64_t sys_blk_read(uint64_t sector, void *buf, uint32_t count) {
 
 static inline int64_t sys_blk_write(uint64_t sector, const void *buf, uint32_t count) {
     return syscall3(SYS_BLK_WRITE, sector, (uint64_t)buf, (uint64_t)count);
+}
+
+static inline int64_t sys_process_spawn(const void *binary, uint64_t size) {
+    return syscall2(SYS_PROCESS_SPAWN, (uint64_t)binary, size);
 }
 
 #endif

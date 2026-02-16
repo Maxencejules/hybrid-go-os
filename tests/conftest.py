@@ -6,6 +6,8 @@ import pytest
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ISO_PATH = os.path.join(REPO_ROOT, "out", "os.iso")
 DISK_IMG = os.path.join(REPO_ROOT, "out", "test.img")
+HELLO_BIN = os.path.join(REPO_ROOT, "out", "hello.bin")
+MKDISK = os.path.join(REPO_ROOT, "tools", "mkdisk.py")
 QEMU_TIMEOUT = 10  # seconds
 
 
@@ -14,8 +16,10 @@ def qemu_serial():
     """Boot the OS in QEMU headless and return the captured serial output."""
     assert os.path.isfile(ISO_PATH), f"ISO not found: {ISO_PATH}"
 
-    # Create 1 MB disk image for virtio-blk if not present
-    if not os.path.isfile(DISK_IMG):
+    # Build SimpleFS disk image with hello.pkg (always rebuild)
+    if os.path.isfile(HELLO_BIN):
+        subprocess.run(["python3", MKDISK, HELLO_BIN, DISK_IMG], check=True)
+    elif not os.path.isfile(DISK_IMG):
         with open(DISK_IMG, "wb") as f:
             f.write(b"\x00" * (1024 * 1024))
 

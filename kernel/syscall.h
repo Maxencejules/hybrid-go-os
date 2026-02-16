@@ -20,6 +20,7 @@
 #define SYS_SERVICE_LOOKUP  13
 #define SYS_BLK_READ       14
 #define SYS_BLK_WRITE      15
+#define SYS_PROCESS_SPAWN  16
 
 void syscall_handler(struct interrupt_frame *frame);
 

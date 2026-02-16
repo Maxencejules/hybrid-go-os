@@ -6,6 +6,7 @@
 #include "shm.h"
 #include "service_registry.h"
 #include "virtio_blk.h"
+#include "process.h"
 
 extern volatile uint64_t tick_count;
 
@@ -94,6 +95,20 @@ void syscall_handler(struct interrupt_frame *frame) {
             break;
         }
         frame->rax = (uint64_t)(int64_t)virtio_blk_write(sector, buf, count);
+        break;
+    }
+
+    case SYS_PROCESS_SPAWN: {
+        uint64_t bin_ptr = arg1;
+        uint64_t bin_size = arg2;
+        if (bin_ptr >= 0x8000000000000000ULL ||
+            bin_ptr + bin_size >= 0x8000000000000000ULL ||
+            bin_size == 0 || bin_size > 64 * 1024) {
+            frame->rax = (uint64_t)-1;
+            break;
+        }
+        struct thread *t = process_create((const void *)bin_ptr, bin_size);
+        frame->rax = t ? (uint64_t)t->tid : (uint64_t)-1;
         break;
     }
 

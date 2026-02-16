@@ -16,6 +16,12 @@ global user_shm_reader_start
 global user_shm_reader_size
 global user_blkdevd_start
 global user_blkdevd_size
+global user_fsd_start
+global user_fsd_size
+global user_pkg_start
+global user_pkg_size
+global user_sh_start
+global user_sh_size
 
 user_init_start:
     incbin "../out/init.bin"
@@ -58,5 +64,23 @@ user_blkdevd_start:
 user_blkdevd_end:
 user_blkdevd_size:
     dq user_blkdevd_end - user_blkdevd_start
+
+user_fsd_start:
+    incbin "../out/fsd.bin"
+user_fsd_end:
+user_fsd_size:
+    dq user_fsd_end - user_fsd_start
+
+user_pkg_start:
+    incbin "../out/pkg.bin"
+user_pkg_end:
+user_pkg_size:
+    dq user_pkg_end - user_pkg_start
+
+user_sh_start:
+    incbin "../out/sh.bin"
+user_sh_end:
+user_sh_size:
+    dq user_sh_end - user_sh_start
 
 section .note.GNU-stack noalloc noexec nowrite progbits
