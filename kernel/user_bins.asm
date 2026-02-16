@@ -14,6 +14,8 @@ global user_shm_writer_start
 global user_shm_writer_size
 global user_shm_reader_start
 global user_shm_reader_size
+global user_blkdevd_start
+global user_blkdevd_size
 
 user_init_start:
     incbin "../out/init.bin"
@@ -50,5 +52,11 @@ user_shm_reader_start:
 user_shm_reader_end:
 user_shm_reader_size:
     dq user_shm_reader_end - user_shm_reader_start
+
+user_blkdevd_start:
+    incbin "../out/blkdevd.bin"
+user_blkdevd_end:
+user_blkdevd_size:
+    dq user_blkdevd_end - user_blkdevd_start
 
 section .note.GNU-stack noalloc noexec nowrite progbits

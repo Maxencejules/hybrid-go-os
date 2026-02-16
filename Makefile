@@ -37,7 +37,8 @@ OBJS = $(OUT)/entry.o $(OUT)/isr.o $(OUT)/context.o \
        $(OUT)/pic.o $(OUT)/pit.o $(OUT)/sched.o \
        $(OUT)/vmm.o $(OUT)/syscall.o $(OUT)/process.o $(OUT)/user_bins.o \
        $(OUT)/ipc.o $(OUT)/shm.o $(OUT)/service_registry.o \
-       $(OUT)/go_entry.o $(OUT)/bridge.o $(OUT)/runtime_stubs.o
+       $(OUT)/go_entry.o $(OUT)/bridge.o $(OUT)/runtime_stubs.o \
+       $(OUT)/pci.o $(OUT)/virtio_blk.o
 
 # --- Targets ------------------------------------------------------------------
 
@@ -69,6 +70,9 @@ $(OUT)/shm_writer_user.o: user/shm_writer.c user/syscall.h | $(OUT)
 $(OUT)/shm_reader_user.o: user/shm_reader.c user/syscall.h | $(OUT)
 	$(CC) $(USER_CFLAGS) $< -o $@
 
+$(OUT)/blkdevd_user.o: user/blkdevd.c user/syscall.h | $(OUT)
+	$(CC) $(USER_CFLAGS) $< -o $@
+
 $(OUT)/init.elf: $(OUT)/crt0.o $(OUT)/init_user.o user/user.ld | $(OUT)
 	$(LD) $(USER_LDFLAGS) -o $@ $(OUT)/crt0.o $(OUT)/init_user.o
 
@@ -86,6 +90,9 @@ $(OUT)/shm_writer.elf: $(OUT)/crt0.o $(OUT)/shm_writer_user.o user/user.ld | $(O
 
 $(OUT)/shm_reader.elf: $(OUT)/crt0.o $(OUT)/shm_reader_user.o user/user.ld | $(OUT)
 	$(LD) $(USER_LDFLAGS) -o $@ $(OUT)/crt0.o $(OUT)/shm_reader_user.o
+
+$(OUT)/blkdevd.elf: $(OUT)/crt0.o $(OUT)/blkdevd_user.o user/user.ld | $(OUT)
+	$(LD) $(USER_LDFLAGS) -o $@ $(OUT)/crt0.o $(OUT)/blkdevd_user.o
 
 $(OUT)/init.bin: $(OUT)/init.elf
 	$(OBJCOPY) -O binary $< $@
@@ -105,7 +112,10 @@ $(OUT)/shm_writer.bin: $(OUT)/shm_writer.elf
 $(OUT)/shm_reader.bin: $(OUT)/shm_reader.elf
 	$(OBJCOPY) -O binary $< $@
 
-$(OUT)/user_bins.o: kernel/user_bins.asm $(OUT)/init.bin $(OUT)/fault.bin $(OUT)/ping.bin $(OUT)/pong.bin $(OUT)/shm_writer.bin $(OUT)/shm_reader.bin | $(OUT)
+$(OUT)/blkdevd.bin: $(OUT)/blkdevd.elf
+	$(OBJCOPY) -O binary $< $@
+
+$(OUT)/user_bins.o: kernel/user_bins.asm $(OUT)/init.bin $(OUT)/fault.bin $(OUT)/ping.bin $(OUT)/pong.bin $(OUT)/shm_writer.bin $(OUT)/shm_reader.bin $(OUT)/blkdevd.bin | $(OUT)
 	$(NASM) $(NASMFLAGS) -I$(OUT)/ $< -o $@
 
 # --- Kernel assembly ----------------------------------------------------------
@@ -121,7 +131,7 @@ $(OUT)/context.o: arch/x86_64/context.asm | $(OUT)
 
 # --- Kernel C files -----------------------------------------------------------
 
-$(OUT)/main.o: kernel/main.c kernel/serial.h kernel/limine.h kernel/pmm.h kernel/vmm.h kernel/process.h kernel/ipc.h kernel/shm.h kernel/service_registry.h | $(OUT)
+$(OUT)/main.o: kernel/main.c kernel/serial.h kernel/limine.h kernel/pmm.h kernel/vmm.h kernel/process.h kernel/ipc.h kernel/shm.h kernel/service_registry.h kernel/pci.h kernel/virtio_blk.h | $(OUT)
 	$(CC) $(CFLAGS) $< -o $@
 
 $(OUT)/serial.o: kernel/serial.c kernel/serial.h | $(OUT)
@@ -136,7 +146,7 @@ $(OUT)/pmm.o: kernel/pmm.c kernel/pmm.h kernel/limine.h kernel/serial.h | $(OUT)
 $(OUT)/vmm.o: kernel/vmm.c kernel/vmm.h kernel/pmm.h kernel/limine.h kernel/serial.h kernel/string.h | $(OUT)
 	$(CC) $(CFLAGS) $< -o $@
 
-$(OUT)/syscall.o: kernel/syscall.c kernel/syscall.h kernel/serial.h kernel/sched.h kernel/ipc.h kernel/shm.h kernel/service_registry.h | $(OUT)
+$(OUT)/syscall.o: kernel/syscall.c kernel/syscall.h kernel/serial.h kernel/sched.h kernel/ipc.h kernel/shm.h kernel/service_registry.h kernel/virtio_blk.h | $(OUT)
 	$(CC) $(CFLAGS) $< -o $@
 
 $(OUT)/process.o: kernel/process.c kernel/process.h kernel/vmm.h kernel/pmm.h kernel/sched.h kernel/serial.h kernel/string.h | $(OUT)
@@ -149,6 +159,12 @@ $(OUT)/shm.o: kernel/shm.c kernel/shm.h kernel/pmm.h kernel/vmm.h kernel/sched.h
 	$(CC) $(CFLAGS) $< -o $@
 
 $(OUT)/service_registry.o: kernel/service_registry.c kernel/service_registry.h kernel/serial.h kernel/string.h | $(OUT)
+	$(CC) $(CFLAGS) $< -o $@
+
+$(OUT)/pci.o: kernel/pci.c kernel/pci.h kernel/serial.h kernel/io.h | $(OUT)
+	$(CC) $(CFLAGS) $< -o $@
+
+$(OUT)/virtio_blk.o: kernel/virtio_blk.c kernel/virtio_blk.h kernel/pci.h kernel/pmm.h kernel/vmm.h kernel/serial.h kernel/io.h kernel/string.h | $(OUT)
 	$(CC) $(CFLAGS) $< -o $@
 
 # --- Arch C files -------------------------------------------------------------

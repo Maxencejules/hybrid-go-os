@@ -17,6 +17,8 @@ typedef unsigned char uint8_t;
 #define SYS_IPC_CREATE_PORT 11
 #define SYS_SERVICE_REGISTER 12
 #define SYS_SERVICE_LOOKUP  13
+#define SYS_BLK_READ       14
+#define SYS_BLK_WRITE      15
 
 static inline int64_t syscall0(uint64_t num) {
     int64_t ret;
@@ -94,6 +96,14 @@ static inline int64_t sys_service_register(const char *name, uint32_t port) {
 
 static inline uint32_t sys_service_lookup(const char *name) {
     return (uint32_t)syscall2(SYS_SERVICE_LOOKUP, (uint64_t)name, 0);
+}
+
+static inline int64_t sys_blk_read(uint64_t sector, void *buf, uint32_t count) {
+    return syscall3(SYS_BLK_READ, sector, (uint64_t)buf, (uint64_t)count);
+}
+
+static inline int64_t sys_blk_write(uint64_t sector, const void *buf, uint32_t count) {
+    return syscall3(SYS_BLK_WRITE, sector, (uint64_t)buf, (uint64_t)count);
 }
 
 #endif

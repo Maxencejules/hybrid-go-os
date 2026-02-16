@@ -90,6 +90,28 @@ uint64_t pmm_alloc_page(void) {
     return 0;  /* Out of memory */
 }
 
+uint64_t pmm_alloc_contiguous(uint32_t count) {
+    if (count == 0)
+        return 0;
+    uint64_t total_pages = BITMAP_SIZE * 8;
+    for (uint64_t start = 0; start + count <= total_pages; start++) {
+        int found = 1;
+        for (uint32_t j = 0; j < count; j++) {
+            if (bitmap_test(start + j)) {
+                found = 0;
+                start += j;  /* skip ahead */
+                break;
+            }
+        }
+        if (found) {
+            for (uint32_t j = 0; j < count; j++)
+                bitmap_set(start + j);
+            return start * PAGE_SIZE;
+        }
+    }
+    return 0;
+}
+
 void pmm_free_page(uint64_t paddr) {
     uint64_t page = paddr / PAGE_SIZE;
     bitmap_clear(page);

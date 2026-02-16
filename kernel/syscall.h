@@ -18,6 +18,8 @@
 #define SYS_IPC_CREATE_PORT 11
 #define SYS_SERVICE_REGISTER 12
 #define SYS_SERVICE_LOOKUP  13
+#define SYS_BLK_READ       14
+#define SYS_BLK_WRITE      15
 
 void syscall_handler(struct interrupt_frame *frame);
 

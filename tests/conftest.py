@@ -5,6 +5,7 @@ import pytest
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ISO_PATH = os.path.join(REPO_ROOT, "out", "os.iso")
+DISK_IMG = os.path.join(REPO_ROOT, "out", "test.img")
 QEMU_TIMEOUT = 10  # seconds
 
 
@@ -12,6 +13,11 @@ QEMU_TIMEOUT = 10  # seconds
 def qemu_serial():
     """Boot the OS in QEMU headless and return the captured serial output."""
     assert os.path.isfile(ISO_PATH), f"ISO not found: {ISO_PATH}"
+
+    # Create 1 MB disk image for virtio-blk if not present
+    if not os.path.isfile(DISK_IMG):
+        with open(DISK_IMG, "wb") as f:
+            f.write(b"\x00" * (1024 * 1024))
 
     try:
         result = subprocess.run(
@@ -25,6 +31,8 @@ def qemu_serial():
                 "-no-reboot",
                 "-device", "isa-debug-exit,iobase=0xf4,iosize=0x04",
                 "-cdrom", ISO_PATH,
+                "-drive", f"file={DISK_IMG},format=raw,if=none,id=disk0",
+                "-device", "virtio-blk-pci,drive=disk0,disable-modern=on",
             ],
             capture_output=True,
             text=True,

@@ -10,6 +10,8 @@
 #include "ipc.h"
 #include "shm.h"
 #include "service_registry.h"
+#include "pci.h"
+#include "virtio_blk.h"
 #include "../arch/x86_64/gdt.h"
 #include "../arch/x86_64/idt.h"
 #include "../arch/x86_64/trap.h"
@@ -77,6 +79,8 @@ extern const char user_shm_writer_start[];
 extern const uint64_t user_shm_writer_size;
 extern const char user_shm_reader_start[];
 extern const uint64_t user_shm_reader_size;
+extern const char user_blkdevd_start[];
+extern const uint64_t user_blkdevd_size;
 
 /* ------------------------------------------------------------------ */
 /*  Kernel entry                                                      */
@@ -137,6 +141,10 @@ void kmain(void) {
     shm_init();
     service_registry_init();
 
+    /* M5: PCI + VirtIO block driver */
+    pci_init();
+    virtio_blk_init();
+
     thread_create(thread_a);
     thread_create(thread_b);
 
@@ -149,6 +157,9 @@ void kmain(void) {
     process_create(user_ping_start, user_ping_size);
     process_create(user_shm_reader_start, user_shm_reader_size);
     process_create(user_shm_writer_start, user_shm_writer_size);
+
+    /* M5: Block device server */
+    process_create(user_blkdevd_start, user_blkdevd_size);
 
     /* Enable interrupts — preemption begins */
     __asm__ volatile ("sti");

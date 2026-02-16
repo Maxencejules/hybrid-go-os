@@ -5,6 +5,7 @@
 #include "ipc.h"
 #include "shm.h"
 #include "service_registry.h"
+#include "virtio_blk.h"
 
 extern volatile uint64_t tick_count;
 
@@ -71,6 +72,30 @@ void syscall_handler(struct interrupt_frame *frame) {
     case SYS_SERVICE_LOOKUP:
         frame->rax = (uint64_t)service_lookup((const char *)arg1);
         break;
+
+    case SYS_BLK_READ: {
+        uint64_t sector = arg1;
+        void *buf = (void *)arg2;
+        uint32_t count = (uint32_t)arg3;
+        if ((uint64_t)buf >= 0x8000000000000000ULL) {
+            frame->rax = (uint64_t)-1;
+            break;
+        }
+        frame->rax = (uint64_t)(int64_t)virtio_blk_read(sector, buf, count);
+        break;
+    }
+
+    case SYS_BLK_WRITE: {
+        uint64_t sector = arg1;
+        const void *buf = (const void *)arg2;
+        uint32_t count = (uint32_t)arg3;
+        if ((uint64_t)buf >= 0x8000000000000000ULL) {
+            frame->rax = (uint64_t)-1;
+            break;
+        }
+        frame->rax = (uint64_t)(int64_t)virtio_blk_write(sector, buf, count);
+        break;
+    }
 
     default:
         frame->rax = (uint64_t)-1;
