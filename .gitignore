@@ -1,12 +1,24 @@
 # Build outputs
 out/
 
+# Limine bootloader (fetched at build time)
+limine/
+
+# Object files
+*.o
+*.elf
+
 # Editor / IDE
 *.swp
 *.swo
 *~
 .vscode/
 .idea/
+.claude/
+
+# Python
+__pycache__/
+.pytest_cache/
 
 # OS junk
 .DS_Store
