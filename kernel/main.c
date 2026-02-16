@@ -2,6 +2,11 @@
 #include <stddef.h>
 #include <stdbool.h>
 #include "serial.h"
+#include "limine.h"
+#include "pmm.h"
+#include "../arch/x86_64/gdt.h"
+#include "../arch/x86_64/idt.h"
+#include "../arch/x86_64/trap.h"
 
 /* ------------------------------------------------------------------ */
 /*  Limine boot-protocol markers (v8 API, raw magic values)            */
@@ -18,6 +23,17 @@ static volatile uint64_t limine_base_revision[3] = {
     0xf9562b2d5c95a6c8, 0x6a7b384944536bdc, 3
 };
 
+/* Memory map request */
+__attribute__((used, section(".limine_requests")))
+struct limine_memmap_request memmap_request = {
+    .id = {
+        LIMINE_COMMON_MAGIC_0, LIMINE_COMMON_MAGIC_1,
+        0x67cf3d9d378a806f, 0xe304acdfc50c3c62
+    },
+    .revision = 0,
+    .response = NULL,
+};
+
 __attribute__((used, section(".limine_requests_end")))
 static volatile uint64_t limine_requests_end_marker[2] = {
     0xadc0e0531bb10d03, 0x9572709f31764c62
@@ -29,6 +45,12 @@ static volatile uint64_t limine_requests_end_marker[2] = {
 
 #define DEBUG_EXIT_PORT 0xF4
 
+static inline uint64_t read_cr0(void) {
+    uint64_t val;
+    __asm__ volatile ("mov %%cr0, %0" : "=r"(val));
+    return val;
+}
+
 void kmain(void) {
     /* Verify Limine accepted our base revision (zeroes element [2]). */
     if (limine_base_revision[2] != 0) {
@@ -38,6 +60,20 @@ void kmain(void) {
 
     serial_init();
     serial_puts("KERNEL: boot ok\n");
+
+    gdt_init();
+    idt_init();
+    pmm_init();
+
+    /* Verify paging is enabled (CR0 bit 31) */
+    if (read_cr0() & (1ULL << 31))
+        serial_puts("MM: paging=on\n");
+    else
+        serial_puts("MM: paging=off\n");
+
+    /* Controlled page fault test */
+    test_trigger_page_fault();
+
     serial_puts("KERNEL: halt ok\n");
 
     /* Exit QEMU via isa-debug-exit (value N -> exit code (N<<1)|1). */

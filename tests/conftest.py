@@ -3,7 +3,7 @@ import subprocess
 
 import pytest
 
-REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ISO_PATH = os.path.join(REPO_ROOT, "out", "os.iso")
 QEMU_TIMEOUT = 10  # seconds
 

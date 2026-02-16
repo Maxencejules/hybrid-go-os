@@ -22,3 +22,9 @@ void serial_puts(const char *s) {
         s++;
     }
 }
+
+void serial_put_hex(uint64_t val) {
+    static const char hex[] = "0123456789abcdef";
+    for (int i = 60; i >= 0; i -= 4)
+        serial_putc(hex[(val >> i) & 0xF]);
+}

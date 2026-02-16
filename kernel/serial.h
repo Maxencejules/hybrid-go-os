@@ -22,5 +22,6 @@ static inline uint8_t inb(uint16_t port) {
 void serial_init(void);
 void serial_putc(char c);
 void serial_puts(const char *s);
+void serial_put_hex(uint64_t val);
 
 #endif

@@ -11,14 +11,17 @@ LD    ?= ld
 # Flags
 NASMFLAGS = -f elf64
 CFLAGS    = -ffreestanding -nostdlib -mno-red-zone -mcmodel=kernel \
-            -fno-stack-protector -fno-pic -fno-pie -Wall -Wextra -O2 -c
+            -fno-stack-protector -fno-pic -fno-pie -mno-sse -mno-mmx -mno-sse2 \
+            -Wall -Wextra -O2 -c
 LDFLAGS   = -nostdlib -static -T boot/linker.ld
 
 # Output
 OUT = out
 
 # Object files
-OBJS = $(OUT)/entry.o $(OUT)/main.o $(OUT)/serial.o
+OBJS = $(OUT)/entry.o $(OUT)/isr.o \
+       $(OUT)/main.o $(OUT)/serial.o $(OUT)/string.o \
+       $(OUT)/gdt.o $(OUT)/idt.o $(OUT)/trap.o $(OUT)/pmm.o
 
 # --- Targets ------------------------------------------------------------------
 
@@ -27,15 +30,37 @@ build: $(OUT)/kernel.elf
 $(OUT):
 	mkdir -p $(OUT)
 
+# Assembly
 $(OUT)/entry.o: arch/x86_64/entry.asm | $(OUT)
 	$(NASM) $(NASMFLAGS) $< -o $@
 
-$(OUT)/main.o: kernel/main.c kernel/serial.h | $(OUT)
+$(OUT)/isr.o: arch/x86_64/isr.asm | $(OUT)
+	$(NASM) $(NASMFLAGS) $< -o $@
+
+# Kernel C files
+$(OUT)/main.o: kernel/main.c kernel/serial.h kernel/limine.h kernel/pmm.h | $(OUT)
 	$(CC) $(CFLAGS) $< -o $@
 
 $(OUT)/serial.o: kernel/serial.c kernel/serial.h | $(OUT)
 	$(CC) $(CFLAGS) $< -o $@
 
+$(OUT)/string.o: kernel/string.c | $(OUT)
+	$(CC) $(CFLAGS) $< -o $@
+
+$(OUT)/pmm.o: kernel/pmm.c kernel/pmm.h kernel/limine.h kernel/serial.h | $(OUT)
+	$(CC) $(CFLAGS) $< -o $@
+
+# Arch C files
+$(OUT)/gdt.o: arch/x86_64/gdt.c kernel/serial.h | $(OUT)
+	$(CC) $(CFLAGS) $< -o $@
+
+$(OUT)/idt.o: arch/x86_64/idt.c kernel/serial.h | $(OUT)
+	$(CC) $(CFLAGS) $< -o $@
+
+$(OUT)/trap.o: arch/x86_64/trap.c arch/x86_64/idt.h arch/x86_64/trap.h kernel/serial.h | $(OUT)
+	$(CC) $(CFLAGS) $< -o $@
+
+# Link
 $(OUT)/kernel.elf: $(OBJS) boot/linker.ld
 	$(LD) $(LDFLAGS) -o $@ $(OBJS)
 
@@ -46,7 +71,7 @@ run: image
 	./tools/run_qemu.sh
 
 test-qemu: image
-	python3 -m pytest tests/boot/test_boot_banner.py -v
+	python3 -m pytest tests/ -v
 
 clean:
 	rm -rf $(OUT)
