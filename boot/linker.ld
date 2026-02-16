@@ -44,5 +44,6 @@ SECTIONS {
         *(.eh_frame*)
         *(.note .note.*)
         *(.comment)
+        *(.go_export)
     }
 }

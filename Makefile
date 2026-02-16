@@ -18,7 +18,7 @@ CFLAGS    = -ffreestanding -nostdlib -mno-red-zone -mcmodel=kernel \
 LDFLAGS   = -nostdlib -static -T boot/linker.ld
 
 # Go flags (gccgo — produces standard ELF objects for kernel linking)
-GOFLAGS   = -c -fno-split-stack -mcmodel=kernel -mno-red-zone \
+GOFLAGS   = -c -fno-split-stack -fno-pic -fno-pie -mcmodel=kernel -mno-red-zone \
             -mno-sse -mno-mmx -mno-sse2 -O2 -fgo-pkgpath=kernelgo
 
 # User-space flags (no -mcmodel=kernel, freestanding)

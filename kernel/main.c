@@ -16,6 +16,9 @@
 #include "../arch/x86_64/pic.h"
 #include "../arch/x86_64/pit.h"
 
+/* G0: Go kernel entry via rtshim bridge */
+extern void go_kmain(void);
+
 /* ------------------------------------------------------------------ */
 /*  Limine boot-protocol markers (v8 API, raw magic values)            */
 /* ------------------------------------------------------------------ */
@@ -117,6 +120,9 @@ void kmain(void) {
         serial_puts("MM: paging=on\n");
     else
         serial_puts("MM: paging=off\n");
+
+    /* G0: Call into Go kernel entry */
+    go_kmain();
 
     /* Controlled page fault test */
     test_trigger_page_fault();
