@@ -60,12 +60,12 @@ static uint8_t df_stack[4096] __attribute__((aligned(16)));
 static struct tss tss;
 
 /* ------------------------------------------------------------------ */
-/*  GDT table (null + code + data + TSS)                              */
+/*  GDT table (null + kcode + kdata + udata + ucode + TSS)            */
 /* ------------------------------------------------------------------ */
 
-/* 5 entries: null, kcode, kdata, tss_lo, tss_hi */
+/* 7 entries: null, kcode, kdata, udata, ucode, tss_lo, tss_hi */
 static struct {
-    struct gdt_entry entries[3];
+    struct gdt_entry entries[5];
     struct tss_entry tss;
 } __attribute__((packed, aligned(16))) gdt;
 
@@ -102,6 +102,26 @@ void gdt_init(void) {
         .base_hi       = 0,
     };
 
+    /* Entry 3 (0x18): User data — present, ring 3 */
+    gdt.entries[3] = (struct gdt_entry){
+        .limit_low     = 0xFFFF,
+        .base_low      = 0,
+        .base_mid      = 0,
+        .access        = 0xF2,   /* P=1, DPL=3, S=1, Type=Read/Write */
+        .flags_limit_hi = 0x00 | 0x0F,
+        .base_hi       = 0,
+    };
+
+    /* Entry 4 (0x20): User code — 64-bit, present, ring 3 */
+    gdt.entries[4] = (struct gdt_entry){
+        .limit_low     = 0xFFFF,
+        .base_low      = 0,
+        .base_mid      = 0,
+        .access        = 0xFA,   /* P=1, DPL=3, S=1, Type=Execute/Read */
+        .flags_limit_hi = 0x20 | 0x0F,  /* L=1 (64-bit), limit_hi=0xF */
+        .base_hi       = 0,
+    };
+
     /* TSS setup */
     tss = (struct tss){0};
     tss.ist1 = (uint64_t)(df_stack + sizeof(df_stack));
@@ -110,7 +130,7 @@ void gdt_init(void) {
     uint64_t tss_base = (uint64_t)&tss;
     uint16_t tss_limit = sizeof(struct tss) - 1;
 
-    /* Entry 3–4 (0x18): TSS descriptor (16 bytes) */
+    /* Entry 5–6 (0x28): TSS descriptor (16 bytes) */
     gdt.tss = (struct tss_entry){
         .limit_low     = tss_limit,
         .base_low      = (uint16_t)(tss_base & 0xFFFF),
@@ -128,4 +148,12 @@ void gdt_init(void) {
     gdt_flush(&gdtr);
 
     serial_puts("ARCH: GDT loaded\n");
+}
+
+/* ------------------------------------------------------------------ */
+/*  gdt_set_tss_rsp0 — update TSS.rsp0 for user→kernel transitions   */
+/* ------------------------------------------------------------------ */
+
+void gdt_set_tss_rsp0(uint64_t rsp0) {
+    tss.rsp0 = rsp0;
 }

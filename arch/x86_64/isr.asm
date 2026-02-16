@@ -1,4 +1,4 @@
-; Hybrid Go OS — ISR stubs, GDT/IDT flush, page fault test
+; Hybrid Go OS — ISR stubs, GDT/IDT flush, page fault test, syscall stub
 ; x86-64 NASM
 
 bits 64
@@ -84,6 +84,16 @@ ISR_NOERR 46    ; IRQ14 Primary ATA
 ISR_NOERR 47    ; IRQ15 Secondary ATA
 
 ; ----------------------------------------------------------------
+; Syscall stub (int 0x80)
+; ----------------------------------------------------------------
+
+global syscall_stub
+syscall_stub:
+    push    0               ; dummy error code
+    push    0x80            ; interrupt number
+    jmp     isr_common
+
+; ----------------------------------------------------------------
 ; Common ISR handler
 ; ----------------------------------------------------------------
 
@@ -149,7 +159,7 @@ gdt_flush:
     retfq
 
 .reload_cs:
-    mov     ax, 0x18
+    mov     ax, 0x28
     ltr     ax
     ret
 

@@ -7,6 +7,7 @@
 NASM  ?= nasm
 CC    ?= gcc
 LD    ?= ld
+OBJCOPY ?= objcopy
 
 # Flags
 NASMFLAGS = -f elf64
@@ -15,6 +16,12 @@ CFLAGS    = -ffreestanding -nostdlib -mno-red-zone -mcmodel=kernel \
             -Wall -Wextra -O2 -c
 LDFLAGS   = -nostdlib -static -T boot/linker.ld
 
+# User-space flags (no -mcmodel=kernel, freestanding)
+USER_CFLAGS  = -ffreestanding -nostdlib -mno-red-zone \
+               -fno-stack-protector -fno-pic -fno-pie -mno-sse -mno-mmx -mno-sse2 \
+               -Wall -Wextra -O2 -c
+USER_LDFLAGS = -nostdlib -static -T user/user.ld
+
 # Output
 OUT = out
 
@@ -22,7 +29,8 @@ OUT = out
 OBJS = $(OUT)/entry.o $(OUT)/isr.o $(OUT)/context.o \
        $(OUT)/main.o $(OUT)/serial.o $(OUT)/string.o \
        $(OUT)/gdt.o $(OUT)/idt.o $(OUT)/trap.o $(OUT)/pmm.o \
-       $(OUT)/pic.o $(OUT)/pit.o $(OUT)/sched.o
+       $(OUT)/pic.o $(OUT)/pit.o $(OUT)/sched.o \
+       $(OUT)/vmm.o $(OUT)/syscall.o $(OUT)/process.o $(OUT)/user_bins.o
 
 # --- Targets ------------------------------------------------------------------
 
@@ -31,7 +39,34 @@ build: $(OUT)/kernel.elf
 $(OUT):
 	mkdir -p $(OUT)
 
-# Assembly
+# --- User programs ------------------------------------------------------------
+
+$(OUT)/crt0.o: user/crt0.asm | $(OUT)
+	$(NASM) $(NASMFLAGS) $< -o $@
+
+$(OUT)/init_user.o: user/init.c user/syscall.h | $(OUT)
+	$(CC) $(USER_CFLAGS) $< -o $@
+
+$(OUT)/fault_user.o: user/fault.c | $(OUT)
+	$(CC) $(USER_CFLAGS) $< -o $@
+
+$(OUT)/init.elf: $(OUT)/crt0.o $(OUT)/init_user.o user/user.ld | $(OUT)
+	$(LD) $(USER_LDFLAGS) -o $@ $(OUT)/crt0.o $(OUT)/init_user.o
+
+$(OUT)/fault.elf: $(OUT)/crt0.o $(OUT)/fault_user.o user/user.ld | $(OUT)
+	$(LD) $(USER_LDFLAGS) -o $@ $(OUT)/crt0.o $(OUT)/fault_user.o
+
+$(OUT)/init.bin: $(OUT)/init.elf
+	$(OBJCOPY) -O binary $< $@
+
+$(OUT)/fault.bin: $(OUT)/fault.elf
+	$(OBJCOPY) -O binary $< $@
+
+$(OUT)/user_bins.o: kernel/user_bins.asm $(OUT)/init.bin $(OUT)/fault.bin | $(OUT)
+	$(NASM) $(NASMFLAGS) -I$(OUT)/ $< -o $@
+
+# --- Kernel assembly ----------------------------------------------------------
+
 $(OUT)/entry.o: arch/x86_64/entry.asm | $(OUT)
 	$(NASM) $(NASMFLAGS) $< -o $@
 
@@ -41,8 +76,9 @@ $(OUT)/isr.o: arch/x86_64/isr.asm | $(OUT)
 $(OUT)/context.o: arch/x86_64/context.asm | $(OUT)
 	$(NASM) $(NASMFLAGS) $< -o $@
 
-# Kernel C files
-$(OUT)/main.o: kernel/main.c kernel/serial.h kernel/limine.h kernel/pmm.h | $(OUT)
+# --- Kernel C files -----------------------------------------------------------
+
+$(OUT)/main.o: kernel/main.c kernel/serial.h kernel/limine.h kernel/pmm.h kernel/vmm.h kernel/process.h | $(OUT)
 	$(CC) $(CFLAGS) $< -o $@
 
 $(OUT)/serial.o: kernel/serial.c kernel/serial.h | $(OUT)
@@ -54,14 +90,24 @@ $(OUT)/string.o: kernel/string.c | $(OUT)
 $(OUT)/pmm.o: kernel/pmm.c kernel/pmm.h kernel/limine.h kernel/serial.h | $(OUT)
 	$(CC) $(CFLAGS) $< -o $@
 
-# Arch C files
+$(OUT)/vmm.o: kernel/vmm.c kernel/vmm.h kernel/pmm.h kernel/limine.h kernel/serial.h kernel/string.h | $(OUT)
+	$(CC) $(CFLAGS) $< -o $@
+
+$(OUT)/syscall.o: kernel/syscall.c kernel/syscall.h kernel/serial.h kernel/sched.h | $(OUT)
+	$(CC) $(CFLAGS) $< -o $@
+
+$(OUT)/process.o: kernel/process.c kernel/process.h kernel/vmm.h kernel/pmm.h kernel/sched.h kernel/serial.h kernel/string.h | $(OUT)
+	$(CC) $(CFLAGS) $< -o $@
+
+# --- Arch C files -------------------------------------------------------------
+
 $(OUT)/gdt.o: arch/x86_64/gdt.c kernel/serial.h | $(OUT)
 	$(CC) $(CFLAGS) $< -o $@
 
 $(OUT)/idt.o: arch/x86_64/idt.c kernel/serial.h | $(OUT)
 	$(CC) $(CFLAGS) $< -o $@
 
-$(OUT)/trap.o: arch/x86_64/trap.c arch/x86_64/idt.h arch/x86_64/trap.h arch/x86_64/pic.h kernel/serial.h kernel/sched.h | $(OUT)
+$(OUT)/trap.o: arch/x86_64/trap.c arch/x86_64/idt.h arch/x86_64/trap.h arch/x86_64/pic.h kernel/serial.h kernel/sched.h kernel/syscall.h | $(OUT)
 	$(CC) $(CFLAGS) $< -o $@
 
 $(OUT)/pic.o: arch/x86_64/pic.c arch/x86_64/pic.h kernel/serial.h | $(OUT)
@@ -70,10 +116,11 @@ $(OUT)/pic.o: arch/x86_64/pic.c arch/x86_64/pic.h kernel/serial.h | $(OUT)
 $(OUT)/pit.o: arch/x86_64/pit.c arch/x86_64/pit.h kernel/serial.h | $(OUT)
 	$(CC) $(CFLAGS) $< -o $@
 
-$(OUT)/sched.o: kernel/sched.c kernel/sched.h kernel/serial.h | $(OUT)
+$(OUT)/sched.o: kernel/sched.c kernel/sched.h kernel/serial.h kernel/vmm.h | $(OUT)
 	$(CC) $(CFLAGS) $< -o $@
 
-# Link
+# --- Link ---------------------------------------------------------------------
+
 $(OUT)/kernel.elf: $(OBJS) boot/linker.ld
 	$(LD) $(LDFLAGS) -o $@ $(OBJS)
 

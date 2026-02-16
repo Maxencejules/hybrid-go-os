@@ -35,4 +35,16 @@ struct limine_memmap_request {
     struct limine_memmap_response *response;
 };
 
+/* HHDM (Higher Half Direct Map) */
+struct limine_hhdm_response {
+    uint64_t revision;
+    uint64_t offset;
+};
+
+struct limine_hhdm_request {
+    uint64_t id[4];
+    uint64_t revision;
+    struct limine_hhdm_response *response;
+};
+
 #endif

@@ -1,13 +1,14 @@
 #include <stdint.h>
 #include "../../kernel/serial.h"
 #include "../../kernel/sched.h"
+#include "../../kernel/syscall.h"
 #include "idt.h"
 #include "trap.h"
 #include "pic.h"
 
 #define DEBUG_EXIT_PORT 0xF4
 
-static volatile uint64_t tick_count = 0;
+volatile uint64_t tick_count = 0;
 
 static inline uint64_t read_cr2(void) {
     uint64_t val;
@@ -17,6 +18,12 @@ static inline uint64_t read_cr2(void) {
 
 void trap_handler(struct interrupt_frame *frame) {
     uint64_t int_num = frame->int_num;
+
+    /* Syscall: int 0x80 */
+    if (int_num == 0x80) {
+        syscall_handler(frame);
+        return;
+    }
 
     /* IRQ range: vectors 32-47 */
     if (int_num >= 32 && int_num <= 47) {
@@ -52,9 +59,20 @@ void trap_handler(struct interrupt_frame *frame) {
         serial_put_hex(frame->error_code);
         serial_putc('\n');
 
+        /* Recovery path for kernel test */
         if (pf_recovery_rip != 0) {
             frame->rip = pf_recovery_rip;
             pf_recovery_rip = 0;
+            return;
+        }
+
+        /* User-mode page fault: kill the thread */
+        if (frame->cs & 3) {
+            serial_puts("USER: killed tid=");
+            serial_put_hex(current_thread->tid);
+            serial_putc('\n');
+            current_thread->state = THREAD_DEAD;
+            schedule();
             return;
         }
     } else if (int_num == 8) {
@@ -63,6 +81,16 @@ void trap_handler(struct interrupt_frame *frame) {
         serial_puts("FATAL: GPF err=0x");
         serial_put_hex(frame->error_code);
         serial_putc('\n');
+
+        /* User-mode GPF: kill the thread */
+        if (frame->cs & 3) {
+            serial_puts("USER: killed tid=");
+            serial_put_hex(current_thread->tid);
+            serial_putc('\n');
+            current_thread->state = THREAD_DEAD;
+            schedule();
+            return;
+        }
     } else {
         serial_puts("TRAP: int=0x");
         serial_put_hex(int_num);

@@ -19,12 +19,15 @@ struct thread {
     enum thread_state state;
     struct thread *next;
     uint32_t tid;
+    uint64_t cr3;
+    uint64_t kernel_stack_top;
 };
 
 extern struct thread *current_thread;
 
 void           sched_init(void);
 struct thread *thread_create(void (*func)(void));
+struct thread *thread_create_user(uint64_t cr3, uint64_t entry, uint64_t user_stack);
 void           schedule(void);
 void           thread_exit(void);
 

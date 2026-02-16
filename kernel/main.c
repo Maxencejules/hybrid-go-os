@@ -5,6 +5,8 @@
 #include "limine.h"
 #include "pmm.h"
 #include "sched.h"
+#include "vmm.h"
+#include "process.h"
 #include "../arch/x86_64/gdt.h"
 #include "../arch/x86_64/idt.h"
 #include "../arch/x86_64/trap.h"
@@ -37,10 +39,30 @@ struct limine_memmap_request memmap_request = {
     .response = NULL,
 };
 
+/* HHDM request */
+__attribute__((used, section(".limine_requests")))
+struct limine_hhdm_request hhdm_request = {
+    .id = {
+        LIMINE_COMMON_MAGIC_0, LIMINE_COMMON_MAGIC_1,
+        0x48dcf1cb8ad2b852, 0x63984e959a98244b
+    },
+    .revision = 0,
+    .response = NULL,
+};
+
 __attribute__((used, section(".limine_requests_end")))
 static volatile uint64_t limine_requests_end_marker[2] = {
     0xadc0e0531bb10d03, 0x9572709f31764c62
 };
+
+/* ------------------------------------------------------------------ */
+/*  Embedded user binaries (from kernel/user_bins.asm)                 */
+/* ------------------------------------------------------------------ */
+
+extern const char user_init_start[];
+extern const uint64_t user_init_size;
+extern const char user_fault_start[];
+extern const uint64_t user_fault_size;
 
 /* ------------------------------------------------------------------ */
 /*  Kernel entry                                                      */
@@ -77,6 +99,7 @@ void kmain(void) {
     gdt_init();
     idt_init();
     pmm_init();
+    vmm_init();
 
     /* Verify paging is enabled (CR0 bit 31) */
     if (read_cr0() & (1ULL << 31))
@@ -93,6 +116,10 @@ void kmain(void) {
     sched_init();
     thread_create(thread_a);
     thread_create(thread_b);
+
+    /* M3: User processes */
+    process_create(user_fault_start, user_fault_size);
+    process_create(user_init_start, user_init_size);
 
     /* Enable interrupts — preemption begins */
     __asm__ volatile ("sti");
