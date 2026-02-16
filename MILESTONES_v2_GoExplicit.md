@@ -1,6 +1,6 @@
 # Hybrid Go OS: Repo-ready Milestones, Issues, and Acceptance Tests
 
-Date: 2026-02-16
+Date: 2026-02-16  
 Defaults assumed: x86-64, QEMU-first, Limine boot protocol, freestanding C userland first (init + early servers), Go-heavy services later.
 
 This file is meant to be dropped into your repo as `MILESTONES.md` and used as a checklist to create GitHub issues. It includes:
@@ -90,14 +90,14 @@ For early milestones, you can skip UEFI and boot via Limine BIOS mode if that is
 
 ## 4) Milestones overview
 
-M0: Boot + serial logging (C/asm OK)
-G0: First Go kernel entry executes (Go+rtshim+linking)
-M1: Paging + traps (IDT) in Go kernel (asm stubs remain) + page fault reporting
-M2: Scheduler + kernel threads
-M3: User mode + syscall ABI v0
-M4: IPC + shared memory + service discovery v0
-M5: User space drivers (VirtIO block first) + block service
-M6: Filesystem service + package manager + shell runs a packaged app
+M0: Boot + serial logging (C/asm OK)  
+G0: First Go kernel entry executes (Go+rtshim+linking)  
+M1: Paging + traps (IDT) in Go kernel (asm stubs remain) + page fault reporting  
+M2: Scheduler + kernel threads  
+M3: User mode + syscall ABI v0  
+M4: IPC + shared memory + service discovery v0  
+M5: User space drivers (VirtIO block first) + block service  
+M6: Filesystem service + package manager + shell runs a packaged app  
 Optional M7: VirtIO net + net service + minimal UDP demo
 
 Each milestone has:
@@ -140,7 +140,7 @@ Each milestone has:
 
 ### Purpose
 Make the kernel able to execute **real Go code** in kernel context, while keeping the low-level entry/exit in asm.
-This avoids mixing "bring up Go runtime/linking" with "bring up paging/IDT" in the same milestone.
+This avoids mixing “bring up Go runtime/linking” with “bring up paging/IDT” in the same milestone.
 
 ### Definition of done
 - Kernel image contains Go code and successfully jumps into a Go entry point.
@@ -169,7 +169,7 @@ This avoids mixing "bring up Go runtime/linking" with "bring up paging/IDT" in t
     - `KERNEL: halt ok`
 
 Notes (why this milestone exists):
-- Kernels written primarily in Go have been demonstrated (e.g., Biscuit), but they rely on a runtime strategy and low-level assembly stubs.
+- Kernels written primarily in Go have been demonstrated (e.g., Biscuit), but they rely on a runtime strategy and low-level assembly stubs. citeturn0search0turn0search2turn0search6
 
 
 ## M1: Paging + traps + page fault reporting (Go kernel)
