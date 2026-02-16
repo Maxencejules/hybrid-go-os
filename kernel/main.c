@@ -4,9 +4,12 @@
 #include "serial.h"
 #include "limine.h"
 #include "pmm.h"
+#include "sched.h"
 #include "../arch/x86_64/gdt.h"
 #include "../arch/x86_64/idt.h"
 #include "../arch/x86_64/trap.h"
+#include "../arch/x86_64/pic.h"
+#include "../arch/x86_64/pit.h"
 
 /* ------------------------------------------------------------------ */
 /*  Limine boot-protocol markers (v8 API, raw magic values)            */
@@ -51,6 +54,16 @@ static inline uint64_t read_cr0(void) {
     return val;
 }
 
+static void thread_a(void) {
+    for (;;)
+        serial_putc('A');
+}
+
+static void thread_b(void) {
+    for (;;)
+        serial_putc('B');
+}
+
 void kmain(void) {
     /* Verify Limine accepted our base revision (zeroes element [2]). */
     if (limine_base_revision[2] != 0) {
@@ -74,11 +87,17 @@ void kmain(void) {
     /* Controlled page fault test */
     test_trigger_page_fault();
 
-    serial_puts("KERNEL: halt ok\n");
+    /* M2: PIC, PIT, scheduler */
+    pic_init();
+    pit_init(100);
+    sched_init();
+    thread_create(thread_a);
+    thread_create(thread_b);
 
-    /* Exit QEMU via isa-debug-exit (value N -> exit code (N<<1)|1). */
-    outb(DEBUG_EXIT_PORT, 0x00);
+    /* Enable interrupts — preemption begins */
+    __asm__ volatile ("sti");
 
+    /* Idle loop (kmain is the idle thread) */
     for (;;)
-        __asm__ volatile ("cli; hlt");
+        __asm__ volatile ("hlt");
 }

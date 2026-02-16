@@ -29,7 +29,7 @@ static struct idt_entry idt[IDT_ENTRIES] __attribute__((aligned(16)));
 static struct idtr idtr;
 
 /* ISR stub table (defined in isr.asm) */
-extern uint64_t isr_stub_table[32];
+extern uint64_t isr_stub_table[48];
 
 /* Assembly helper (defined in isr.asm) */
 extern void idt_flush(struct idtr *idtr_ptr);
@@ -62,6 +62,11 @@ void idt_init(void) {
     for (int i = 0; i < 32; i++) {
         uint8_t ist = (i == 8) ? 1 : 0;   /* Double fault → IST1 */
         idt_set_gate(i, isr_stub_table[i], ist);
+    }
+
+    /* Wire up the 16 IRQ stubs (vectors 32-47) */
+    for (int i = 32; i < 48; i++) {
+        idt_set_gate(i, isr_stub_table[i], 0);
     }
 
     /* Load IDT */

@@ -19,9 +19,10 @@ LDFLAGS   = -nostdlib -static -T boot/linker.ld
 OUT = out
 
 # Object files
-OBJS = $(OUT)/entry.o $(OUT)/isr.o \
+OBJS = $(OUT)/entry.o $(OUT)/isr.o $(OUT)/context.o \
        $(OUT)/main.o $(OUT)/serial.o $(OUT)/string.o \
-       $(OUT)/gdt.o $(OUT)/idt.o $(OUT)/trap.o $(OUT)/pmm.o
+       $(OUT)/gdt.o $(OUT)/idt.o $(OUT)/trap.o $(OUT)/pmm.o \
+       $(OUT)/pic.o $(OUT)/pit.o $(OUT)/sched.o
 
 # --- Targets ------------------------------------------------------------------
 
@@ -35,6 +36,9 @@ $(OUT)/entry.o: arch/x86_64/entry.asm | $(OUT)
 	$(NASM) $(NASMFLAGS) $< -o $@
 
 $(OUT)/isr.o: arch/x86_64/isr.asm | $(OUT)
+	$(NASM) $(NASMFLAGS) $< -o $@
+
+$(OUT)/context.o: arch/x86_64/context.asm | $(OUT)
 	$(NASM) $(NASMFLAGS) $< -o $@
 
 # Kernel C files
@@ -57,7 +61,16 @@ $(OUT)/gdt.o: arch/x86_64/gdt.c kernel/serial.h | $(OUT)
 $(OUT)/idt.o: arch/x86_64/idt.c kernel/serial.h | $(OUT)
 	$(CC) $(CFLAGS) $< -o $@
 
-$(OUT)/trap.o: arch/x86_64/trap.c arch/x86_64/idt.h arch/x86_64/trap.h kernel/serial.h | $(OUT)
+$(OUT)/trap.o: arch/x86_64/trap.c arch/x86_64/idt.h arch/x86_64/trap.h arch/x86_64/pic.h kernel/serial.h kernel/sched.h | $(OUT)
+	$(CC) $(CFLAGS) $< -o $@
+
+$(OUT)/pic.o: arch/x86_64/pic.c arch/x86_64/pic.h kernel/serial.h | $(OUT)
+	$(CC) $(CFLAGS) $< -o $@
+
+$(OUT)/pit.o: arch/x86_64/pit.c arch/x86_64/pit.h kernel/serial.h | $(OUT)
+	$(CC) $(CFLAGS) $< -o $@
+
+$(OUT)/sched.o: kernel/sched.c kernel/sched.h kernel/serial.h | $(OUT)
 	$(CC) $(CFLAGS) $< -o $@
 
 # Link
