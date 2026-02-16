@@ -38,7 +38,7 @@ OBJS = $(OUT)/entry.o $(OUT)/isr.o $(OUT)/context.o \
        $(OUT)/vmm.o $(OUT)/syscall.o $(OUT)/process.o $(OUT)/user_bins.o \
        $(OUT)/ipc.o $(OUT)/shm.o $(OUT)/service_registry.o \
        $(OUT)/go_entry.o $(OUT)/bridge.o $(OUT)/runtime_stubs.o \
-       $(OUT)/pci.o $(OUT)/virtio_blk.o
+       $(OUT)/pci.o $(OUT)/virtio_blk.o $(OUT)/virtio_net.o
 
 # --- Targets ------------------------------------------------------------------
 
@@ -85,6 +85,9 @@ $(OUT)/sh_user.o: user/sh.c user/syscall.h user/fs_protocol.h | $(OUT)
 $(OUT)/hello_user.o: user/hello.c user/syscall.h | $(OUT)
 	$(CC) $(USER_CFLAGS) $< -o $@
 
+$(OUT)/netd_user.o: user/netd.c user/syscall.h | $(OUT)
+	$(CC) $(USER_CFLAGS) $< -o $@
+
 $(OUT)/init.elf: $(OUT)/crt0.o $(OUT)/init_user.o user/user.ld | $(OUT)
 	$(LD) $(USER_LDFLAGS) -o $@ $(OUT)/crt0.o $(OUT)/init_user.o
 
@@ -117,6 +120,9 @@ $(OUT)/sh.elf: $(OUT)/crt0.o $(OUT)/sh_user.o user/user.ld | $(OUT)
 
 $(OUT)/hello.elf: $(OUT)/crt0.o $(OUT)/hello_user.o user/user.ld | $(OUT)
 	$(LD) $(USER_LDFLAGS) -o $@ $(OUT)/crt0.o $(OUT)/hello_user.o
+
+$(OUT)/netd.elf: $(OUT)/crt0.o $(OUT)/netd_user.o user/user.ld | $(OUT)
+	$(LD) $(USER_LDFLAGS) -o $@ $(OUT)/crt0.o $(OUT)/netd_user.o
 
 $(OUT)/init.bin: $(OUT)/init.elf
 	$(OBJCOPY) -O binary $< $@
@@ -151,7 +157,10 @@ $(OUT)/sh.bin: $(OUT)/sh.elf
 $(OUT)/hello.bin: $(OUT)/hello.elf
 	$(OBJCOPY) -O binary $< $@
 
-$(OUT)/user_bins.o: kernel/user_bins.asm $(OUT)/init.bin $(OUT)/fault.bin $(OUT)/ping.bin $(OUT)/pong.bin $(OUT)/shm_writer.bin $(OUT)/shm_reader.bin $(OUT)/blkdevd.bin $(OUT)/fsd.bin $(OUT)/pkg.bin $(OUT)/sh.bin | $(OUT)
+$(OUT)/netd.bin: $(OUT)/netd.elf
+	$(OBJCOPY) -O binary $< $@
+
+$(OUT)/user_bins.o: kernel/user_bins.asm $(OUT)/init.bin $(OUT)/fault.bin $(OUT)/ping.bin $(OUT)/pong.bin $(OUT)/shm_writer.bin $(OUT)/shm_reader.bin $(OUT)/blkdevd.bin $(OUT)/fsd.bin $(OUT)/pkg.bin $(OUT)/sh.bin $(OUT)/netd.bin | $(OUT)
 	$(NASM) $(NASMFLAGS) -I$(OUT)/ $< -o $@
 
 # --- Kernel assembly ----------------------------------------------------------
@@ -167,7 +176,7 @@ $(OUT)/context.o: arch/x86_64/context.asm | $(OUT)
 
 # --- Kernel C files -----------------------------------------------------------
 
-$(OUT)/main.o: kernel/main.c kernel/serial.h kernel/limine.h kernel/pmm.h kernel/vmm.h kernel/process.h kernel/ipc.h kernel/shm.h kernel/service_registry.h kernel/pci.h kernel/virtio_blk.h | $(OUT)
+$(OUT)/main.o: kernel/main.c kernel/serial.h kernel/limine.h kernel/pmm.h kernel/vmm.h kernel/process.h kernel/ipc.h kernel/shm.h kernel/service_registry.h kernel/pci.h kernel/virtio_blk.h kernel/virtio_net.h | $(OUT)
 	$(CC) $(CFLAGS) $< -o $@
 
 $(OUT)/serial.o: kernel/serial.c kernel/serial.h | $(OUT)
@@ -182,7 +191,7 @@ $(OUT)/pmm.o: kernel/pmm.c kernel/pmm.h kernel/limine.h kernel/serial.h | $(OUT)
 $(OUT)/vmm.o: kernel/vmm.c kernel/vmm.h kernel/pmm.h kernel/limine.h kernel/serial.h kernel/string.h | $(OUT)
 	$(CC) $(CFLAGS) $< -o $@
 
-$(OUT)/syscall.o: kernel/syscall.c kernel/syscall.h kernel/serial.h kernel/sched.h kernel/ipc.h kernel/shm.h kernel/service_registry.h kernel/virtio_blk.h kernel/process.h | $(OUT)
+$(OUT)/syscall.o: kernel/syscall.c kernel/syscall.h kernel/serial.h kernel/sched.h kernel/ipc.h kernel/shm.h kernel/service_registry.h kernel/virtio_blk.h kernel/virtio_net.h kernel/process.h | $(OUT)
 	$(CC) $(CFLAGS) $< -o $@
 
 $(OUT)/process.o: kernel/process.c kernel/process.h kernel/vmm.h kernel/pmm.h kernel/sched.h kernel/serial.h kernel/string.h | $(OUT)
@@ -201,6 +210,9 @@ $(OUT)/pci.o: kernel/pci.c kernel/pci.h kernel/serial.h kernel/io.h | $(OUT)
 	$(CC) $(CFLAGS) $< -o $@
 
 $(OUT)/virtio_blk.o: kernel/virtio_blk.c kernel/virtio_blk.h kernel/pci.h kernel/pmm.h kernel/vmm.h kernel/serial.h kernel/io.h kernel/string.h | $(OUT)
+	$(CC) $(CFLAGS) $< -o $@
+
+$(OUT)/virtio_net.o: kernel/virtio_net.c kernel/virtio_net.h kernel/pci.h kernel/pmm.h kernel/vmm.h kernel/serial.h kernel/io.h kernel/string.h | $(OUT)
 	$(CC) $(CFLAGS) $< -o $@
 
 # --- Arch C files -------------------------------------------------------------

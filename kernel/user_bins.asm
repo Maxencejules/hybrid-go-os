@@ -22,6 +22,8 @@ global user_pkg_start
 global user_pkg_size
 global user_sh_start
 global user_sh_size
+global user_netd_start
+global user_netd_size
 
 user_init_start:
     incbin "../out/init.bin"
@@ -82,5 +84,11 @@ user_sh_start:
 user_sh_end:
 user_sh_size:
     dq user_sh_end - user_sh_start
+
+user_netd_start:
+    incbin "../out/netd.bin"
+user_netd_end:
+user_netd_size:
+    dq user_netd_end - user_netd_start
 
 section .note.GNU-stack noalloc noexec nowrite progbits

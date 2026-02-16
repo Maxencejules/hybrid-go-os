@@ -12,6 +12,7 @@
 #include "service_registry.h"
 #include "pci.h"
 #include "virtio_blk.h"
+#include "virtio_net.h"
 #include "../arch/x86_64/gdt.h"
 #include "../arch/x86_64/idt.h"
 #include "../arch/x86_64/trap.h"
@@ -87,6 +88,8 @@ extern const char user_pkg_start[];
 extern const uint64_t user_pkg_size;
 extern const char user_sh_start[];
 extern const uint64_t user_sh_size;
+extern const char user_netd_start[];
+extern const uint64_t user_netd_size;
 
 /* ------------------------------------------------------------------ */
 /*  Kernel entry                                                      */
@@ -171,6 +174,11 @@ void kmain(void) {
     process_create(user_fsd_start, user_fsd_size);
     process_create(user_pkg_start, user_pkg_size);
     process_create(user_sh_start, user_sh_size);
+
+    /* M7: Network (conditional — only when VirtIO-net present) */
+    if (virtio_net_init() == 0) {
+        process_create(user_netd_start, user_netd_size);
+    }
 
     /* Enable interrupts — preemption begins */
     __asm__ volatile ("sti");

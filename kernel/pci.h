@@ -18,5 +18,7 @@ struct pci_device {
 
 void pci_init(void);
 int  pci_find_device(uint16_t vendor, uint16_t device, struct pci_device *out);
+int  pci_find_device_subsys(uint16_t vendor, uint16_t device,
+                            uint16_t subsys_id, struct pci_device *out);
 
 #endif

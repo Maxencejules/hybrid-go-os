@@ -21,6 +21,9 @@
 #define SYS_BLK_READ       14
 #define SYS_BLK_WRITE      15
 #define SYS_PROCESS_SPAWN  16
+#define SYS_NET_SEND       17
+#define SYS_NET_RECV       18
+#define SYS_NET_GET_MAC    19
 
 void syscall_handler(struct interrupt_frame *frame);
 

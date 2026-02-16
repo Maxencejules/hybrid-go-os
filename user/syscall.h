@@ -4,6 +4,7 @@
 typedef unsigned long long uint64_t;
 typedef long long int64_t;
 typedef unsigned int uint32_t;
+typedef unsigned short uint16_t;
 typedef unsigned char uint8_t;
 
 #define SYS_DEBUG_WRITE     0
@@ -20,6 +21,9 @@ typedef unsigned char uint8_t;
 #define SYS_BLK_READ       14
 #define SYS_BLK_WRITE      15
 #define SYS_PROCESS_SPAWN  16
+#define SYS_NET_SEND       17
+#define SYS_NET_RECV       18
+#define SYS_NET_GET_MAC    19
 
 static inline int64_t syscall0(uint64_t num) {
     int64_t ret;
@@ -109,6 +113,18 @@ static inline int64_t sys_blk_write(uint64_t sector, const void *buf, uint32_t c
 
 static inline int64_t sys_process_spawn(const void *binary, uint64_t size) {
     return syscall2(SYS_PROCESS_SPAWN, (uint64_t)binary, size);
+}
+
+static inline int64_t sys_net_send(const void *frame, uint32_t len) {
+    return syscall2(SYS_NET_SEND, (uint64_t)frame, (uint64_t)len);
+}
+
+static inline int64_t sys_net_recv(void *frame, uint32_t max_len) {
+    return syscall2(SYS_NET_RECV, (uint64_t)frame, (uint64_t)max_len);
+}
+
+static inline int64_t sys_net_get_mac(uint8_t *mac) {
+    return syscall2(SYS_NET_GET_MAC, (uint64_t)mac, 0);
 }
 
 #endif

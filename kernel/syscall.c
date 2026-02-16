@@ -6,6 +6,7 @@
 #include "shm.h"
 #include "service_registry.h"
 #include "virtio_blk.h"
+#include "virtio_net.h"
 #include "process.h"
 
 extern volatile uint64_t tick_count;
@@ -109,6 +110,39 @@ void syscall_handler(struct interrupt_frame *frame) {
         }
         struct thread *t = process_create((const void *)bin_ptr, bin_size);
         frame->rax = t ? (uint64_t)t->tid : (uint64_t)-1;
+        break;
+    }
+
+    case SYS_NET_SEND: {
+        const void *buf = (const void *)arg1;
+        uint32_t len = (uint32_t)arg2;
+        if ((uint64_t)buf >= 0x8000000000000000ULL) {
+            frame->rax = (uint64_t)-1;
+            break;
+        }
+        frame->rax = (uint64_t)(int64_t)virtio_net_send(buf, len);
+        break;
+    }
+
+    case SYS_NET_RECV: {
+        void *buf = (void *)arg1;
+        uint32_t max_len = (uint32_t)arg2;
+        if ((uint64_t)buf >= 0x8000000000000000ULL) {
+            frame->rax = (uint64_t)-1;
+            break;
+        }
+        frame->rax = (uint64_t)(int64_t)virtio_net_recv(buf, max_len);
+        break;
+    }
+
+    case SYS_NET_GET_MAC: {
+        uint8_t *buf = (uint8_t *)arg1;
+        if ((uint64_t)buf >= 0x8000000000000000ULL) {
+            frame->rax = (uint64_t)-1;
+            break;
+        }
+        virtio_net_get_mac(buf);
+        frame->rax = 0;
         break;
     }
 

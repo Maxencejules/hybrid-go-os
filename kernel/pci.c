@@ -53,3 +53,28 @@ int pci_find_device(uint16_t vendor, uint16_t device,
     }
     return -1;
 }
+
+int pci_find_device_subsys(uint16_t vendor, uint16_t device,
+                           uint16_t subsys_id, struct pci_device *out) {
+    for (uint8_t dev = 0; dev < 32; dev++) {
+        uint32_t id = pci_config_read32(0, dev, 0, 0x00);
+        uint16_t v = id & 0xFFFF;
+        uint16_t d = (id >> 16) & 0xFFFF;
+        if (v == vendor && d == device) {
+            uint32_t subsys = pci_config_read32(0, dev, 0, 0x2C);
+            uint16_t sub_dev = (subsys >> 16) & 0xFFFF;
+            if (sub_dev == subsys_id) {
+                out->bus       = 0;
+                out->device    = dev;
+                out->function  = 0;
+                out->vendor_id = v;
+                out->device_id = d;
+                out->bar0      = pci_config_read32(0, dev, 0, 0x10) & ~0x3U;
+                uint32_t irq   = pci_config_read32(0, dev, 0, 0x3C);
+                out->irq_line  = irq & 0xFF;
+                return 0;
+            }
+        }
+    }
+    return -1;
+}

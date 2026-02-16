@@ -13,21 +13,28 @@ struct thread *process_create(const void *binary, uint64_t size) {
         return NULL;
     }
 
-    /* Map binary pages at USER_CODE_BASE */
-    uint64_t pages = (size + 4095) / 4096;
+    /* Map binary pages + BSS pages at USER_CODE_BASE.
+     * Flat binaries don't include BSS, so allocate 2 extra pages
+     * (8KB) beyond the binary for zero-initialized static data. */
+    uint64_t bin_pages = (size + 4095) / 4096;
+    uint64_t pages = bin_pages + 2;
     for (uint64_t i = 0; i < pages; i++) {
         uint64_t paddr = pmm_alloc_page();
         if (!paddr) return NULL;
 
         uint64_t vaddr = USER_CODE_BASE + i * 4096;
-        uint64_t offset = i * 4096;
-        uint64_t copy_len = size - offset;
-        if (copy_len > 4096) copy_len = 4096;
-
         uint8_t *dst = (uint8_t *)phys_to_virt(paddr);
-        memcpy(dst, (const uint8_t *)binary + offset, copy_len);
-        if (copy_len < 4096)
-            memset(dst + copy_len, 0, 4096 - copy_len);
+
+        if (i < bin_pages) {
+            uint64_t offset = i * 4096;
+            uint64_t copy_len = size - offset;
+            if (copy_len > 4096) copy_len = 4096;
+            memcpy(dst, (const uint8_t *)binary + offset, copy_len);
+            if (copy_len < 4096)
+                memset(dst + copy_len, 0, 4096 - copy_len);
+        } else {
+            memset(dst, 0, 4096);
+        }
 
         vmm_map_page(cr3, vaddr, paddr, PAGE_PRESENT | PAGE_WRITE | PAGE_USER);
     }
