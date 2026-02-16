@@ -2,6 +2,9 @@
 #include "syscall.h"
 #include "serial.h"
 #include "sched.h"
+#include "ipc.h"
+#include "shm.h"
+#include "service_registry.h"
 
 extern volatile uint64_t tick_count;
 
@@ -9,6 +12,7 @@ void syscall_handler(struct interrupt_frame *frame) {
     uint64_t num  = frame->rax;
     uint64_t arg1 = frame->rdi;
     uint64_t arg2 = frame->rsi;
+    uint64_t arg3 = frame->rdx;
 
     switch (num) {
     case SYS_DEBUG_WRITE: {
@@ -38,6 +42,34 @@ void syscall_handler(struct interrupt_frame *frame) {
 
     case SYS_TIME_NOW:
         frame->rax = tick_count;
+        break;
+
+    case SYS_SHM_CREATE:
+        frame->rax = (uint64_t)shm_create((uint32_t)arg1);
+        break;
+
+    case SYS_SHM_MAP:
+        frame->rax = shm_map((uint32_t)arg1, arg2);
+        break;
+
+    case SYS_IPC_SEND:
+        frame->rax = (uint64_t)(int64_t)ipc_send((uint32_t)arg1, (const void *)arg2, (uint32_t)arg3);
+        break;
+
+    case SYS_IPC_RECV:
+        frame->rax = (uint64_t)(int64_t)ipc_recv((uint32_t)arg1, (void *)arg2, (uint32_t *)arg3);
+        break;
+
+    case SYS_IPC_CREATE_PORT:
+        frame->rax = (uint64_t)ipc_create_port();
+        break;
+
+    case SYS_SERVICE_REGISTER:
+        frame->rax = (uint64_t)(int64_t)service_register((const char *)arg1, (uint32_t)arg2);
+        break;
+
+    case SYS_SERVICE_LOOKUP:
+        frame->rax = (uint64_t)service_lookup((const char *)arg1);
         break;
 
     default:

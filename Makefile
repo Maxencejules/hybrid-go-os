@@ -30,7 +30,8 @@ OBJS = $(OUT)/entry.o $(OUT)/isr.o $(OUT)/context.o \
        $(OUT)/main.o $(OUT)/serial.o $(OUT)/string.o \
        $(OUT)/gdt.o $(OUT)/idt.o $(OUT)/trap.o $(OUT)/pmm.o \
        $(OUT)/pic.o $(OUT)/pit.o $(OUT)/sched.o \
-       $(OUT)/vmm.o $(OUT)/syscall.o $(OUT)/process.o $(OUT)/user_bins.o
+       $(OUT)/vmm.o $(OUT)/syscall.o $(OUT)/process.o $(OUT)/user_bins.o \
+       $(OUT)/ipc.o $(OUT)/shm.o $(OUT)/service_registry.o
 
 # --- Targets ------------------------------------------------------------------
 
@@ -50,11 +51,35 @@ $(OUT)/init_user.o: user/init.c user/syscall.h | $(OUT)
 $(OUT)/fault_user.o: user/fault.c | $(OUT)
 	$(CC) $(USER_CFLAGS) $< -o $@
 
+$(OUT)/ping_user.o: user/ping.c user/syscall.h | $(OUT)
+	$(CC) $(USER_CFLAGS) $< -o $@
+
+$(OUT)/pong_user.o: user/pong.c user/syscall.h | $(OUT)
+	$(CC) $(USER_CFLAGS) $< -o $@
+
+$(OUT)/shm_writer_user.o: user/shm_writer.c user/syscall.h | $(OUT)
+	$(CC) $(USER_CFLAGS) $< -o $@
+
+$(OUT)/shm_reader_user.o: user/shm_reader.c user/syscall.h | $(OUT)
+	$(CC) $(USER_CFLAGS) $< -o $@
+
 $(OUT)/init.elf: $(OUT)/crt0.o $(OUT)/init_user.o user/user.ld | $(OUT)
 	$(LD) $(USER_LDFLAGS) -o $@ $(OUT)/crt0.o $(OUT)/init_user.o
 
 $(OUT)/fault.elf: $(OUT)/crt0.o $(OUT)/fault_user.o user/user.ld | $(OUT)
 	$(LD) $(USER_LDFLAGS) -o $@ $(OUT)/crt0.o $(OUT)/fault_user.o
+
+$(OUT)/ping.elf: $(OUT)/crt0.o $(OUT)/ping_user.o user/user.ld | $(OUT)
+	$(LD) $(USER_LDFLAGS) -o $@ $(OUT)/crt0.o $(OUT)/ping_user.o
+
+$(OUT)/pong.elf: $(OUT)/crt0.o $(OUT)/pong_user.o user/user.ld | $(OUT)
+	$(LD) $(USER_LDFLAGS) -o $@ $(OUT)/crt0.o $(OUT)/pong_user.o
+
+$(OUT)/shm_writer.elf: $(OUT)/crt0.o $(OUT)/shm_writer_user.o user/user.ld | $(OUT)
+	$(LD) $(USER_LDFLAGS) -o $@ $(OUT)/crt0.o $(OUT)/shm_writer_user.o
+
+$(OUT)/shm_reader.elf: $(OUT)/crt0.o $(OUT)/shm_reader_user.o user/user.ld | $(OUT)
+	$(LD) $(USER_LDFLAGS) -o $@ $(OUT)/crt0.o $(OUT)/shm_reader_user.o
 
 $(OUT)/init.bin: $(OUT)/init.elf
 	$(OBJCOPY) -O binary $< $@
@@ -62,7 +87,19 @@ $(OUT)/init.bin: $(OUT)/init.elf
 $(OUT)/fault.bin: $(OUT)/fault.elf
 	$(OBJCOPY) -O binary $< $@
 
-$(OUT)/user_bins.o: kernel/user_bins.asm $(OUT)/init.bin $(OUT)/fault.bin | $(OUT)
+$(OUT)/ping.bin: $(OUT)/ping.elf
+	$(OBJCOPY) -O binary $< $@
+
+$(OUT)/pong.bin: $(OUT)/pong.elf
+	$(OBJCOPY) -O binary $< $@
+
+$(OUT)/shm_writer.bin: $(OUT)/shm_writer.elf
+	$(OBJCOPY) -O binary $< $@
+
+$(OUT)/shm_reader.bin: $(OUT)/shm_reader.elf
+	$(OBJCOPY) -O binary $< $@
+
+$(OUT)/user_bins.o: kernel/user_bins.asm $(OUT)/init.bin $(OUT)/fault.bin $(OUT)/ping.bin $(OUT)/pong.bin $(OUT)/shm_writer.bin $(OUT)/shm_reader.bin | $(OUT)
 	$(NASM) $(NASMFLAGS) -I$(OUT)/ $< -o $@
 
 # --- Kernel assembly ----------------------------------------------------------
@@ -78,7 +115,7 @@ $(OUT)/context.o: arch/x86_64/context.asm | $(OUT)
 
 # --- Kernel C files -----------------------------------------------------------
 
-$(OUT)/main.o: kernel/main.c kernel/serial.h kernel/limine.h kernel/pmm.h kernel/vmm.h kernel/process.h | $(OUT)
+$(OUT)/main.o: kernel/main.c kernel/serial.h kernel/limine.h kernel/pmm.h kernel/vmm.h kernel/process.h kernel/ipc.h kernel/shm.h kernel/service_registry.h | $(OUT)
 	$(CC) $(CFLAGS) $< -o $@
 
 $(OUT)/serial.o: kernel/serial.c kernel/serial.h | $(OUT)
@@ -93,10 +130,19 @@ $(OUT)/pmm.o: kernel/pmm.c kernel/pmm.h kernel/limine.h kernel/serial.h | $(OUT)
 $(OUT)/vmm.o: kernel/vmm.c kernel/vmm.h kernel/pmm.h kernel/limine.h kernel/serial.h kernel/string.h | $(OUT)
 	$(CC) $(CFLAGS) $< -o $@
 
-$(OUT)/syscall.o: kernel/syscall.c kernel/syscall.h kernel/serial.h kernel/sched.h | $(OUT)
+$(OUT)/syscall.o: kernel/syscall.c kernel/syscall.h kernel/serial.h kernel/sched.h kernel/ipc.h kernel/shm.h kernel/service_registry.h | $(OUT)
 	$(CC) $(CFLAGS) $< -o $@
 
 $(OUT)/process.o: kernel/process.c kernel/process.h kernel/vmm.h kernel/pmm.h kernel/sched.h kernel/serial.h kernel/string.h | $(OUT)
+	$(CC) $(CFLAGS) $< -o $@
+
+$(OUT)/ipc.o: kernel/ipc.c kernel/ipc.h kernel/sched.h kernel/serial.h | $(OUT)
+	$(CC) $(CFLAGS) $< -o $@
+
+$(OUT)/shm.o: kernel/shm.c kernel/shm.h kernel/pmm.h kernel/vmm.h kernel/sched.h kernel/serial.h | $(OUT)
+	$(CC) $(CFLAGS) $< -o $@
+
+$(OUT)/service_registry.o: kernel/service_registry.c kernel/service_registry.h kernel/serial.h kernel/string.h | $(OUT)
 	$(CC) $(CFLAGS) $< -o $@
 
 # --- Arch C files -------------------------------------------------------------

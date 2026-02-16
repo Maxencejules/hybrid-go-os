@@ -35,7 +35,7 @@ void trap_handler(struct interrupt_frame *frame) {
 
             if (tick_count == 100) {
                 serial_puts("TICK: 100\n");
-            } else if (tick_count == 200) {
+            } else if (tick_count == 400) {
                 serial_puts("\nKERNEL: halt ok\n");
                 outb(DEBUG_EXIT_PORT, 0x00);
             }

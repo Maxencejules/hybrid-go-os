@@ -3,13 +3,14 @@
 
 #include <stdint.h>
 
-#define MAX_THREADS      8
+#define MAX_THREADS      16
 #define THREAD_STACK_SIZE 16384
 
 enum thread_state {
     THREAD_READY,
     THREAD_RUNNING,
-    THREAD_DEAD
+    THREAD_DEAD,
+    THREAD_BLOCKED
 };
 
 struct thread {

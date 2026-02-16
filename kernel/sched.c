@@ -130,8 +130,8 @@ void schedule(void) {
     struct thread *old = current_thread;
     struct thread *next = old->next;
 
-    /* Find next READY thread */
-    while (next->state == THREAD_DEAD && next != old)
+    /* Find next READY thread (skip DEAD and BLOCKED) */
+    while ((next->state == THREAD_DEAD || next->state == THREAD_BLOCKED) && next != old)
         next = next->next;
 
     if (next == old || next->state != THREAD_READY)

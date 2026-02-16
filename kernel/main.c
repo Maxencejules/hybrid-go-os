@@ -7,6 +7,9 @@
 #include "sched.h"
 #include "vmm.h"
 #include "process.h"
+#include "ipc.h"
+#include "shm.h"
+#include "service_registry.h"
 #include "../arch/x86_64/gdt.h"
 #include "../arch/x86_64/idt.h"
 #include "../arch/x86_64/trap.h"
@@ -63,6 +66,14 @@ extern const char user_init_start[];
 extern const uint64_t user_init_size;
 extern const char user_fault_start[];
 extern const uint64_t user_fault_size;
+extern const char user_ping_start[];
+extern const uint64_t user_ping_size;
+extern const char user_pong_start[];
+extern const uint64_t user_pong_size;
+extern const char user_shm_writer_start[];
+extern const uint64_t user_shm_writer_size;
+extern const char user_shm_reader_start[];
+extern const uint64_t user_shm_reader_size;
 
 /* ------------------------------------------------------------------ */
 /*  Kernel entry                                                      */
@@ -114,12 +125,24 @@ void kmain(void) {
     pic_init();
     pit_init(100);
     sched_init();
+
+    /* M4: IPC, SHM, service registry */
+    ipc_init();
+    shm_init();
+    service_registry_init();
+
     thread_create(thread_a);
     thread_create(thread_b);
 
     /* M3: User processes */
     process_create(user_fault_start, user_fault_size);
     process_create(user_init_start, user_init_size);
+
+    /* M4: IPC user processes (receivers before senders) */
+    process_create(user_pong_start, user_pong_size);
+    process_create(user_ping_start, user_ping_size);
+    process_create(user_shm_reader_start, user_shm_reader_size);
+    process_create(user_shm_writer_start, user_shm_writer_size);
 
     /* Enable interrupts — preemption begins */
     __asm__ volatile ("sti");
