@@ -4,9 +4,10 @@
 .PHONY: build image run test-qemu clean docker-all
 
 # Tools (override via environment, e.g. CC=x86_64-elf-gcc)
-NASM  ?= nasm
-CC    ?= gcc
-LD    ?= ld
+NASM    ?= nasm
+CC      ?= gcc
+GCCGO   ?= gccgo
+LD      ?= ld
 OBJCOPY ?= objcopy
 
 # Flags
@@ -15,6 +16,10 @@ CFLAGS    = -ffreestanding -nostdlib -mno-red-zone -mcmodel=kernel \
             -fno-stack-protector -fno-pic -fno-pie -mno-sse -mno-mmx -mno-sse2 \
             -Wall -Wextra -O2 -c
 LDFLAGS   = -nostdlib -static -T boot/linker.ld
+
+# Go flags (gccgo — produces standard ELF objects for kernel linking)
+GOFLAGS   = -c -fno-split-stack -mcmodel=kernel -mno-red-zone \
+            -mno-sse -mno-mmx -mno-sse2 -O2 -fgo-pkgpath=kernelgo
 
 # User-space flags (no -mcmodel=kernel, freestanding)
 USER_CFLAGS  = -ffreestanding -nostdlib -mno-red-zone \
@@ -31,7 +36,8 @@ OBJS = $(OUT)/entry.o $(OUT)/isr.o $(OUT)/context.o \
        $(OUT)/gdt.o $(OUT)/idt.o $(OUT)/trap.o $(OUT)/pmm.o \
        $(OUT)/pic.o $(OUT)/pit.o $(OUT)/sched.o \
        $(OUT)/vmm.o $(OUT)/syscall.o $(OUT)/process.o $(OUT)/user_bins.o \
-       $(OUT)/ipc.o $(OUT)/shm.o $(OUT)/service_registry.o
+       $(OUT)/ipc.o $(OUT)/shm.o $(OUT)/service_registry.o \
+       $(OUT)/go_entry.o $(OUT)/bridge.o $(OUT)/runtime_stubs.o
 
 # --- Targets ------------------------------------------------------------------
 
@@ -163,6 +169,19 @@ $(OUT)/pit.o: arch/x86_64/pit.c arch/x86_64/pit.h kernel/serial.h | $(OUT)
 	$(CC) $(CFLAGS) $< -o $@
 
 $(OUT)/sched.o: kernel/sched.c kernel/sched.h kernel/serial.h kernel/vmm.h | $(OUT)
+	$(CC) $(CFLAGS) $< -o $@
+
+# --- Go kernel entry (gccgo) -------------------------------------------------
+
+$(OUT)/go_entry.o: kernelgo/entry.go | $(OUT)
+	$(GCCGO) $(GOFLAGS) $< -o $@
+
+# --- rtshim (C bridge + runtime stubs) ---------------------------------------
+
+$(OUT)/bridge.o: rtshim/bridge.c kernel/serial.h | $(OUT)
+	$(CC) $(CFLAGS) $< -o $@
+
+$(OUT)/runtime_stubs.o: rtshim/runtime_stubs.c | $(OUT)
 	$(CC) $(CFLAGS) $< -o $@
 
 # --- Link ---------------------------------------------------------------------
