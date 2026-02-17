@@ -3,7 +3,10 @@
 # Legacy C kernel: make -C legacy build
 
 .PHONY: build image build-panic image-panic build-pf image-pf build-idt image-idt \
-       build-sched image-sched run test-qemu clean legacy docker-all
+       build-sched image-sched \
+       build-user-hello image-user-hello build-syscall image-syscall \
+       build-user-fault image-user-fault \
+       run test-qemu clean legacy docker-all
 
 # Tools
 NASM    ?= nasm
@@ -75,6 +78,24 @@ build-sched: $(ASM_OBJS) boot/linker.ld
 	cd kernel_rs && cargo build --release --features sched_test
 	$(LD) $(LDFLAGS) -o $(OUT)/kernel-sched.elf $(ASM_OBJS) $(KERNEL_LIB)
 
+# --- M3: User-hello-test kernel -----------------------------------------------
+
+build-user-hello: $(ASM_OBJS) boot/linker.ld
+	cd kernel_rs && cargo build --release --features user_hello_test
+	$(LD) $(LDFLAGS) -o $(OUT)/kernel-user-hello.elf $(ASM_OBJS) $(KERNEL_LIB)
+
+# --- M3: Syscall-test kernel --------------------------------------------------
+
+build-syscall: $(ASM_OBJS) boot/linker.ld
+	cd kernel_rs && cargo build --release --features syscall_test
+	$(LD) $(LDFLAGS) -o $(OUT)/kernel-syscall.elf $(ASM_OBJS) $(KERNEL_LIB)
+
+# --- M3: User-fault-test kernel -----------------------------------------------
+
+build-user-fault: $(ASM_OBJS) boot/linker.ld
+	cd kernel_rs && cargo build --release --features user_fault_test
+	$(LD) $(LDFLAGS) -o $(OUT)/kernel-user-fault.elf $(ASM_OBJS) $(KERNEL_LIB)
+
 # --- Image / Run / Test -------------------------------------------------------
 
 image: build
@@ -92,10 +113,19 @@ image-idt: build-idt
 image-sched: build-sched
 	KERNEL_ELF=kernel-sched.elf ISO_NAME=os-sched.iso bash tools/mkimage.sh
 
+image-user-hello: build-user-hello
+	KERNEL_ELF=kernel-user-hello.elf ISO_NAME=os-user-hello.iso bash tools/mkimage.sh
+
+image-syscall: build-syscall
+	KERNEL_ELF=kernel-syscall.elf ISO_NAME=os-syscall.iso bash tools/mkimage.sh
+
+image-user-fault: build-user-fault
+	KERNEL_ELF=kernel-user-fault.elf ISO_NAME=os-user-fault.iso bash tools/mkimage.sh
+
 run: image
 	./tools/run_qemu.sh
 
-test-qemu: image image-panic image-pf image-idt image-sched
+test-qemu: image image-panic image-pf image-idt image-sched image-user-hello image-syscall image-user-fault
 	python3 -m pytest tests/ -v
 
 clean:
@@ -108,7 +138,7 @@ legacy:
 	$(MAKE) -C legacy build
 
 # --- Docker (cross-platform) --------------------------------------------------
-DOCKER_IMAGE = rugo-builder
+DOCKER_IMAGE = rugo-builde
 
 docker-all:
 	docker build -t $(DOCKER_IMAGE) .

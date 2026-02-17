@@ -11,6 +11,9 @@ panic_test = []
 pf_test = []
 idt_smoke_test = []
 sched_test = []
+user_hello_test = []
+syscall_test = []
+user_fault_test = []
 
 [profile.dev]
 panic = "abort"

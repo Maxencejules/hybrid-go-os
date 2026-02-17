@@ -9,6 +9,9 @@ ISO_PANIC_PATH = os.path.join(REPO_ROOT, "out", "os-panic.iso")
 ISO_PF_PATH = os.path.join(REPO_ROOT, "out", "os-pf.iso")
 ISO_IDT_PATH = os.path.join(REPO_ROOT, "out", "os-idt.iso")
 ISO_SCHED_PATH = os.path.join(REPO_ROOT, "out", "os-sched.iso")
+ISO_USER_HELLO_PATH = os.path.join(REPO_ROOT, "out", "os-user-hello.iso")
+ISO_SYSCALL_PATH = os.path.join(REPO_ROOT, "out", "os-syscall.iso")
+ISO_USER_FAULT_PATH = os.path.join(REPO_ROOT, "out", "os-user-fault.iso")
 QEMU_TIMEOUT = 10  # seconds
 
 
@@ -74,3 +77,27 @@ def qemu_serial_sched():
     if not os.path.isfile(ISO_SCHED_PATH):
         pytest.skip(f"ISO not built: {ISO_SCHED_PATH}")
     return _boot_iso(ISO_SCHED_PATH)
+
+
+@pytest.fixture
+def qemu_serial_user_hello():
+    """Boot the user-hello-test OS image and return captured serial output."""
+    if not os.path.isfile(ISO_USER_HELLO_PATH):
+        pytest.skip(f"ISO not built: {ISO_USER_HELLO_PATH}")
+    return _boot_iso(ISO_USER_HELLO_PATH)
+
+
+@pytest.fixture
+def qemu_serial_syscall():
+    """Boot the syscall-test OS image and return captured serial output."""
+    if not os.path.isfile(ISO_SYSCALL_PATH):
+        pytest.skip(f"ISO not built: {ISO_SYSCALL_PATH}")
+    return _boot_iso(ISO_SYSCALL_PATH)
+
+
+@pytest.fixture
+def qemu_serial_user_fault():
+    """Boot the user-fault-test OS image and return captured serial output."""
+    if not os.path.isfile(ISO_USER_FAULT_PATH):
+        pytest.skip(f"ISO not built: {ISO_USER_FAULT_PATH}")
+    return _boot_iso(ISO_USER_FAULT_PATH)
