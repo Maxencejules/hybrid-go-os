@@ -4,5 +4,5 @@
 def test_boot_banner(qemu_serial):
     """Serial output must contain the required boot markers."""
     out = qemu_serial.stdout
-    assert "RUGO: boot ok" in out, f"Missing 'RUGO: boot ok'. Got:\n{out}"
-    assert "RUGO: halt ok" in out, f"Missing 'RUGO: halt ok'. Got:\n{out}"
+    assert "KERNEL: boot ok" in out, f"Missing 'KERNEL: boot ok'. Got:\n{out}"
+    assert "KERNEL: halt ok" in out, f"Missing 'KERNEL: halt ok'. Got:\n{out}"

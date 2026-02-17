@@ -1,4 +1,4 @@
-; Rugo — x86-64 kernel entry point
+; Hybrid Go OS — x86-64 kernel entry point
 ; Limine jumps here in 64-bit long mode with paging enabled.
 
 bits 64
@@ -20,7 +20,7 @@ _start:
     cli                     ; Ensure interrupts are off
     lea  rsp, [stack_top]   ; Set up kernel stack
     xor  rbp, rbp           ; Clear frame pointer
-    call kmain              ; Enter Rust kernel (kernel_rs/src/lib.rs)
+    call kmain              ; Enter kernel (kernel/main.c)
 
 .hang:
     cli

@@ -1,5 +1,6 @@
 # Build outputs
 out/
+kernel_rs/target/
 
 # Limine bootloader (fetched at build time)
 limine/

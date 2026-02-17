@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Canonical QEMU runner for Hybrid Go OS
+# Canonical QEMU runner for Rugo
 # Usage: ./tools/run_qemu.sh [--iso PATH]
 #
 # This is the single entry point for launching the OS in QEMU.
