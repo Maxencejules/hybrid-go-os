@@ -1,10 +1,10 @@
-; arch/x86_64/isr.asm — ISR stubs for M1 exception handling
+; arch/x86_64/isr.asm — ISR stubs for exceptions and IRQs
 bits 64
 default rel
 
 section .text
 
-extern exception_handler
+extern trap_handler
 
 ; Macro for exceptions WITHOUT a CPU-pushed error code
 %macro ISR_NOERR 1
@@ -23,16 +23,19 @@ isr_stub_%1:
     jmp isr_common
 %endmacro
 
-; --- Vector stubs ---
+; --- Exception stubs ---
 ISR_NOERR 0                ; #DE  Divide Error
 ISR_NOERR 3                ; #BP  Breakpoint
 ISR_ERR   8                ; #DF  Double Fault
 ISR_ERR   13               ; #GP  General Protection Fault
 ISR_ERR   14               ; #PF  Page Fault
 
-; --- Common tail: marshal args and call Rust handler ---
+; --- IRQ stubs (remapped by PIC to vectors 32+) ---
+ISR_NOERR 32               ; IRQ0  PIT timer
+
+; --- Common tail: save all GPRs, call Rust handler, restore, iretq ---
 ;
-; Stack layout on entry:
+; Stack layout on entry (before GPR push):
 ;   [RSP+0]   vector         (pushed by stub)
 ;   [RSP+8]   error code     (CPU or dummy 0)
 ;   [RSP+16]  RIP            (CPU interrupt frame)
@@ -40,17 +43,45 @@ ISR_ERR   14               ; #PF  Page Fault
 ;   [RSP+32]  RFLAGS
 ;   [RSP+40]  RSP (old)
 ;   [RSP+48]  SS
+;
+; After GPR push, RSP points to full InterruptFrame passed to trap_handler.
 isr_common:
-    mov rdi, [rsp]          ; arg1: vector
-    mov rsi, [rsp+8]        ; arg2: error_code
-    mov rdx, [rsp+16]       ; arg3: rip
-    mov rcx, cr2            ; arg4: fault address
+    push rax
+    push rbx
+    push rcx
+    push rdx
+    push rsi
+    push rdi
+    push rbp
+    push r8
+    push r9
+    push r10
+    push r11
+    push r12
+    push r13
+    push r14
+    push r15
 
-    and rsp, -16            ; 16-byte align for SysV ABI call
-    call exception_handler
+    mov  rdi, rsp           ; arg1: pointer to InterruptFrame
+    call trap_handler
 
-    ; Should never return, but guard anyway
-    cli
-    hlt
+    pop  r15
+    pop  r14
+    pop  r13
+    pop  r12
+    pop  r11
+    pop  r10
+    pop  r9
+    pop  r8
+    pop  rbp
+    pop  rdi
+    pop  rsi
+    pop  rdx
+    pop  rcx
+    pop  rbx
+    pop  rax
+
+    add  rsp, 16            ; remove vector + error_code
+    iretq
 
 section .note.GNU-stack noalloc noexec nowrite progbits
