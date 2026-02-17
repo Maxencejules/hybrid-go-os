@@ -77,8 +77,19 @@ pub extern "C" fn kmain() -> ! {
     serial_write(b"RUGO: boot ok\n");
     serial_write(b"RUGO: halt ok\n");
 
-    // Trigger panic to exercise the panic path
+    #[cfg(feature = "panic_test")]
     panic!("deliberate test panic");
+
+    #[cfg(not(feature = "panic_test"))]
+    {
+        // Normal path: clean QEMU exit
+        qemu_exit(0x31);
+        loop {
+            unsafe {
+                core::arch::asm!("cli; hlt", options(nomem, nostack));
+            }
+        }
+    }
 }
 
 // --------------- Panic handler ---------------

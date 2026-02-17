@@ -5,13 +5,13 @@ import pytest
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ISO_PATH = os.path.join(REPO_ROOT, "out", "os.iso")
+ISO_PANIC_PATH = os.path.join(REPO_ROOT, "out", "os-panic.iso")
 QEMU_TIMEOUT = 10  # seconds
 
 
-@pytest.fixture
-def qemu_serial():
-    """Boot the OS in QEMU headless and return the captured serial output."""
-    assert os.path.isfile(ISO_PATH), f"ISO not found: {ISO_PATH}"
+def _boot_iso(iso_path):
+    """Boot an ISO in QEMU headless and return the CompletedProcess."""
+    assert os.path.isfile(iso_path), f"ISO not found: {iso_path}"
 
     try:
         result = subprocess.run(
@@ -24,7 +24,7 @@ def qemu_serial():
                 "-display", "none",
                 "-no-reboot",
                 "-device", "isa-debug-exit,iobase=0xf4,iosize=0x04",
-                "-cdrom", ISO_PATH,
+                "-cdrom", iso_path,
             ],
             capture_output=True,
             text=True,
@@ -35,3 +35,15 @@ def qemu_serial():
         pytest.fail(f"QEMU timed out ({QEMU_TIMEOUT}s). Captured serial:\n{stdout}")
 
     return result
+
+
+@pytest.fixture
+def qemu_serial():
+    """Boot the normal OS image and return captured serial output."""
+    return _boot_iso(ISO_PATH)
+
+
+@pytest.fixture
+def qemu_serial_panic():
+    """Boot the panic-test OS image and return captured serial output."""
+    return _boot_iso(ISO_PANIC_PATH)

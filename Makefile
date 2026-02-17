@@ -2,7 +2,7 @@
 # Default target: Rust M0 kernel
 # Legacy C kernel: make -C legacy build
 
-.PHONY: build image run test-qemu clean legacy docker-all
+.PHONY: build image build-panic image-panic run test-qemu clean legacy docker-all
 
 # Tools
 NASM    ?= nasm
@@ -41,15 +41,24 @@ $(KERNEL_LIB): kernel_rs/src/lib.rs kernel_rs/Cargo.toml kernel_rs/.cargo/config
 $(OUT)/kernel.elf: $(OUT)/entry.o $(KERNEL_LIB) boot/linker.ld
 	$(LD) $(LDFLAGS) -o $@ $(OUT)/entry.o $(KERNEL_LIB)
 
+# --- Panic-test kernel (feature-gated) ----------------------------------------
+
+build-panic: $(OUT)/entry.o boot/linker.ld
+	cd kernel_rs && cargo build --release --features panic_test
+	$(LD) $(LDFLAGS) -o $(OUT)/kernel-panic.elf $(OUT)/entry.o $(KERNEL_LIB)
+
 # --- Image / Run / Test -------------------------------------------------------
 
 image: build
 	bash tools/mkimage.sh
 
+image-panic: build-panic
+	KERNEL_ELF=kernel-panic.elf ISO_NAME=os-panic.iso bash tools/mkimage.sh
+
 run: image
 	./tools/run_qemu.sh
 
-test-qemu: image
+test-qemu: image image-panic
 	python3 -m pytest tests/ -v
 
 clean:

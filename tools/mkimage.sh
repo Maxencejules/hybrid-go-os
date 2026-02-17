@@ -6,6 +6,10 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 OUT="$ROOT/out"
 ISO_ROOT="$OUT/iso_root"
 LIMINE_DIR="$ROOT/limine"
+
+# Callers can override which kernel ELF and output ISO name to use.
+KERNEL_ELF="${KERNEL_ELF:-kernel.elf}"
+ISO_NAME="${ISO_NAME:-os.iso}"
 LIMINE_BRANCH="${LIMINE_BRANCH:-v8.x-binary}"
 
 # --- Fetch Limine if needed ---------------------------------------------------
@@ -21,7 +25,7 @@ fi
 rm -rf "$ISO_ROOT"
 mkdir -p "$ISO_ROOT/boot/limine"
 
-cp "$OUT/kernel.elf"                 "$ISO_ROOT/boot/kernel.elf"
+cp "$OUT/$KERNEL_ELF"                "$ISO_ROOT/boot/kernel.elf"
 cp "$ROOT/boot/limine.conf"         "$ISO_ROOT/boot/limine/limine.conf"
 cp "$LIMINE_DIR/limine-bios.sys"    "$ISO_ROOT/boot/limine/"
 cp "$LIMINE_DIR/limine-bios-cd.bin" "$ISO_ROOT/boot/limine/"
@@ -31,10 +35,10 @@ xorriso -as mkisofs \
     -R -r -J \
     -b boot/limine/limine-bios-cd.bin \
     -no-emul-boot -boot-load-size 4 -boot-info-table \
-    -o "$OUT/os.iso" \
+    -o "$OUT/$ISO_NAME" \
     "$ISO_ROOT"
 
 # --- Install Limine BIOS boot stages -----------------------------------------
-"$LIMINE_DIR/limine" bios-install "$OUT/os.iso"
+"$LIMINE_DIR/limine" bios-install "$OUT/$ISO_NAME"
 
-echo "==> Image ready: $OUT/os.iso"
+echo "==> Image ready: $OUT/$ISO_NAME"
