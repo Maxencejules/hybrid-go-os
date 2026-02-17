@@ -8,6 +8,8 @@ crate-type = ["staticlib"]
 
 [features]
 panic_test = []
+pf_test = []
+idt_smoke_test = []
 
 [profile.dev]
 panic = "abort"

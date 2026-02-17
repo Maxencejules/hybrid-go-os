@@ -2,7 +2,8 @@
 # Default target: Rust M0 kernel
 # Legacy C kernel: make -C legacy build
 
-.PHONY: build image build-panic image-panic run test-qemu clean legacy docker-all
+.PHONY: build image build-panic image-panic build-pf image-pf build-idt image-idt \
+       run test-qemu clean legacy docker-all
 
 # Tools
 NASM    ?= nasm
@@ -47,6 +48,18 @@ build-panic: $(OUT)/entry.o boot/linker.ld
 	cd kernel_rs && cargo build --release --features panic_test
 	$(LD) $(LDFLAGS) -o $(OUT)/kernel-panic.elf $(OUT)/entry.o $(KERNEL_LIB)
 
+# --- Page-fault-test kernel ---------------------------------------------------
+
+build-pf: $(OUT)/entry.o boot/linker.ld
+	cd kernel_rs && cargo build --release --features pf_test
+	$(LD) $(LDFLAGS) -o $(OUT)/kernel-pf.elf $(OUT)/entry.o $(KERNEL_LIB)
+
+# --- IDT-smoke-test kernel ---------------------------------------------------
+
+build-idt: $(OUT)/entry.o boot/linker.ld
+	cd kernel_rs && cargo build --release --features idt_smoke_test
+	$(LD) $(LDFLAGS) -o $(OUT)/kernel-idt.elf $(OUT)/entry.o $(KERNEL_LIB)
+
 # --- Image / Run / Test -------------------------------------------------------
 
 image: build
@@ -55,10 +68,16 @@ image: build
 image-panic: build-panic
 	KERNEL_ELF=kernel-panic.elf ISO_NAME=os-panic.iso bash tools/mkimage.sh
 
+image-pf: build-pf
+	KERNEL_ELF=kernel-pf.elf ISO_NAME=os-pf.iso bash tools/mkimage.sh
+
+image-idt: build-idt
+	KERNEL_ELF=kernel-idt.elf ISO_NAME=os-idt.iso bash tools/mkimage.sh
+
 run: image
 	./tools/run_qemu.sh
 
-test-qemu: image image-panic
+test-qemu: image image-panic image-pf image-idt
 	python3 -m pytest tests/ -v
 
 clean:
