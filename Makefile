@@ -3,7 +3,7 @@
 # Legacy C kernel: make -C legacy build
 
 .PHONY: build image build-panic image-panic build-pf image-pf build-idt image-idt \
-       run test-qemu clean legacy docker-all
+       build-sched image-sched run test-qemu clean legacy docker-all
 
 # Tools
 NASM    ?= nasm
@@ -28,7 +28,7 @@ $(OUT):
 	mkdir -p $(OUT)
 
 # Assembly objects
-ASM_OBJS = $(OUT)/entry.o $(OUT)/isr.o
+ASM_OBJS = $(OUT)/entry.o $(OUT)/isr.o $(OUT)/context.o
 
 # --- Assembly -----------------------------------------------------------------
 
@@ -36,6 +36,9 @@ $(OUT)/entry.o: arch/x86_64/entry.asm | $(OUT)
 	$(NASM) $(NASMFLAGS) $< -o $@
 
 $(OUT)/isr.o: arch/x86_64/isr.asm | $(OUT)
+	$(NASM) $(NASMFLAGS) $< -o $@
+
+$(OUT)/context.o: arch/x86_64/context.asm | $(OUT)
 	$(NASM) $(NASMFLAGS) $< -o $@
 
 # --- Rust kernel --------------------------------------------------------------
@@ -66,6 +69,12 @@ build-idt: $(ASM_OBJS) boot/linker.ld
 	cd kernel_rs && cargo build --release --features idt_smoke_test
 	$(LD) $(LDFLAGS) -o $(OUT)/kernel-idt.elf $(ASM_OBJS) $(KERNEL_LIB)
 
+# --- Scheduler-test kernel ----------------------------------------------------
+
+build-sched: $(ASM_OBJS) boot/linker.ld
+	cd kernel_rs && cargo build --release --features sched_test
+	$(LD) $(LDFLAGS) -o $(OUT)/kernel-sched.elf $(ASM_OBJS) $(KERNEL_LIB)
+
 # --- Image / Run / Test -------------------------------------------------------
 
 image: build
@@ -80,10 +89,13 @@ image-pf: build-pf
 image-idt: build-idt
 	KERNEL_ELF=kernel-idt.elf ISO_NAME=os-idt.iso bash tools/mkimage.sh
 
+image-sched: build-sched
+	KERNEL_ELF=kernel-sched.elf ISO_NAME=os-sched.iso bash tools/mkimage.sh
+
 run: image
 	./tools/run_qemu.sh
 
-test-qemu: image image-panic image-pf image-idt
+test-qemu: image image-panic image-pf image-idt image-sched
 	python3 -m pytest tests/ -v
 
 clean:
