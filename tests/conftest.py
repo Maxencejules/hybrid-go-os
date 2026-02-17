@@ -8,6 +8,7 @@ ISO_PATH = os.path.join(REPO_ROOT, "out", "os.iso")
 ISO_PANIC_PATH = os.path.join(REPO_ROOT, "out", "os-panic.iso")
 ISO_PF_PATH = os.path.join(REPO_ROOT, "out", "os-pf.iso")
 ISO_IDT_PATH = os.path.join(REPO_ROOT, "out", "os-idt.iso")
+ISO_SCHED_PATH = os.path.join(REPO_ROOT, "out", "os-sched.iso")
 QEMU_TIMEOUT = 10  # seconds
 
 
@@ -65,3 +66,11 @@ def qemu_serial_idt():
     if not os.path.isfile(ISO_IDT_PATH):
         pytest.skip(f"ISO not built: {ISO_IDT_PATH}")
     return _boot_iso(ISO_IDT_PATH)
+
+
+@pytest.fixture
+def qemu_serial_sched():
+    """Boot the scheduler-test OS image and return captured serial output."""
+    if not os.path.isfile(ISO_SCHED_PATH):
+        pytest.skip(f"ISO not built: {ISO_SCHED_PATH}")
+    return _boot_iso(ISO_SCHED_PATH)
