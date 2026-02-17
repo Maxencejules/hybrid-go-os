@@ -1,4 +1,7 @@
-# Go Toolchain for Kernel Code
+> **Legacy documentation.**  This applies only to the C+Go kernel in `legacy/`.
+> The current default kernel is written in Rust — see `rust_toolchain.md`.
+
+# Go Toolchain for Kernel Code (Legacy)
 
 ## Strategy: gccgo (GCC Go frontend)
 
