@@ -13,7 +13,7 @@ Full milestone definitions and acceptance criteria live in
 ## How to run
 
 ```bash
-# Rugo (build + QEMU smoke tests, 2 tests)
+# Rugo (build + QEMU smoke tests, 5 tests)
 make test-qemu
 
 # Legacy (build + QEMU smoke tests, 16 tests)
@@ -28,7 +28,7 @@ make docker-all
 | Milestone | Legacy | Rugo | Evidence |
 |-----------|--------|------|----------|
 | **M0** Boot + serial | ✅ | ✅ | `tests/boot/test_boot_banner.py` (`RUGO: boot ok`, `RUGO: halt ok`), `tests/boot/test_panic_path.py` (`RUGO: panic code=`). Legacy: `legacy/tests/boot/test_boot_banner.py` |
-| **M1** Paging + traps | ✅ | ⬜ | `legacy/tests/boot/test_paging_enabled.py` (`MM: paging=on`), `legacy/tests/trap/test_page_fault_report.py` (`PF: addr=0x...`) |
+| **M1** Paging + traps | ✅ | ✅ | Rugo: `tests/boot/test_paging_enabled.py` (`MM: paging=on`), `tests/trap/test_page_fault_report.py` (`PF: addr=0x...`), `tests/trap/test_idt_smoke.py` (`TRAP: ok`). Legacy: `legacy/tests/boot/test_paging_enabled.py`, `legacy/tests/trap/test_page_fault_report.py` |
 | **M2** Scheduler + threads | ✅ | ⬜ | `legacy/tests/sched/test_timer_ticks.py` (`TICK: 100`), `legacy/tests/sched/test_two_threads.py` (interleaved `A`/`B`) |
 | **M3** User mode + syscalls | ✅ | ⬜ | `legacy/tests/user/test_enter_user_mode.py`, `test_syscall_roundtrip.py`, `test_user_fault.py` |
 | **M4** IPC + shared memory | ✅ | ⬜ | `legacy/tests/ipc/test_ping_pong.py` (`PING: ok`, `PONG: ok`), `legacy/tests/ipc/test_shm_bulk.py` (`SHM: checksum ok`) |
@@ -43,8 +43,7 @@ make docker-all
 
 ## Current focus
 
-The next Rugo milestone is **M1: Paging + traps**. This adds a physical memory
-allocator (parsing the Limine memory map), initial page tables, a GDT, an IDT,
-and exception handlers for page faults and GPF. The legacy implementation in
-`legacy/kernel/vmm.c`, `legacy/kernel/pmm.c`, and `legacy/arch/x86_64/trap.c`
-serves as the architectural reference.
+The next Rugo milestone is **M2: Scheduler + threads**. This adds a timer (PIT),
+preemptive round-robin scheduling, and multi-threading. The legacy implementation
+in `legacy/kernel/sched.c` and `legacy/kernel/timer.c` serves as the
+architectural reference.

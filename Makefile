@@ -27,9 +27,15 @@ build: $(OUT)/kernel.elf
 $(OUT):
 	mkdir -p $(OUT)
 
+# Assembly objects
+ASM_OBJS = $(OUT)/entry.o $(OUT)/isr.o
+
 # --- Assembly -----------------------------------------------------------------
 
 $(OUT)/entry.o: arch/x86_64/entry.asm | $(OUT)
+	$(NASM) $(NASMFLAGS) $< -o $@
+
+$(OUT)/isr.o: arch/x86_64/isr.asm | $(OUT)
 	$(NASM) $(NASMFLAGS) $< -o $@
 
 # --- Rust kernel --------------------------------------------------------------
@@ -39,26 +45,26 @@ $(KERNEL_LIB): kernel_rs/src/lib.rs kernel_rs/Cargo.toml kernel_rs/.cargo/config
 
 # --- Link ---------------------------------------------------------------------
 
-$(OUT)/kernel.elf: $(OUT)/entry.o $(KERNEL_LIB) boot/linker.ld
-	$(LD) $(LDFLAGS) -o $@ $(OUT)/entry.o $(KERNEL_LIB)
+$(OUT)/kernel.elf: $(ASM_OBJS) $(KERNEL_LIB) boot/linker.ld
+	$(LD) $(LDFLAGS) -o $@ $(ASM_OBJS) $(KERNEL_LIB)
 
 # --- Panic-test kernel (feature-gated) ----------------------------------------
 
-build-panic: $(OUT)/entry.o boot/linker.ld
+build-panic: $(ASM_OBJS) boot/linker.ld
 	cd kernel_rs && cargo build --release --features panic_test
-	$(LD) $(LDFLAGS) -o $(OUT)/kernel-panic.elf $(OUT)/entry.o $(KERNEL_LIB)
+	$(LD) $(LDFLAGS) -o $(OUT)/kernel-panic.elf $(ASM_OBJS) $(KERNEL_LIB)
 
 # --- Page-fault-test kernel ---------------------------------------------------
 
-build-pf: $(OUT)/entry.o boot/linker.ld
+build-pf: $(ASM_OBJS) boot/linker.ld
 	cd kernel_rs && cargo build --release --features pf_test
-	$(LD) $(LDFLAGS) -o $(OUT)/kernel-pf.elf $(OUT)/entry.o $(KERNEL_LIB)
+	$(LD) $(LDFLAGS) -o $(OUT)/kernel-pf.elf $(ASM_OBJS) $(KERNEL_LIB)
 
 # --- IDT-smoke-test kernel ---------------------------------------------------
 
-build-idt: $(OUT)/entry.o boot/linker.ld
+build-idt: $(ASM_OBJS) boot/linker.ld
 	cd kernel_rs && cargo build --release --features idt_smoke_test
-	$(LD) $(LDFLAGS) -o $(OUT)/kernel-idt.elf $(OUT)/entry.o $(KERNEL_LIB)
+	$(LD) $(LDFLAGS) -o $(OUT)/kernel-idt.elf $(ASM_OBJS) $(KERNEL_LIB)
 
 # --- Image / Run / Test -------------------------------------------------------
 
