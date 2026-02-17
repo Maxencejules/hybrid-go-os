@@ -6,6 +6,8 @@ import pytest
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ISO_PATH = os.path.join(REPO_ROOT, "out", "os.iso")
 ISO_PANIC_PATH = os.path.join(REPO_ROOT, "out", "os-panic.iso")
+ISO_PF_PATH = os.path.join(REPO_ROOT, "out", "os-pf.iso")
+ISO_IDT_PATH = os.path.join(REPO_ROOT, "out", "os-idt.iso")
 QEMU_TIMEOUT = 10  # seconds
 
 
@@ -47,3 +49,19 @@ def qemu_serial():
 def qemu_serial_panic():
     """Boot the panic-test OS image and return captured serial output."""
     return _boot_iso(ISO_PANIC_PATH)
+
+
+@pytest.fixture
+def qemu_serial_pf():
+    """Boot the page-fault-test OS image and return captured serial output."""
+    if not os.path.isfile(ISO_PF_PATH):
+        pytest.skip(f"ISO not built: {ISO_PF_PATH}")
+    return _boot_iso(ISO_PF_PATH)
+
+
+@pytest.fixture
+def qemu_serial_idt():
+    """Boot the IDT-smoke-test OS image and return captured serial output."""
+    if not os.path.isfile(ISO_IDT_PATH):
+        pytest.skip(f"ISO not built: {ISO_IDT_PATH}")
+    return _boot_iso(ISO_IDT_PATH)
