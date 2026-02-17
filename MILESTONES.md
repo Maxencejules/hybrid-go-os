@@ -1,42 +1,93 @@
-# Rugo Milestone Plan: Rust Kernel (low-level) + Go Services (high-level)
+# Rugo Milestones
 
 Date: 2026-02-17
 Target: x86-64, QEMU-first, Limine boot protocol
 
-Intent:
+---
+
+## How to read this document
+
+This repository contains two implementation lanes for the same OS design:
+
+| Lane | Language | Location | Purpose |
+|------|----------|----------|---------|
+| **Legacy** | C + Go (gccgo) | `legacy/` | Completed reference baseline (M0-M7 + G0). Preserved as a working fallback and architectural reference. |
+| **Rugo** | Rust (no_std) + Go (TinyGo, planned) | repo root | Rewrite target. The default build. Milestones are re-implemented in Rust with the same acceptance criteria. |
+
+**Legacy is not Rugo.** Legacy is a reference implementation that proved out the
+milestone design. Rugo is the production rewrite. Both share the same milestone
+definitions and acceptance tests, but track completion independently.
+
+Milestones M0-M7 define kernel functionality (boot, memory, scheduling, user
+mode, IPC, drivers, filesystem, networking). Go milestones define user-space
+service integration: G0 is legacy-only (gccgo kernel entry), G1 and G2 are
+Rugo-only (TinyGo services and full Go port).
+
+---
+
+## Repo lanes and how to run
+
+### Rugo (default)
+
+```bash
+# Native (requires nightly Rust, nasm, ld, xorriso, qemu, pytest)
+make build        # Compile Rust kernel → out/kernel.elf
+make image        # Build bootable ISO → out/os.iso
+make image-panic  # Build panic-test ISO → out/os-panic.iso
+make test-qemu    # Build both images, run pytest (2 tests)
+
+# Docker (cross-platform, no host toolchain needed)
+make docker-all
+```
+
+Tests: `tests/boot/test_boot_banner.py`, `tests/boot/test_panic_path.py`
+
+### Legacy
+
+```bash
+# From repo root (requires nasm, gcc, gccgo, ld, objcopy, xorriso, qemu, pytest)
+make -C legacy build
+make -C legacy image
+make -C legacy test-qemu   # 16 tests
+```
+
+Tests: `legacy/tests/` (boot, trap, sched, user, ipc, drivers, fs, pkg, net)
+
+**Note:** Both lanes output to `out/`. Building one lane overwrites the other's
+`kernel.elf` and `os.iso`.
+
+---
+
+## Milestone status matrix
+
+| # | Milestone | Legacy | Rugo | Evidence |
+|---|-----------|--------|------|----------|
+| M0 | Boot + serial | ✅ | ✅ | Legacy: `legacy/tests/boot/test_boot_banner.py` (KERNEL markers). Rugo: `tests/boot/test_boot_banner.py` + `tests/boot/test_panic_path.py` (RUGO markers). |
+| M1 | Paging + traps | ✅ | — | Legacy: `legacy/tests/boot/test_paging_enabled.py`, `legacy/tests/trap/test_page_fault_report.py`. Rugo: not started. |
+| M2 | Scheduler + threads | ✅ | — | Legacy: `legacy/tests/sched/test_timer_ticks.py`, `legacy/tests/sched/test_two_threads.py`. Rugo: not started. |
+| M3 | User mode + syscalls | ✅ | — | Legacy: `legacy/tests/user/test_enter_user_mode.py`, `test_syscall_roundtrip.py`, `test_user_fault.py`. Rugo: not started. |
+| M4 | IPC + shared memory | ✅ | — | Legacy: `legacy/tests/ipc/test_ping_pong.py`, `legacy/tests/ipc/test_shm_bulk.py`. Rugo: not started. |
+| M5 | VirtIO block + syscalls | ✅ | — | Legacy: `legacy/tests/drivers/test_virtio_blk_identify.py`, `test_virtio_blk_rw.py`. Rugo: not started. |
+| M6 | Filesystem + pkg + shell | ✅ | — | Legacy: `legacy/tests/fs/test_fsd_smoke.py`, `legacy/tests/pkg/test_pkg_install_run.py`. Rugo: not started. |
+| M7 | VirtIO net + UDP echo | ✅ | — | Legacy: `legacy/tests/net/test_udp_echo.py`. Rugo: not started (optional). |
+| G0 | Go kernel entry (gccgo) | ✅ | n/a | Legacy: `legacy/tests/boot/test_go_entry.py`. Legacy-only milestone. |
+| G1 | Go services (TinyGo) | n/a | — | Rugo-only milestone. Not started. |
+| G2 | Full Go port | n/a | — | Rugo-only milestone. Not started. Long-term. |
+
+Legend: ✅ = done with passing tests, — = not started, n/a = not applicable to this lane.
+
+---
+
+## Intent and architecture boundary
+
 - Rust owns kernel mechanisms (correctness-critical, no_std).
 - Go owns high-level user space services and the ecosystem.
 - Go Track A (TinyGo-first) is the short-term path to get Go services running.
-- Go Track B (full Go port) is explicitly long-term and should start only after the kernel ABI/process model stabilizes.
-
----
-
-## 0) Key constraints and design choices
-
-### Rust kernel target and no_std stance
-- Kernel code is Rust `no_std` (often also `no_main`) compiled for a bare-metal target such as `x86_64-unknown-none`.
-- A thin assembly layer still exists for CPU entry, trap stubs, and context switch glue.
-
-### Go in user space, not kernel
-- Go is used for high-level services in user space (fsd, pkgd, netd, svcman).
-- Running standard Go binaries on a new OS is a porting effort (a new GOOS/GOARCH combination). This is not the short-term path.
-
-### Go track decision (explicit)
-Track A: TinyGo-first (short-term)
-- Goal: get 1-3 Go services running early with a constrained subset of Go/stdlib.
-- Expectation: avoid heavy reflection patterns; keep deps minimal.
-- Outcome: usable Go ecosystem inside your OS earlier.
-
-Track B: Full Go port (long-term)
-- Goal: run standard Go binaries produced by the stock toolchain (a real GOOS/GOARCH port).
-- Start condition: syscall ABI and process model have stopped changing frequently; you are ready to maintain a stable runtime contract.
-- Outcome: standard Go runtime and toolchain support for your OS.
-
----
-
-## 1) Architecture boundary
+- Go Track B (full Go port) is explicitly long-term and should start only after
+  the kernel ABI/process model stabilizes.
 
 ### Kernel (Rust) provides mechanisms
+
 - Memory management: physical allocator, paging, per-process page tables
 - Traps: IDT, exception handling, syscall entry dispatch
 - Scheduling: threads, runnable queues, timers
@@ -45,6 +96,7 @@ Track B: Full Go port (long-term)
 - Minimal drivers required to boot and test under QEMU (VirtIO preferred early)
 
 ### User space (Go services) provides policy and ecosystem
+
 - Service manager: svcman
 - Filesystem service: fsd
 - Package manager: pkg and pkgd
@@ -53,98 +105,124 @@ Track B: Full Go port (long-term)
 
 ---
 
-## 2) Milestone overview
+## Key constraints and design choices
 
-M0: Boot and serial logging (asm + Rust entry)
-R1: Paging + traps (IDT) + page fault reporting (Rust)
-R2: Scheduler + kernel threads (Rust)
-R3: User mode + syscall ABI v0 (Rust kernel, C or Rust userland)
-R4: IPC + shared memory + service registry v0
-R5: QEMU drivers: VirtIO block in kernel (Rust) + block syscalls
-R6: Filesystem and package manager v0 (services; shell runs a packaged app)
-Optional R7: VirtIO net in kernel (Rust) + net syscalls + UDP demo
+### Rust kernel target and no_std stance
 
-G1: Go services bringup (Track A: TinyGo-first)
-G2: Full Go port (Track B: long-term, optional until mature)
+- Kernel code is Rust `no_std` compiled for `x86_64-unknown-none`.
+- A thin assembly layer exists for CPU entry (`arch/x86_64/entry.asm`).
+- Build uses `build-std = ["core"]` with `compiler-builtins-mem`.
+
+### Go in user space, not kernel
+
+- Go is used for high-level services in user space (fsd, pkgd, netd, svcman).
+- Running standard Go binaries on a new OS is a porting effort (a new
+  GOOS/GOARCH combination). This is not the short-term path.
+
+### Go track decision (explicit)
+
+Track A: TinyGo-first (short-term)
+- Goal: get 1-3 Go services running early with a constrained subset of Go/stdlib.
+- Expectation: avoid heavy reflection patterns; keep deps minimal.
+
+Track B: Full Go port (long-term)
+- Goal: run standard Go binaries produced by the stock toolchain.
+- Start condition: syscall ABI and process model have stopped changing.
 
 ---
 
-## M0: Boot + serial logging (asm + Rust entry)
+## M0: Boot + serial logging
 
 ### Definition of done
+
 - Limine boots the kernel in QEMU.
 - Serial output prints deterministic markers and exits cleanly via debug-exit.
-- Panic path prints a deterministic marker and exits with failure.
-
-### Issues
-- [ ] (p0) Limine boot image skeleton (ISO builder, limine.conf)
-- [ ] (p0) asm `_start` sets stack and calls Rust entry
-- [ ] (p0) Rust kernel skeleton: `kmain()` prints markers
-- [ ] (p0) `tools/run_qemu.sh` canonical runner
-- [ ] (p0) CI: build + boot smoke test in headless QEMU
+- Panic path prints a deterministic marker and exits.
 
 ### Acceptance tests (marker-based)
-- `tests/boot/test_boot_banner.py` expects:
-  - `RUGO: boot ok`
-  - `RUGO: halt ok`
-- `tests/boot/test_panic_path.py` expects:
-  - `RUGO: panic code=...`
+
+| Test | Markers | ISO |
+|------|---------|-----|
+| `test_boot_banner` | `RUGO: boot ok`, `RUGO: halt ok` | Normal (`out/os.iso`) |
+| `test_panic_path` | `RUGO: panic code=...` | Panic (`out/os-panic.iso`, built with `panic_test` feature) |
+
+### Legacy evidence
+
+- `legacy/tests/boot/test_boot_banner.py` asserts `KERNEL: boot ok`, `KERNEL: halt ok`
+- `legacy/kernel/main.c`, `legacy/arch/x86_64/entry.asm`
+
+### Rugo evidence
+
+- `tests/boot/test_boot_banner.py` asserts `RUGO: boot ok`, `RUGO: halt ok`
+- `tests/boot/test_panic_path.py` asserts `RUGO: panic code=`
+- `kernel_rs/src/lib.rs` (kmain + panic handler)
+- `arch/x86_64/entry.asm` (sets stack, calls kmain)
 
 ---
 
-## R1: Paging + traps + page fault reporting (Rust)
+## M1: Paging + traps + page fault reporting
 
 ### Definition of done
+
 - Paging enabled with known mapping strategy.
 - IDT installed.
 - Page fault handler logs fault address and error bits.
 
-### Issues
-- [ ] (p0) Parse Limine memory map, initialize physical allocator
-- [ ] (p0) Build initial page tables and enable paging
-- [ ] (p0) Install GDT and IDT
-- [ ] (p0) Exception handlers: page fault, GPF, double fault
-- [ ] (p1) Add debug symbols and helpers (nm, objdump, addr2line workflow)
-
 ### Acceptance tests
-- `tests/boot/test_paging_enabled.py` expects:
-  - `MM: paging=on`
-- `tests/trap/test_page_fault_report.py` expects:
-  - `PF: addr=0x... err=0x...`
-- `tests/trap/test_idt_smoke.py` expects:
-  - deterministic trap marker for a forced divide-by-zero or breakpoint
+
+| Test | Markers |
+|------|---------|
+| `test_paging_enabled` | `MM: paging=on` |
+| `test_page_fault_report` | `PF: addr=0x... err=0x...` |
+| `test_idt_smoke` | Deterministic trap marker for a forced exception |
+
+### Legacy evidence
+
+- `legacy/tests/boot/test_paging_enabled.py`, `legacy/tests/trap/test_page_fault_report.py`
+- `legacy/kernel/vmm.c`, `legacy/kernel/pmm.c`, `legacy/arch/x86_64/idt.c`, `legacy/arch/x86_64/trap.c`
+
+### Rugo evidence
+
+- Not started.
 
 ---
 
-## R2: Scheduler + kernel threads (Rust)
+## M2: Scheduler + kernel threads
 
 ### Definition of done
+
 - Timer interrupts tick.
 - At least two kernel threads can run and context switch.
 - A minimal lock primitive exists and is safe with interrupts.
 
-### Issues
-- [ ] (p1) Timer source configured (PIT or APIC timer)
-- [ ] (p1) Thread struct, runnable queue, context switch glue
-- [ ] (p1) Preemption via timer tick, safe critical section rules
-- [ ] (p1) Kernel test threads printing markers A and B
-
 ### Acceptance tests
-- `tests/sched/test_timer_ticks.py` expects:
-  - `TICK: 100`
-- `tests/sched/test_two_threads.py` expects:
-  - interleaved `A` and `B`
+
+| Test | Markers |
+|------|---------|
+| `test_timer_ticks` | `TICK: 100` |
+| `test_two_threads` | Interleaved `A` and `B` |
+
+### Legacy evidence
+
+- `legacy/tests/sched/test_timer_ticks.py`, `legacy/tests/sched/test_two_threads.py`
+- `legacy/kernel/sched.c`, `legacy/arch/x86_64/pit.c`, `legacy/arch/x86_64/context.asm`
+
+### Rugo evidence
+
+- Not started.
 
 ---
 
-## R3: User mode + syscall ABI v0
+## M3: User mode + syscall ABI v0
 
 ### Definition of done
+
 - Kernel can enter ring 3.
 - Syscalls round-trip safely.
 - User faults are contained and do not crash the kernel.
 
 ### Syscall ABI v0 (minimum)
+
 - debug: `sys_debug_write`
 - tasking: `sys_thread_spawn`, `sys_thread_exit`, `sys_yield`
 - memory: `sys_vm_map`, `sys_vm_unmap`
@@ -152,153 +230,203 @@ G2: Full Go port (Track B: long-term, optional until mature)
 - ipc: `sys_ipc_send`, `sys_ipc_recv`
 - time: `sys_time_now`
 
-### Issues
-- [ ] (p1) User address space creation and mapping
-- [ ] (p1) Syscall entry/exit path (asm stub, Rust dispatch)
-- [ ] (p1) Minimal user runtime (start with freestanding C or Rust userland)
-- [ ] (p1) Document syscall numbers and structs in `docs/abi/syscall_v0.md`
-- [ ] (p1) User pointer validation strategy (copyin/copyout policy)
-
 ### Acceptance tests
-- `tests/user/test_enter_user_mode.py` expects:
-  - `USER: hello`
-- `tests/user/test_syscall_roundtrip.py` expects:
-  - `SYSCALL: ok`
-- `tests/user/test_user_fault.py` expects:
-  - `USER: killed` (or equivalent) and kernel continues running
+
+| Test | Markers |
+|------|---------|
+| `test_enter_user_mode` | `USER: hello` |
+| `test_syscall_roundtrip` | `SYSCALL: ok` |
+| `test_user_fault` | `USER: killed` and kernel continues |
+
+### Legacy evidence
+
+- `legacy/tests/user/test_enter_user_mode.py`, `test_syscall_roundtrip.py`, `test_user_fault.py`
+- `legacy/kernel/syscall.c`, `legacy/kernel/process.c`, `legacy/user/init.c`, `legacy/user/fault.c`
+
+### Rugo evidence
+
+- Not started.
 
 ---
 
-## R4: IPC + shared memory + service registry v0
+## M4: IPC + shared memory + service registry v0
 
 ### Definition of done
+
 - Two user processes can exchange messages through kernel IPC endpoints.
 - Shared memory can be created and mapped by two processes.
-- A service registry exists for name to endpoint resolution.
-
-### Issues
-- [ ] (p1) IPC endpoint object and queueing
-- [ ] (p1) Blocking recv, wakeups
-- [ ] (p1) Shared memory objects integrated with handle table
-- [ ] (p2) Service registry: kernel table or svcman process (pick one and document)
+- A service registry exists for name-to-endpoint resolution.
 
 ### Acceptance tests
-- `tests/ipc/test_ping_pong.py` expects:
-  - `PING: ok` and `PONG: ok`
-- `tests/ipc/test_shm_bulk.py` expects:
-  - `SHM: checksum ok`
+
+| Test | Markers |
+|------|---------|
+| `test_ping_pong` | `PING: ok`, `PONG: ok` |
+| `test_shm_bulk` | `SHM: checksum ok` |
+
+### Legacy evidence
+
+- `legacy/tests/ipc/test_ping_pong.py`, `legacy/tests/ipc/test_shm_bulk.py`
+- `legacy/kernel/ipc.c`, `legacy/kernel/shm.c`, `legacy/kernel/service_registry.c`
+- `legacy/user/ping.c`, `legacy/user/pong.c`, `legacy/user/shm_writer.c`, `legacy/user/shm_reader.c`
+
+### Rugo evidence
+
+- Not started.
 
 ---
 
-## R5: VirtIO block in kernel (Rust) + block syscalls
-
-This is intentionally hybrid: drivers in kernel for early stability and speed, while high-level policy lives in user space.
+## M5: VirtIO block + block syscalls
 
 ### Definition of done
+
 - VirtIO block works in QEMU.
-- Kernel exposes block read/write syscalls (or a single block syscall).
+- Kernel exposes block read/write syscalls.
 - Read/write passes deterministic data integrity tests.
 
-### Issues
-- [ ] (p2) PCI discovery and VirtIO transport (MMIO or PCI)
-- [ ] (p2) Virtqueue implementation and request submission
-- [ ] (p2) Block read/write API and syscalls
-- [ ] (p2) Disk image builder for tests
-
 ### Acceptance tests
-- `tests/drivers/test_virtio_blk_identify.py` expects:
-  - `BLK: found virtio-blk`
-- `tests/drivers/test_virtio_blk_rw.py` expects:
-  - `BLK: rw ok`
+
+| Test | Markers |
+|------|---------|
+| `test_virtio_blk_identify` | `BLK: found virtio-blk` |
+| `test_virtio_blk_rw` | `BLK: rw ok` |
+
+### Legacy evidence
+
+- `legacy/tests/drivers/test_virtio_blk_identify.py`, `legacy/tests/drivers/test_virtio_blk_rw.py`
+- `legacy/kernel/virtio_blk.c`, `legacy/kernel/pci.c`
+
+### Rugo evidence
+
+- Not started.
 
 ---
 
-## R6: Filesystem + package manager + shell
+## M6: Filesystem + package manager + shell
 
 ### Definition of done
+
 - A filesystem service exists that can open, read, write, list.
 - A package tool can install a package and run an app.
 - A shell can run a packaged hello app.
 
-### Issues
-- [ ] (p2) Filesystem format choice for v0 and documentation
-- [ ] (p2) `fsd` protocol over IPC or syscalls (pick one, document)
-- [ ] (p2) `pkg` package format v0: manifest + payload archive
-- [ ] (p2) `sh` minimal shell: run, ls, cat, echo
-- [ ] (p2) Integration image builder includes a sample package
-
 ### Acceptance tests
-- `tests/fs/test_fsd_smoke.py` expects:
-  - `FSD: mount ok`
-- `tests/pkg/test_pkg_install_run.py` expects:
-  - `APP: hello world`
+
+| Test | Markers |
+|------|---------|
+| `test_fsd_smoke` | `FSD: mount ok` |
+| `test_pkg_install_run` | `APP: hello world` |
+
+### Legacy evidence
+
+- `legacy/tests/fs/test_fsd_smoke.py`, `legacy/tests/pkg/test_pkg_install_run.py`
+- `legacy/user/fsd.c`, `legacy/user/pkg.c`, `legacy/user/sh.c`, `legacy/user/hello.c`
+
+### Rugo evidence
+
+- Not started.
 
 ---
 
-## Optional R7: VirtIO net in kernel (Rust) + net syscalls + UDP demo
+## M7: VirtIO net + net syscalls + UDP echo (optional)
 
 ### Definition of done
+
 - VirtIO net works in QEMU.
-- Kernel exposes send and recv syscalls.
+- Kernel exposes send/recv syscalls.
 - A UDP echo demo passes.
 
-### Issues
-- [ ] (p3) VirtIO net driver in kernel
-- [ ] (p3) Net syscalls: send/recv
-- [ ] (p3) UDP echo demo app and QEMU networking setup
-
 ### Acceptance tests
-- `tests/net/test_udp_echo.py` expects:
-  - UDP echo marker
+
+| Test | Markers |
+|------|---------|
+| `test_udp_echo` | `NET: udp echo` |
+
+### Legacy evidence
+
+- `legacy/tests/net/test_udp_echo.py`
+- `legacy/kernel/virtio_net.c`, `legacy/user/netd.c`
+
+### Rugo evidence
+
+- Not started.
 
 ---
 
-## G1: Go services bringup (Track A: TinyGo-first)
+## G0: Go kernel entry (gccgo) — Legacy only
+
+This milestone exists only in the legacy lane. It demonstrated Go code running
+in kernel context via gccgo. The Rugo lane does not use gccgo; Go services will
+run in user space (see G1, G2).
+
+### Acceptance tests
+
+| Test | Markers |
+|------|---------|
+| `test_go_entry` | `GO: kmain ok` |
+
+### Legacy evidence
+
+- `legacy/tests/boot/test_go_entry.py`
+- `legacy/kernelgo/entry.go`, `legacy/rtshim/bridge.c`, `legacy/rtshim/runtime_stubs.c`
+
+---
+
+## G1: Go services bringup (Track A: TinyGo-first) — Rugo only
 
 ### Definition of done
-- At least one user space service is written in Go and runs on your OS.
-- The service uses the existing syscall ABI and IPC primitives (no new kernel features required).
-- A test asserts a deterministic marker such as `GOUSR: ok`.
 
-### Issues
-- [ ] (p2) Define syscall and IPC bindings for Go (thin wrappers)
-- [ ] (p2) Add a TinyGo target or build mode for your OS userland
-- [ ] (p2) Implement one Go service (suggested: svcman client or IPC echo server)
-- [ ] (p2) Add `tests/go/test_go_user_service.py`
+- At least one user space service is written in Go and runs on the Rugo kernel.
+- The service uses the existing syscall ABI and IPC primitives.
+- A test asserts `GOUSR: ok`.
 
 ### Acceptance tests
-- `tests/go/test_go_user_service.py` expects:
-  - `GOUSR: ok`
+
+| Test | Markers |
+|------|---------|
+| `test_go_user_service` | `GOUSR: ok` |
+
+### Rugo evidence
+
+- Not started. Depends on M3 (user mode + syscall ABI).
 
 ---
 
-## G2: Full Go port (Track B: long-term)
+## G2: Full Go port (Track B: long-term) — Rugo only
 
-This milestone is intentionally long-term. Treat it as optional until the OS stops churning.
+This milestone is intentionally long-term. Treat it as optional until the OS
+stops churning.
 
 ### Start conditions (gate)
+
 - Syscall ABI has been stable across multiple releases.
 - Process/thread model is stable and documented.
-- Filesystem and networking contracts are stable enough that the Go runtime can rely on them.
+- Filesystem and networking contracts are stable enough that the Go runtime can
+  rely on them.
 
 ### Definition of done
-- Standard Go toolchain can produce binaries for your GOOS/GOARCH.
-- Go runtime syscalls and thread management work on your OS.
-- A standard Go hello binary runs and prints a deterministic marker.
 
-### Issues
-- [ ] (p3) Choose GOOS name and define the runtime syscall surface needed
-- [ ] (p3) Implement runtime glue (syscalls, threads, timers, signals or equivalents)
-- [ ] (p3) Toolchain and linker integration (build and run standard Go binaries)
-- [ ] (p3) Add `tests/go/test_std_go_binary.py`
+- Standard Go toolchain can produce binaries for your GOOS/GOARCH.
+- Go runtime syscalls and thread management work on the OS.
+- A standard Go hello binary runs and prints `GOSTD: ok`.
 
 ### Acceptance tests
-- `tests/go/test_std_go_binary.py` expects:
-  - `GOSTD: ok`
+
+| Test | Markers |
+|------|---------|
+| `test_std_go_binary` | `GOSTD: ok` |
+
+### Rugo evidence
+
+- Not started. Depends on M3+ stability.
 
 ---
 
-## References (for implementers)
-- Rust target `x86_64-unknown-none` platform support notes (no std; allocator required for alloc).
+## References
+
+- Rust target `x86_64-unknown-none` platform support notes (no std; allocator
+  required for alloc).
 - Go porting policy (ports are OS/arch; avoid broken/incomplete ports).
 - TinyGo documentation (targets; language and stdlib support notes).
+- Build toolchain details: `docs/build/rust_toolchain.md`
+- Legacy Go toolchain: `docs/build/go_toolchain.md`
