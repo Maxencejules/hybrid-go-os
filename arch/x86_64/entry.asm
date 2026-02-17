@@ -9,6 +9,7 @@ section .bss
 align 16
 stack_bottom:
     resb 16384              ; 16 KiB kernel stack
+global stack_top
 stack_top:
 
 ; --------------- TEXT: entry ---------------

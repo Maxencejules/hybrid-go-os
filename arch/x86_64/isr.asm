@@ -33,6 +33,9 @@ ISR_ERR   14               ; #PF  Page Fault
 ; --- IRQ stubs (remapped by PIC to vectors 32+) ---
 ISR_NOERR 32               ; IRQ0  PIT timer
 
+; --- Software interrupt for syscalls (int 0x80 = vector 128) ---
+ISR_NOERR 128              ; Syscall gate (DPL=3 set in IDT by Rust)
+
 ; --- Common tail: save all GPRs, call Rust handler, restore, iretq ---
 ;
 ; Stack layout on entry (before GPR push):
