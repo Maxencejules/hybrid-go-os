@@ -2,9 +2,9 @@ name: CI — Build & QEMU smoke test
 
 on:
   push:
-    branches: [main]
+    branches: [main, master]
   pull_request:
-    branches: [main]
+    branches: [main, master]
 
 jobs:
   build-and-test:
@@ -12,8 +12,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            nasm xorriso qemu-system-x86 \
+            python3 python3-pytest \
+            git make curl binutils
+
+      - name: Install Rust nightly
+        uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rust-src
+
+      - name: Build kernel
         run: make build
 
-      - name: Test (placeholder)
-        run: echo "TODO — wire up make test-qemu once build produces an image"
+      - name: Create bootable ISO
+        run: make image
+
+      - name: QEMU smoke tests
+        run: make test-qemu
