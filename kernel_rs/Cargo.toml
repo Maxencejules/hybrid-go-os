@@ -19,6 +19,7 @@ shm_test = []
 blk_test = []
 fs_test = []
 net_test = []
+go_test = []
 
 [profile.dev]
 panic = "abort"

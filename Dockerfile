@@ -15,11 +15,24 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     dos2unix \
     ca-certificates \
     curl \
+    wget \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Rust nightly with rust-src (required for build-std)
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | \
     sh -s -- -y --default-toolchain nightly --component rust-src
 ENV PATH="/root/.cargo/bin:${PATH}"
+
+# Install Go 1.25 (required by TinyGo 0.40)
+RUN wget -q https://go.dev/dl/go1.25.3.linux-amd64.tar.gz -O /tmp/go.tar.gz && \
+    tar -C /usr/local -xzf /tmp/go.tar.gz && \
+    rm /tmp/go.tar.gz
+ENV PATH="/usr/local/go/bin:${PATH}"
+
+# Install TinyGo 0.40.1
+RUN wget -q https://github.com/tinygo-org/tinygo/releases/download/v0.40.1/tinygo_0.40.1_amd64.deb -O /tmp/tinygo.deb && \
+    dpkg -i /tmp/tinygo.deb && \
+    rm /tmp/tinygo.deb
+ENV PATH="/usr/local/lib/tinygo/bin:${PATH}"
 
 WORKDIR /src

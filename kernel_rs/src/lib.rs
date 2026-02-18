@@ -3,23 +3,24 @@
 
 use core::panic::PanicInfo;
 
-// Shorthand for "any M3 user-mode test feature is active (includes M5 blk_test, M6 fs_test)"
+// Shorthand for "any M3 user-mode test feature is active (includes M5 blk_test, M6 fs_test, G1 go_test)"
 macro_rules! cfg_m3 {
     ($($item:item)*) => {
         $(
-            #[cfg(any(feature = "user_hello_test", feature = "syscall_test", feature = "user_fault_test", feature = "blk_test", feature = "fs_test"))]
+            #[cfg(any(feature = "user_hello_test", feature = "syscall_test", feature = "user_fault_test", feature = "blk_test", feature = "fs_test", feature = "go_test"))]
             $item
         )*
     };
 }
 
-// Shorthand for "any user-mode feature (M3 or R4 or M5 or M6)"
+// Shorthand for "any user-mode feature (M3 or R4 or M5 or M6 or G1)"
 macro_rules! cfg_user {
     ($($item:item)*) => {
         $(
             #[cfg(any(
                 feature = "user_hello_test", feature = "syscall_test", feature = "user_fault_test",
                 feature = "ipc_test", feature = "shm_test", feature = "blk_test", feature = "fs_test",
+                feature = "go_test",
             ))]
             $item
         )*
@@ -534,6 +535,7 @@ unsafe fn sys_debug_write(buf: u64, len: u64) -> u64 {
     #[cfg(any(
         feature = "user_hello_test", feature = "syscall_test", feature = "user_fault_test",
         feature = "ipc_test", feature = "shm_test", feature = "blk_test", feature = "fs_test",
+        feature = "go_test",
     ))]
     {
         let hhdm = HHDM_OFFSET;
@@ -572,6 +574,7 @@ unsafe fn sys_time_now() -> u64 {
 #[cfg(any(
     feature = "user_hello_test", feature = "syscall_test", feature = "user_fault_test",
     feature = "ipc_test", feature = "shm_test", feature = "blk_test", feature = "fs_test",
+    feature = "go_test",
 ))]
 unsafe fn check_page_user_accessible(va: u64, hhdm: u64) -> bool {
     let cr3: u64;
@@ -654,7 +657,7 @@ cfg_m3! {
         *pd.add(3) = kv2p(USER_PT_STACK.0.as_ptr() as u64) | 0x07;
 
         let pt_code = USER_PT_CODE.0.as_mut_ptr() as *mut u64;
-        *pt_code = kv2p(USER_CODE_PAGE.0.as_ptr() as u64) | 0x05;
+        *pt_code = kv2p(USER_CODE_PAGE.0.as_ptr() as u64) | 0x07; // RW so TinyGo .data works
 
         let pt_stack = USER_PT_STACK.0.as_mut_ptr() as *mut u64;
         *pt_stack.add(511) = kv2p(USER_STACK_PAGE.0.as_ptr() as u64) | 0x07;
@@ -700,6 +703,11 @@ cfg_m3! {
         0xf4,
     ];
 }
+
+// --------------- G1: TinyGo user blob ----------------------------------------
+
+#[cfg(feature = "go_test")]
+static GO_USER_BIN: &[u8] = include_bytes!("../../out/gousr.bin");
 
 // =============================================================================
 // R4: IPC + shared memory + service registry
@@ -2544,6 +2552,15 @@ pub extern "C" fn kmain() -> ! {
         enter_ring3_at(USER_CODE_VA, USER_STACK_TOP);
     }
 
+    // G1: go_test — TinyGo user program
+    #[cfg(feature = "go_test")]
+    unsafe {
+        let kstack = &stack_top as *const u8 as u64;
+        tss_init(kstack);
+        setup_user_pages(GO_USER_BIN);
+        enter_ring3_at(USER_CODE_VA, USER_STACK_TOP);
+    }
+
     // M7: net_test — VirtIO net + UDP echo
     #[cfg(feature = "net_test")]
     unsafe {
@@ -2604,6 +2621,7 @@ pub extern "C" fn kmain() -> ! {
         feature = "blk_test",
         feature = "fs_test",
         feature = "net_test",
+        feature = "go_test",
     )))]
     {
         serial_write(b"RUGO: halt ok\n");
