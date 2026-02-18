@@ -63,6 +63,15 @@ Stubs return -1 (0xFFFFFFFFFFFFFFFF) and will be implemented in later milestones
 - Each endpoint has a single-slot message buffer (max 256 bytes per message).
 - Only one message can be buffered per endpoint at a time.
 
+### Single-slot semantics
+
+Each endpoint holds at most one buffered message. If `sys_ipc_send` is
+called on an endpoint whose slot is already occupied (i.e. a previous
+message was buffered and has not yet been consumed by `sys_ipc_recv`),
+the call returns -1 and the existing message is **not** overwritten.
+This makes send behavior deterministic: callers can detect back-pressure
+without silent data loss.
+
 ### Blocking semantics
 
 - `sys_ipc_recv` blocks if no message is available. The kernel saves the
@@ -70,7 +79,9 @@ Stubs return -1 (0xFFFFFFFFFFFFFFFF) and will be implemented in later milestones
 - `sys_ipc_send` is non-blocking. If a task is blocked on recv for the
   target endpoint, the message is delivered directly to the waiter's
   buffer and the waiter is marked ready.
-- If no waiter exists, the message is stored in the endpoint's buffer.
+- If no waiter exists **and** the endpoint's slot is empty, the message
+  is stored in the endpoint's buffer. If the slot is occupied, -1 is
+  returned.
 
 ### Message format
 

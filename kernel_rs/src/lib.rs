@@ -19,7 +19,7 @@ macro_rules! cfg_user {
         $(
             #[cfg(any(
                 feature = "user_hello_test", feature = "syscall_test", feature = "user_fault_test",
-                feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_svc_test", feature = "blk_test", feature = "fs_test",
+                feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "blk_test", feature = "fs_test",
                 feature = "go_test",
             ))]
             $item
@@ -31,7 +31,7 @@ macro_rules! cfg_user {
 macro_rules! cfg_r4 {
     ($($item:item)*) => {
         $(
-            #[cfg(any(feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_svc_test"))]
+            #[cfg(any(feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test"))]
             $item
         )*
     };
@@ -942,6 +942,11 @@ cfg_r4! {
         if ep >= R4_MAX_ENDPOINTS || !R4_ENDPOINTS[ep].active {
             return 0xFFFF_FFFF_FFFF_FFFF;
         }
+        // Single-slot buffer: reject if message already buffered
+        if R4_ENDPOINTS[ep].has_msg {
+            return 0xFFFF_FFFF_FFFF_FFFF;
+        }
+
         let n = if len > R4_MAX_MSG_LEN as u64 { R4_MAX_MSG_LEN } else { len as usize };
 
         // Copy from user to kernel buffer (validates range + page tables)
@@ -1744,6 +1749,58 @@ static SVC_BADPTR_BLOB: [u8; 58] = [
     // Data @43: "SVC: badptr ok\n"
     b'S', b'V', b'C', b':', b' ', b'b', b'a', b'd', b'p', b't',
     b'r', b' ', b'o', b'k', b'\n',
+];
+
+// IPC buffer-full blob (single task: send1 ok, send2 → -1, recv → msg1 intact)
+#[cfg(feature = "ipc_buffer_full_test")]
+static IPC_BUFFER_FULL_BLOB: [u8; 137] = [
+    // --- Step 1: sys_ipc_send(ep=0, &msg1, 4) ---
+    0x31, 0xFF,                                   // xor edi, edi          ; ep = 0
+    0x48, 0x8D, 0x35, 0x6B, 0x00, 0x00, 0x00,   // lea rsi, [rip+0x6B]  -> msg1 @0x74
+    0xBA, 0x04, 0x00, 0x00, 0x00,               // mov edx, 4
+    0xB8, 0x08, 0x00, 0x00, 0x00,               // mov eax, 8 (sys_ipc_send)
+    0xCD, 0x80,                                   // int 0x80
+    // Check rax == 0 (success)
+    0x48, 0x85, 0xC0,                             // test rax, rax
+    0x75, 0x59,                                   // jnz fail @0x73
+    // --- Step 2: sys_ipc_send(ep=0, &msg2, 4) → must return -1 ---
+    0x31, 0xFF,                                   // xor edi, edi
+    0x48, 0x8D, 0x35, 0x55, 0x00, 0x00, 0x00,   // lea rsi, [rip+0x55]  -> msg2 @0x78
+    0xBA, 0x04, 0x00, 0x00, 0x00,               // mov edx, 4
+    0xB8, 0x08, 0x00, 0x00, 0x00,               // mov eax, 8
+    0xCD, 0x80,                                   // int 0x80
+    // Check rax == -1 (buffer full)
+    0x48, 0x83, 0xF8, 0xFF,                       // cmp rax, -1
+    0x75, 0x3E,                                   // jne fail @0x73
+    // --- Step 3: sys_ipc_recv(ep=0, rsp-256, 256) → delivers msg1 ---
+    0x31, 0xFF,                                   // xor edi, edi
+    0x48, 0x89, 0xE6,                             // mov rsi, rsp
+    0x48, 0x81, 0xEE, 0x00, 0x01, 0x00, 0x00,   // sub rsi, 0x100
+    0xBA, 0x00, 0x01, 0x00, 0x00,               // mov edx, 256
+    0xB8, 0x09, 0x00, 0x00, 0x00,               // mov eax, 9 (sys_ipc_recv)
+    0xCD, 0x80,                                   // int 0x80
+    // Check rax == 4 (msg1 length)
+    0x48, 0x83, 0xF8, 0x04,                       // cmp rax, 4
+    0x75, 0x20,                                   // jne fail @0x73
+    // Check first byte == 'A' (0x41) — proves msg1 not overwritten
+    0x48, 0x89, 0xE6,                             // mov rsi, rsp
+    0x48, 0x81, 0xEE, 0x00, 0x01, 0x00, 0x00,   // sub rsi, 0x100
+    0x80, 0x3E, 0x41,                             // cmp byte [rsi], 0x41
+    0x75, 0x11,                                   // jne fail @0x73
+    // --- All passed: sys_debug_write("IPC: full ok\n", 13) ---
+    0x48, 0x8D, 0x3D, 0x13, 0x00, 0x00, 0x00,   // lea rdi, [rip+0x13]  -> msg_ok @0x7C
+    0xBE, 0x0D, 0x00, 0x00, 0x00,               // mov esi, 13
+    0x31, 0xC0,                                   // xor eax, eax (sys_debug_write)
+    0xCD, 0x80,                                   // int 0x80
+    0xF4,                                         // hlt
+    // fail:
+    0xF4,                                         // hlt
+    // Data @0x74: msg1 "AAAA"
+    b'A', b'A', b'A', b'A',
+    // Data @0x78: msg2 "BBBB"
+    b'B', b'B', b'B', b'B',
+    // Data @0x7C: "IPC: full ok\n"
+    b'I', b'P', b'C', b':', b' ', b'f', b'u', b'l', b'l', b' ', b'o', b'k', b'\n',
 ];
 
 // SHM blobs
@@ -2550,6 +2607,25 @@ pub extern "C" fn kmain() -> ! {
         setup_r4_pages(&SVC_BADPTR_BLOB, &SVC_BADPTR_BLOB);
 
         // Single task (no endpoints needed for svc_register)
+        R4_NUM_TASKS = 1;
+        r4_init_task(0, USER_CODE_VA, USER_STACK_TOP);
+        R4_TASKS[0].state = R4State::Running;
+        R4_CURRENT = 0;
+
+        enter_ring3_at(USER_CODE_VA, USER_STACK_TOP);
+    }
+
+    // R4: ipc_buffer_full_test — single task verifies send returns -1 on occupied slot
+    #[cfg(feature = "ipc_buffer_full_test")]
+    unsafe {
+        let kstack = &stack_top as *const u8 as u64;
+        tss_init(kstack);
+        setup_r4_pages(&IPC_BUFFER_FULL_BLOB, &IPC_BUFFER_FULL_BLOB);
+
+        // Pre-create endpoint 0
+        R4_ENDPOINTS[0].active = true;
+
+        // Single task
         R4_NUM_TASKS = 1;
         r4_init_task(0, USER_CODE_VA, USER_STACK_TOP);
         R4_TASKS[0].state = R4State::Running;
