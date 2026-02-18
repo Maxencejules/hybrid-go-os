@@ -20,6 +20,24 @@ jobs:
             python3 python3-pytest \
             git make curl binutils
 
+      # Go 1.25.3 + TinyGo 0.40.1 — pinned to match Dockerfile
+      - name: Install Go
+        run: |
+          wget -q https://go.dev/dl/go1.25.3.linux-amd64.tar.gz -O /tmp/go.tar.gz
+          sudo tar -C /usr/local -xzf /tmp/go.tar.gz
+          echo "/usr/local/go/bin" >> "$GITHUB_PATH"
+
+      - name: Install TinyGo
+        run: |
+          wget -q https://github.com/tinygo-org/tinygo/releases/download/v0.40.1/tinygo_0.40.1_amd64.deb -O /tmp/tinygo.deb
+          sudo dpkg -i /tmp/tinygo.deb
+          echo "/usr/local/lib/tinygo/bin" >> "$GITHUB_PATH"
+
+      - name: Verify TinyGo
+        run: |
+          go version
+          tinygo version
+
       - name: Install Rust nightly
         uses: dtolnay/rust-toolchain@nightly
         with:
