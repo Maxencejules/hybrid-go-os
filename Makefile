@@ -7,6 +7,8 @@
        build-user-hello image-user-hello build-syscall image-syscall \
        build-user-fault image-user-fault \
        build-ipc image-ipc build-shm image-shm \
+       build-blk image-blk \
+       build-fs image-fs \
        run test-qemu clean legacy docker-all
 
 # Tools
@@ -109,6 +111,12 @@ build-shm: $(ASM_OBJS) boot/linker.ld
 	cd kernel_rs && cargo build --release --features shm_test
 	$(LD) $(LDFLAGS) -o $(OUT)/kernel-shm.elf $(ASM_OBJS) $(KERNEL_LIB)
 
+# --- M5: VirtIO block test kernel ---------------------------------------------
+
+build-blk: $(ASM_OBJS) boot/linker.ld
+	cd kernel_rs && cargo build --release --features blk_test
+	$(LD) $(LDFLAGS) -o $(OUT)/kernel-blk.elf $(ASM_OBJS) $(KERNEL_LIB)
+
 # --- Image / Run / Test -------------------------------------------------------
 
 image: build
@@ -141,10 +149,23 @@ image-ipc: build-ipc
 image-shm: build-shm
 	KERNEL_ELF=kernel-shm.elf ISO_NAME=os-shm.iso bash tools/mkimage.sh
 
+image-blk: build-blk
+	KERNEL_ELF=kernel-blk.elf ISO_NAME=os-blk.iso bash tools/mkimage.sh
+
+# --- M6: Filesystem test kernel + disk image ---------------------------------
+
+build-fs: $(ASM_OBJS) boot/linker.ld
+	cd kernel_rs && cargo build --release --features fs_test
+	$(LD) $(LDFLAGS) -o $(OUT)/kernel-fs.elf $(ASM_OBJS) $(KERNEL_LIB)
+
+image-fs: build-fs
+	python3 tools/mkfs.py $(OUT)/fs-test.img
+	KERNEL_ELF=kernel-fs.elf ISO_NAME=os-fs.iso bash tools/mkimage.sh
+
 run: image
 	./tools/run_qemu.sh
 
-test-qemu: image image-panic image-pf image-idt image-sched image-user-hello image-syscall image-user-fault image-ipc image-shm
+test-qemu: image image-panic image-pf image-idt image-sched image-user-hello image-syscall image-user-fault image-ipc image-shm image-blk image-fs
 	python3 -m pytest tests/ -v
 
 clean:

@@ -16,6 +16,8 @@ syscall_test = []
 user_fault_test = []
 ipc_test = []
 shm_test = []
+blk_test = []
+fs_test = []
 
 [profile.dev]
 panic = "abort"
