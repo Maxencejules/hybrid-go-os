@@ -9,7 +9,8 @@
        build-ipc image-ipc build-shm image-shm \
        build-blk image-blk \
        build-fs image-fs \
-       run test-qemu clean legacy docker-all
+       build-net image-net \
+       run test-qemu clean legacy docker-all docker-legacy
 
 # Tools
 NASM    ?= nasm
@@ -162,10 +163,19 @@ image-fs: build-fs
 	python3 tools/mkfs.py $(OUT)/fs-test.img
 	KERNEL_ELF=kernel-fs.elf ISO_NAME=os-fs.iso bash tools/mkimage.sh
 
+# --- M7: VirtIO net test kernel -----------------------------------------------
+
+build-net: $(ASM_OBJS) boot/linker.ld
+	cd kernel_rs && cargo build --release --features net_test
+	$(LD) $(LDFLAGS) -o $(OUT)/kernel-net.elf $(ASM_OBJS) $(KERNEL_LIB)
+
+image-net: build-net
+	KERNEL_ELF=kernel-net.elf ISO_NAME=os-net.iso bash tools/mkimage.sh
+
 run: image
 	./tools/run_qemu.sh
 
-test-qemu: image image-panic image-pf image-idt image-sched image-user-hello image-syscall image-user-fault image-ipc image-shm image-blk image-fs
+test-qemu: image image-panic image-pf image-idt image-sched image-user-hello image-syscall image-user-fault image-ipc image-shm image-blk image-fs image-net
 	python3 -m pytest tests/ -v
 
 clean:
@@ -188,3 +198,12 @@ docker-all:
 		  -o -name "*.cfg" -o -name "*.conf" -o -name "*.rs" -o -name "*.toml" \) \
 		  -exec sed -i "s/\r$$//" {} + \
 		&& make clean build image test-qemu'
+
+docker-legacy:
+	docker build -t $(DOCKER_IMAGE) .
+	docker run --rm -v "$(CURDIR):/src" $(DOCKER_IMAGE) bash -c '\
+		find /src -maxdepth 5 -type f \( -name Makefile -o -name "*.c" -o -name "*.h" \
+		  -o -name "*.asm" -o -name "*.ld" -o -name "*.sh" -o -name "*.py" \
+		  -o -name "*.cfg" -o -name "*.conf" -o -name "*.go" \) \
+		  -exec sed -i "s/\r$$//" {} + \
+		&& make -C legacy clean build image test-qemu'

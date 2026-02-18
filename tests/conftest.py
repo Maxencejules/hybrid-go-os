@@ -1,5 +1,8 @@
 import os
+import socket
 import subprocess
+import threading
+import time
 
 import pytest
 
@@ -18,7 +21,9 @@ ISO_BLK_PATH = os.path.join(REPO_ROOT, "out", "os-blk.iso")
 BLK_DISK_IMG = os.path.join(REPO_ROOT, "out", "blk-test.img")
 ISO_FS_PATH = os.path.join(REPO_ROOT, "out", "os-fs.iso")
 FS_DISK_IMG = os.path.join(REPO_ROOT, "out", "fs-test.img")
+ISO_NET_PATH = os.path.join(REPO_ROOT, "out", "os-net.iso")
 QEMU_TIMEOUT = 10  # seconds
+NET_TIMEOUT = 15   # longer timeout for networking
 
 
 def _boot_iso(iso_path):
@@ -176,3 +181,77 @@ def qemu_serial_fs():
     if not os.path.isfile(FS_DISK_IMG):
         pytest.skip(f"Disk image not built: {FS_DISK_IMG}")
     return _boot_iso_with_disk(ISO_FS_PATH, FS_DISK_IMG)
+
+
+def _find_free_udp_port():
+    """Find a free UDP port on localhost."""
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.bind(("127.0.0.1", 0))
+    port = s.getsockname()[1]
+    s.close()
+    return port
+
+
+def _boot_iso_with_net(iso_path):
+    """Boot an ISO in QEMU with virtio-net and inject a UDP echo packet."""
+    assert os.path.isfile(iso_path), f"ISO not found: {iso_path}"
+
+    udp_port = _find_free_udp_port()
+
+    proc = subprocess.Popen(
+        [
+            "qemu-system-x86_64",
+            "-machine", "q35",
+            "-cpu", "qemu64",
+            "-m", "128",
+            "-serial", "stdio",
+            "-display", "none",
+            "-no-reboot",
+            "-device", "isa-debug-exit,iobase=0xf4,iosize=0x04",
+            "-cdrom", iso_path,
+            "-netdev", f"user,id=n0,hostfwd=udp::{udp_port}-10.0.2.15:7",
+            "-device", "virtio-net-pci,netdev=n0,disable-modern=on",
+        ],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+
+    def _send_udp():
+        """Send UDP packets after a boot delay to trigger the echo."""
+        time.sleep(3)
+        for _ in range(5):
+            try:
+                sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                sock.sendto(b"echo test", ("127.0.0.1", udp_port))
+                sock.close()
+            except OSError:
+                pass
+            time.sleep(0.5)
+
+    sender = threading.Thread(target=_send_udp, daemon=True)
+    sender.start()
+
+    try:
+        stdout, stderr = proc.communicate(timeout=NET_TIMEOUT)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        stdout, stderr = proc.communicate()
+        stdout_str = stdout.decode("utf-8", errors="replace") if stdout else ""
+        pytest.fail(
+            f"QEMU timed out ({NET_TIMEOUT}s). Captured serial:\n{stdout_str}"
+        )
+
+    return subprocess.CompletedProcess(
+        args=proc.args,
+        returncode=proc.returncode,
+        stdout=stdout.decode("utf-8", errors="replace") if stdout else "",
+        stderr=stderr.decode("utf-8", errors="replace") if stderr else "",
+    )
+
+
+@pytest.fixture
+def qemu_serial_net():
+    """Boot the VirtIO net test OS image with networking."""
+    if not os.path.isfile(ISO_NET_PATH):
+        pytest.skip(f"ISO not built: {ISO_NET_PATH}")
+    return _boot_iso_with_net(ISO_NET_PATH)
