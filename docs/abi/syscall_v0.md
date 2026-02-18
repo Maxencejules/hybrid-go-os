@@ -109,11 +109,21 @@ contents. Sender and receiver agree on format by convention.
 
 ## User pointer safety (M3+)
 
-For syscalls that touch user memory:
+All pointer-taking syscalls use a uniform kernel copy layer (`copyin_user`,
+`copyout_user`) that enforces the following before any dereference:
+
 1. Buffer must be in user address range (below 0x0000_8000_0000_0000).
-2. Pages must be present and user-accessible (kernel walks page tables).
-3. At most 256 bytes are copied to a kernel buffer before processing.
-4. On validation failure, the syscall returns -1 without crashing.
+2. `ptr + len` must not overflow.
+3. Every page spanned by the buffer must be present and user-accessible
+   (kernel walks page tables via `check_page_user_accessible`).
+4. Data is copied to/from a kernel-side buffer; the kernel never operates
+   directly on user mappings.
+5. On validation failure, the syscall returns -1 (0xFFFFFFFFFFFFFFFF)
+   without crashing or faulting.
+
+This applies to `sys_debug_write`, `sys_ipc_send`, `sys_ipc_recv`,
+`sys_svc_register`, `sys_svc_lookup`, `sys_blk_read`, `sys_blk_write`,
+`sys_net_send`, and `sys_net_recv`.
 
 ## User fault containment (M3+)
 

@@ -596,6 +596,95 @@ unsafe fn check_page_user_accessible(va: u64, hhdm: u64) -> bool {
     pte & 1 != 0 && pte & 4 != 0
 }
 
+// --------------- Uniform user-memory access helpers --------------------------
+// Available to all user-mode features; not every feature uses every helper yet.
+
+#[cfg(any(
+    feature = "user_hello_test", feature = "syscall_test", feature = "user_fault_test",
+    feature = "ipc_test", feature = "shm_test", feature = "blk_test", feature = "fs_test",
+    feature = "go_test",
+))]
+#[allow(dead_code)]
+fn user_range_ok(ptr: u64, len: usize) -> bool {
+    if len == 0 { return true; }
+    match ptr.checked_add(len as u64) {
+        Some(end) => end <= 0x0000_8000_0000_0000,
+        None => false,
+    }
+}
+
+#[cfg(any(
+    feature = "user_hello_test", feature = "syscall_test", feature = "user_fault_test",
+    feature = "ipc_test", feature = "shm_test", feature = "blk_test", feature = "fs_test",
+    feature = "go_test",
+))]
+#[allow(dead_code)]
+unsafe fn user_pages_ok(ptr: u64, len: usize) -> bool {
+    if len == 0 { return true; }
+    let hhdm = HHDM_OFFSET;
+    let start_page = ptr & !0xFFF;
+    let end_page = (ptr + len as u64 - 1) & !0xFFF;
+    let mut page = start_page;
+    loop {
+        if !check_page_user_accessible(page, hhdm) {
+            return false;
+        }
+        if page >= end_page { break; }
+        page += 4096;
+    }
+    true
+}
+
+#[cfg(any(
+    feature = "user_hello_test", feature = "syscall_test", feature = "user_fault_test",
+    feature = "ipc_test", feature = "shm_test", feature = "blk_test", feature = "fs_test",
+    feature = "go_test",
+))]
+#[allow(dead_code)]
+unsafe fn copyin_user(dst: &mut [u8], user_ptr: u64) -> Result<(), ()> {
+    let len = dst.len();
+    if !user_range_ok(user_ptr, len) { return Err(()); }
+    if !user_pages_ok(user_ptr, len) { return Err(()); }
+    if len > 0 {
+        core::ptr::copy_nonoverlapping(user_ptr as *const u8, dst.as_mut_ptr(), len);
+    }
+    Ok(())
+}
+
+#[cfg(any(
+    feature = "user_hello_test", feature = "syscall_test", feature = "user_fault_test",
+    feature = "ipc_test", feature = "shm_test", feature = "blk_test", feature = "fs_test",
+    feature = "go_test",
+))]
+#[allow(dead_code)]
+unsafe fn copyout_user(user_ptr: u64, src: &[u8]) -> Result<(), ()> {
+    let len = src.len();
+    if !user_range_ok(user_ptr, len) { return Err(()); }
+    if !user_pages_ok(user_ptr, len) { return Err(()); }
+    if len > 0 {
+        core::ptr::copy_nonoverlapping(src.as_ptr(), user_ptr as *mut u8, len);
+    }
+    Ok(())
+}
+
+#[cfg(any(
+    feature = "user_hello_test", feature = "syscall_test", feature = "user_fault_test",
+    feature = "ipc_test", feature = "shm_test", feature = "blk_test", feature = "fs_test",
+    feature = "go_test",
+))]
+#[allow(dead_code)]
+unsafe fn copyinstr_user(dst: &mut [u8], user_ptr: u64, max: usize) -> Result<usize, ()> {
+    let limit = if max < dst.len() { max } else { dst.len() };
+    if !user_range_ok(user_ptr, limit) { return Err(()); }
+    if !user_pages_ok(user_ptr, limit) { return Err(()); }
+    for i in 0..limit {
+        let b = *(user_ptr as *const u8).add(i);
+        if b == 0 { return Ok(i); }
+        dst[i] = b;
+    }
+    Err(()) // no NUL found within limit
+}
+
 // --------------- User page table infrastructure (shared M3+R4) ---------------
 
 cfg_user! {
@@ -854,13 +943,11 @@ cfg_r4! {
             return 0xFFFF_FFFF_FFFF_FFFF;
         }
         let n = if len > R4_MAX_MSG_LEN as u64 { R4_MAX_MSG_LEN } else { len as usize };
-        if buf >= 0x0000_8000_0000_0000 { return 0xFFFF_FFFF_FFFF_FFFF; }
-        if n > 0 && buf + n as u64 > 0x0000_8000_0000_0000 { return 0xFFFF_FFFF_FFFF_FFFF; }
 
-        // Copy from user to kernel buffe
+        // Copy from user to kernel buffer (validates range + page tables)
         let mut kbuf = [0u8; R4_MAX_MSG_LEN];
         if n > 0 {
-            core::ptr::copy_nonoverlapping(buf as *const u8, kbuf.as_mut_ptr(), n);
+            if copyin_user(&mut kbuf[..n], buf).is_err() { return 0xFFFF_FFFF_FFFF_FFFF; }
         }
 
         // If someone is blocked on recv for this endpoint, deliver directly
@@ -869,8 +956,9 @@ cfg_r4! {
             let wt = waiter as usize;
             let wn = if n < R4_TASKS[wt].recv_cap as usize { n } else { R4_TASKS[wt].recv_cap as usize };
             if wn > 0 {
-                core::ptr::copy_nonoverlapping(
-                    kbuf.as_ptr(), R4_TASKS[wt].recv_buf as *mut u8, wn);
+                if copyout_user(R4_TASKS[wt].recv_buf, &kbuf[..wn]).is_err() {
+                    return 0xFFFF_FFFF_FFFF_FFFF;
+                }
             }
             R4_TASKS[wt].saved_frame[14] = wn as u64; // return value for recv
             R4_TASKS[wt].state = R4State::Ready;
@@ -891,7 +979,8 @@ cfg_r4! {
             *frame.add(14) = 0xFFFF_FFFF_FFFF_FFFF;
             return;
         }
-        if buf >= 0x0000_8000_0000_0000 {
+        let cap_n = if cap > R4_MAX_MSG_LEN as u64 { R4_MAX_MSG_LEN } else { cap as usize };
+        if !user_range_ok(buf, cap_n) || !user_pages_ok(buf, cap_n) {
             *frame.add(14) = 0xFFFF_FFFF_FFFF_FFFF;
             return;
         }
@@ -904,8 +993,10 @@ cfg_r4! {
                 cap as usize
             };
             if n > 0 {
-                core::ptr::copy_nonoverlapping(
-                    R4_ENDPOINTS[ep].msg_data.as_ptr(), buf as *mut u8, n);
+                if copyout_user(buf, &R4_ENDPOINTS[ep].msg_data[..n]).is_err() {
+                    *frame.add(14) = 0xFFFF_FFFF_FFFF_FFFF;
+                    return;
+                }
             }
             R4_ENDPOINTS[ep].has_msg = false;
             *frame.add(14) = n as u64;
@@ -960,9 +1051,8 @@ cfg_r4! {
     unsafe fn sys_svc_register_r4(name_ptr: u64, name_len: u64, endpoint: u64) -> u64 {
         let n = name_len as usize;
         if n == 0 || n > 16 { return 0xFFFF_FFFF_FFFF_FFFF; }
-        if name_ptr >= 0x0000_8000_0000_0000 { return 0xFFFF_FFFF_FFFF_FFFF; }
         let mut name = [0u8; 16];
-        core::ptr::copy_nonoverlapping(name_ptr as *const u8, name.as_mut_ptr(), n);
+        if copyin_user(&mut name[..n], name_ptr).is_err() { return 0xFFFF_FFFF_FFFF_FFFF; }
         for i in 0..R4_MAX_SERVICES {
             if !R4_SERVICES[i].active {
                 R4_SERVICES[i].active = true;
@@ -978,9 +1068,8 @@ cfg_r4! {
     unsafe fn sys_svc_lookup_r4(name_ptr: u64, name_len: u64) -> u64 {
         let n = name_len as usize;
         if n == 0 || n > 16 { return 0xFFFF_FFFF_FFFF_FFFF; }
-        if name_ptr >= 0x0000_8000_0000_0000 { return 0xFFFF_FFFF_FFFF_FFFF; }
         let mut name = [0u8; 16];
-        core::ptr::copy_nonoverlapping(name_ptr as *const u8, name.as_mut_ptr(), n);
+        if copyin_user(&mut name[..n], name_ptr).is_err() { return 0xFFFF_FFFF_FFFF_FFFF; }
         for i in 0..R4_MAX_SERVICES {
             if R4_SERVICES[i].active && R4_SERVICES[i].name_len == n
                 && R4_SERVICES[i].name[..n] == name[..n]
