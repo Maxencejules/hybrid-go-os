@@ -51,19 +51,19 @@ unsafe fn inb(port: u16) -> u8 {
     val
 }
 
-#[cfg(any(feature = "blk_test", feature = "fs_test", feature = "net_test"))]
+#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "net_test"))]
 #[inline(always)]
 unsafe fn outw(port: u16, value: u16) {
     core::arch::asm!("out dx, ax", in("dx") port, in("ax") value, options(nomem, nostack));
 }
 
-#[cfg(any(feature = "blk_test", feature = "fs_test", feature = "net_test"))]
+#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "net_test"))]
 #[inline(always)]
 unsafe fn outl(port: u16, value: u32) {
     core::arch::asm!("out dx, eax", in("dx") port, in("eax") value, options(nomem, nostack));
 }
 
-#[cfg(any(feature = "blk_test", feature = "fs_test", feature = "net_test"))]
+#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "net_test"))]
 #[inline(always)]
 unsafe fn inl(port: u16) -> u32 {
     let val: u32;
@@ -71,7 +71,7 @@ unsafe fn inl(port: u16) -> u32 {
     val
 }
 
-#[cfg(any(feature = "blk_test", feature = "fs_test", feature = "net_test"))]
+#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "net_test"))]
 #[inline(always)]
 unsafe fn inw(port: u16) -> u16 {
     let val: u16;
@@ -1223,12 +1223,12 @@ cfg_r4! {
 
 // --------------- M5: PCI config space access ---------------------------------
 
-#[cfg(any(feature = "blk_test", feature = "fs_test", feature = "net_test"))]
+#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "net_test"))]
 const PCI_CONFIG_ADDR: u16 = 0xCF8;
-#[cfg(any(feature = "blk_test", feature = "fs_test", feature = "net_test"))]
+#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "net_test"))]
 const PCI_CONFIG_DATA: u16 = 0xCFC;
 
-#[cfg(any(feature = "blk_test", feature = "fs_test", feature = "net_test"))]
+#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "net_test"))]
 unsafe fn pci_read32(bus: u8, dev: u8, func: u8, offset: u8) -> u32 {
     let addr: u32 = (1u32 << 31)
         | ((bus as u32) << 16)
@@ -1241,7 +1241,7 @@ unsafe fn pci_read32(bus: u8, dev: u8, func: u8, offset: u8) -> u32 {
 
 /// Scan PCI bus 0 for VirtIO block device (vendor 0x1AF4, device 0x1001).
 /// Returns the I/O base address (BAR0) if found.
-#[cfg(any(feature = "blk_test", feature = "fs_test"))]
+#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test"))]
 unsafe fn pci_find_virtio_blk() -> Option<u16> {
     for dev in 0..32u8 {
         let id = pci_read32(0, dev, 0, 0);
@@ -1265,27 +1265,27 @@ unsafe fn pci_find_virtio_blk() -> Option<u16> {
 
 // --------------- M5: VirtIO legacy transport registers -----------------------
 
-#[cfg(any(feature = "blk_test", feature = "fs_test", feature = "net_test"))]
+#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "net_test"))]
 const VIRTIO_DEVICE_FEATURES: u16 = 0;
-#[cfg(any(feature = "blk_test", feature = "fs_test", feature = "net_test"))]
+#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "net_test"))]
 const VIRTIO_GUEST_FEATURES: u16 = 4;
-#[cfg(any(feature = "blk_test", feature = "fs_test", feature = "net_test"))]
+#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "net_test"))]
 const VIRTIO_QUEUE_PFN: u16 = 8;
-#[cfg(any(feature = "blk_test", feature = "fs_test", feature = "net_test"))]
+#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "net_test"))]
 const VIRTIO_QUEUE_SIZE: u16 = 12;
-#[cfg(any(feature = "blk_test", feature = "fs_test", feature = "net_test"))]
+#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "net_test"))]
 const VIRTIO_QUEUE_SEL: u16 = 14;
-#[cfg(any(feature = "blk_test", feature = "fs_test", feature = "net_test"))]
+#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "net_test"))]
 const VIRTIO_QUEUE_NOTIFY: u16 = 16;
-#[cfg(any(feature = "blk_test", feature = "fs_test", feature = "net_test"))]
+#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "net_test"))]
 const VIRTIO_DEVICE_STATUS: u16 = 18;
-#[cfg(any(feature = "blk_test", feature = "fs_test", feature = "net_test"))]
+#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "net_test"))]
 const VIRTIO_ISR_STATUS: u16 = 19;
 
 // Descriptor flags
-#[cfg(any(feature = "blk_test", feature = "fs_test", feature = "net_test"))]
+#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "net_test"))]
 const VRING_DESC_F_NEXT: u16 = 1;
-#[cfg(any(feature = "blk_test", feature = "fs_test", feature = "net_test"))]
+#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "net_test"))]
 const VRING_DESC_F_WRITE: u16 = 2;
 
 // Block request types
@@ -1296,7 +1296,7 @@ const VIRTIO_BLK_T_OUT: u32 = 1; // write
 
 // --------------- M5: Virtqueue descriptor ------------------------------------
 
-#[cfg(any(feature = "blk_test", feature = "fs_test"))]
+#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test"))]
 #[repr(C, packed)]
 struct VringDesc {
     addr: u64,
@@ -1313,11 +1313,11 @@ struct VringDesc {
 // --------------- M5: Static memory for VirtIO --------------------------------
 
 // Virtqueue area: 4 pages (16 KiB), enough for queue_size up to 256
-#[cfg(any(feature = "blk_test", feature = "fs_test"))]
+#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test"))]
 #[repr(C, align(4096))]
 struct VqMem([u8; 16384]);
 
-#[cfg(any(feature = "blk_test", feature = "fs_test"))]
+#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test"))]
 static mut VQ_MEM: VqMem = VqMem([0; 16384]);
 
 // DMA buffers: request header+status (1 page), data (1 page)
@@ -1327,29 +1327,29 @@ static mut BLK_REQ_PAGE: Page = Page([0; 4096]);
 static mut BLK_DATA_PAGE: Page = Page([0; 4096]);
 
 // Driver state
-#[cfg(any(feature = "blk_test", feature = "fs_test"))]
+#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test"))]
 static mut BLK_IOBASE: u16 = 0;
-#[cfg(any(feature = "blk_test", feature = "fs_test"))]
+#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test"))]
 static mut BLK_QUEUE_SIZE: u16 = 0;
-#[cfg(any(feature = "blk_test", feature = "fs_test"))]
+#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test"))]
 static mut BLK_DESCS: *mut VringDesc = core::ptr::null_mut();
-#[cfg(any(feature = "blk_test", feature = "fs_test"))]
+#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test"))]
 static mut BLK_AVAIL: *mut u8 = core::ptr::null_mut();
-#[cfg(any(feature = "blk_test", feature = "fs_test"))]
+#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test"))]
 static mut BLK_USED: *const u8 = core::ptr::null();
-#[cfg(any(feature = "blk_test", feature = "fs_test"))]
+#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test"))]
 static mut BLK_LAST_USED: u16 = 0;
-#[cfg(any(feature = "blk_test", feature = "fs_test"))]
+#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test"))]
 static mut BLK_KV2P_DELTA: u64 = 0; // kphys - kvirt (wrapping)
 
-#[cfg(any(feature = "blk_test", feature = "fs_test"))]
+#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test"))]
 unsafe fn blk_kv2p(va: u64) -> u64 {
     va.wrapping_add(BLK_KV2P_DELTA)
 }
 
 // --------------- M5: VirtIO block init ---------------------------------------
 
-#[cfg(any(feature = "blk_test", feature = "fs_test"))]
+#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test"))]
 unsafe fn virtio_blk_init(iobase: u16) -> bool {
     BLK_IOBASE = iobase;
 
@@ -1375,6 +1375,18 @@ unsafe fn virtio_blk_init(iobase: u16) -> bool {
     }
     BLK_QUEUE_SIZE = qsz;
 
+    // Step 5b: Validate queue_size fits in our static VQ buffer.
+    // Layout: descriptors (qsz*16) | avail ring (6+2*qsz) | padding | used ring (6+8*qsz)
+    let vq_buf_size = core::mem::size_of::<VqMem>();
+    let desc_end = (qsz as usize) * 16;
+    let avail_end_ck = desc_end + 6 + 2 * (qsz as usize);
+    let used_off_ck = (avail_end_ck + 4095) & !4095;
+    let used_end_ck = used_off_ck + 6 + 8 * (qsz as usize);
+    if used_end_ck > vq_buf_size {
+        outb(iobase + VIRTIO_DEVICE_STATUS, 0x80); // FAILED
+        return false;
+    }
+
     // Step 6: Zero queue memory and set up pointers
     core::ptr::write_bytes(VQ_MEM.0.as_mut_ptr(), 0, VQ_MEM.0.len());
 
@@ -1396,6 +1408,7 @@ unsafe fn virtio_blk_init(iobase: u16) -> bool {
     // Step 8: DRIVER_OK
     outb(iobase + VIRTIO_DEVICE_STATUS, 1 | 2 | 4);
 
+    serial_write(b"BLK: invariants ok\n");
     true
 }
 
@@ -2741,6 +2754,35 @@ pub extern "C" fn kmain() -> ! {
         enter_ring3_at(USER_CODE_VA, USER_STACK_TOP);
     }
 
+    // M5: blk_invariants_test — VirtIO block init hardening check
+    #[cfg(feature = "blk_invariants_test")]
+    unsafe {
+        let kaddr_resp_ptr = core::ptr::read_volatile(
+            core::ptr::addr_of!(KADDR_REQUEST.response));
+        let kphys = (*kaddr_resp_ptr).physical_base;
+        let kvirt = (*kaddr_resp_ptr).virtual_base;
+        BLK_KV2P_DELTA = kphys.wrapping_sub(kvirt);
+
+        match pci_find_virtio_blk() {
+            None => {
+                serial_write(b"BLK: not found\n");
+                qemu_exit(0x31);
+                loop { core::arch::asm!("cli; hlt", options(nomem, nostack)); }
+            }
+            Some(iobase) => {
+                if !virtio_blk_init(iobase) {
+                    serial_write(b"BLK: init failed\n");
+                    qemu_exit(0x31);
+                    loop { core::arch::asm!("cli; hlt", options(nomem, nostack)); }
+                }
+                serial_write(b"BLK: found virtio-blk\n");
+            }
+        }
+
+        qemu_exit(0x31);
+        loop { core::arch::asm!("cli; hlt", options(nomem, nostack)); }
+    }
+
     // M6: fs_test — Filesystem + package manager + shell
     //
     // Architecture A (services over IPC): the R4 IPC infrastructure is proven.
@@ -2941,6 +2983,7 @@ pub extern "C" fn kmain() -> ! {
         feature = "ipc_badptr_svc_test",
         feature = "shm_test",
         feature = "blk_test",
+        feature = "blk_invariants_test",
         feature = "fs_test",
         feature = "net_test",
         feature = "go_test",

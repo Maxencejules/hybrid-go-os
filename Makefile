@@ -12,6 +12,7 @@
        build-ipc-svc-overwrite image-ipc-svc-overwrite \
        build-shm image-shm \
        build-blk image-blk \
+       build-blk-invariants image-blk-invariants \
        build-fs image-fs \
        build-net image-net \
        build-go image-go \
@@ -194,6 +195,15 @@ image-ipc-svc-overwrite: build-ipc-svc-overwrite
 image-blk: build-blk
 	KERNEL_ELF=kernel-blk.elf ISO_NAME=os-blk.iso bash tools/mkimage.sh
 
+# --- M5: VirtIO block init invariants test kernel -----------------------------
+
+build-blk-invariants: $(ASM_OBJS) boot/linker.ld
+	cd kernel_rs && cargo build --release --features blk_invariants_test
+	$(LD) $(LDFLAGS) -o $(OUT)/kernel-blk-invariants.elf $(ASM_OBJS) $(KERNEL_LIB)
+
+image-blk-invariants: build-blk-invariants
+	KERNEL_ELF=kernel-blk-invariants.elf ISO_NAME=os-blk-invariants.iso bash tools/mkimage.sh
+
 # --- M6: Filesystem test kernel + disk image ---------------------------------
 
 build-fs: $(ASM_OBJS) boot/linker.ld
@@ -226,7 +236,7 @@ image-go: build-go
 run: image
 	./tools/run_qemu.sh
 
-test-qemu: image image-panic image-pf image-idt image-sched image-user-hello image-syscall image-user-fault image-ipc image-ipc-badptr-send image-ipc-badptr-svc image-ipc-buffer-full image-ipc-svc-overwrite image-shm image-blk image-fs image-net image-go
+test-qemu: image image-panic image-pf image-idt image-sched image-user-hello image-syscall image-user-fault image-ipc image-ipc-badptr-send image-ipc-badptr-svc image-ipc-buffer-full image-ipc-svc-overwrite image-shm image-blk image-blk-invariants image-fs image-net image-go
 	python3 -m pytest tests/ -v
 
 clean:
