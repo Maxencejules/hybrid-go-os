@@ -71,7 +71,7 @@ Tests: `legacy/tests/` (boot, trap, sched, user, ipc, drivers, fs, pkg, net)
 | M6 | Filesystem + pkg + shell | ✅ | ✅ | Legacy: `legacy/tests/fs/test_fsd_smoke.py`, `legacy/tests/pkg/test_pkg_install_run.py`. Rugo: `tests/fs/test_fsd_smoke.py`, `tests/pkg/test_pkg_install_run.py`. |
 | M7 | VirtIO net + UDP echo | ✅ | ✅ | Legacy: `legacy/tests/net/test_udp_echo.py`. Rugo: `tests/net/test_udp_echo.py` (`NET: udp echo`). |
 | G0 | Go kernel entry (gccgo) | ✅ | n/a | Legacy: `legacy/tests/boot/test_go_entry.py`. Legacy-only milestone. |
-| G1 | Go services (TinyGo) | n/a | — | Rugo-only milestone. Not started. |
+| G1 | Go services (TinyGo) | n/a | ✅ | Rugo: `tests/go/test_go_user_service.py` (`GOUSR: ok`). TinyGo bare-metal x86_64. |
 | G2 | Full Go port | n/a | — | Rugo-only milestone. Not started. Long-term. |
 
 Legend: ✅ = done with passing tests, — = not started, n/a = not applicable to this lane.
@@ -395,7 +395,13 @@ run in user space (see G1, G2).
 
 ### Rugo evidence
 
-- Not started. Depends on M3 (user mode + syscall ABI).
+- `tests/go/test_go_user_service.py` asserts `GOUSR: ok`
+- `services/go/main.go` (TinyGo user program, prints "GOUSR: ok" via sys_debug_write)
+- `services/go/start.asm` (NASM: entry point, syscall wrappers, runtime stubs, bump allocator)
+- `services/go/linker.ld` (user-space linker script, code at VA 0x400000)
+- `tools/build_go.sh` (TinyGo build pipeline: NASM + TinyGo + LLD + objcopy)
+- `kernel_rs/src/lib.rs` (go_test feature: embeds gousr.bin, enters ring 3)
+- `Dockerfile` (updated with Go 1.25 + TinyGo 0.40.1 for Docker builds)
 
 ---
 
