@@ -19,7 +19,7 @@ macro_rules! cfg_user {
         $(
             #[cfg(any(
                 feature = "user_hello_test", feature = "syscall_test", feature = "user_fault_test",
-                feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "blk_test", feature = "fs_test",
+                feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "svc_overwrite_test", feature = "blk_test", feature = "fs_test",
                 feature = "go_test",
             ))]
             $item
@@ -31,7 +31,7 @@ macro_rules! cfg_user {
 macro_rules! cfg_r4 {
     ($($item:item)*) => {
         $(
-            #[cfg(any(feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test"))]
+            #[cfg(any(feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "svc_overwrite_test"))]
             $item
         )*
     };
@@ -1058,6 +1058,16 @@ cfg_r4! {
         if n == 0 || n > 16 { return 0xFFFF_FFFF_FFFF_FFFF; }
         let mut name = [0u8; 16];
         if copyin_user(&mut name[..n], name_ptr).is_err() { return 0xFFFF_FFFF_FFFF_FFFF; }
+        // Overwrite if name already registered
+        for i in 0..R4_MAX_SERVICES {
+            if R4_SERVICES[i].active && R4_SERVICES[i].name_len == n
+                && R4_SERVICES[i].name[..n] == name[..n]
+            {
+                R4_SERVICES[i].endpoint = endpoint;
+                return 0;
+            }
+        }
+        // Otherwise insert into first free slot
         for i in 0..R4_MAX_SERVICES {
             if !R4_SERVICES[i].active {
                 R4_SERVICES[i].active = true;
@@ -1801,6 +1811,50 @@ static IPC_BUFFER_FULL_BLOB: [u8; 137] = [
     b'B', b'B', b'B', b'B',
     // Data @0x7C: "IPC: full ok\n"
     b'I', b'P', b'C', b':', b' ', b'f', b'u', b'l', b'l', b' ', b'o', b'k', b'\n',
+];
+
+// SVC overwrite blob (single task: register "foo"→1, register "foo"→2, lookup must return 2)
+#[cfg(feature = "svc_overwrite_test")]
+static SVC_OVERWRITE_BLOB: [u8; 122] = [
+    // --- Step 1: sys_svc_register("foo", 3, 1) ---
+    0x48, 0x8D, 0x3D, 0x5E, 0x00, 0x00, 0x00,   // lea rdi, [rip+0x5E]  -> "foo" @0x65
+    0xBE, 0x03, 0x00, 0x00, 0x00,               // mov esi, 3
+    0xBA, 0x01, 0x00, 0x00, 0x00,               // mov edx, 1 (endpoint)
+    0xB8, 0x0B, 0x00, 0x00, 0x00,               // mov eax, 11 (sys_svc_register)
+    0xCD, 0x80,                                   // int 0x80
+    // Check rax == 0
+    0x48, 0x85, 0xC0,                             // test rax, rax
+    0x75, 0x47,                                   // jnz fail @0x64
+    // --- Step 2: sys_svc_register("foo", 3, 2) — overwrite ---
+    0x48, 0x8D, 0x3D, 0x41, 0x00, 0x00, 0x00,   // lea rdi, [rip+0x41]  -> "foo" @0x65
+    0xBE, 0x03, 0x00, 0x00, 0x00,               // mov esi, 3
+    0xBA, 0x02, 0x00, 0x00, 0x00,               // mov edx, 2 (endpoint)
+    0xB8, 0x0B, 0x00, 0x00, 0x00,               // mov eax, 11
+    0xCD, 0x80,                                   // int 0x80
+    // Check rax == 0
+    0x48, 0x85, 0xC0,                             // test rax, rax
+    0x75, 0x2A,                                   // jnz fail @0x64
+    // --- Step 3: sys_svc_lookup("foo", 3) ---
+    0x48, 0x8D, 0x3D, 0x24, 0x00, 0x00, 0x00,   // lea rdi, [rip+0x24]  -> "foo" @0x65
+    0xBE, 0x03, 0x00, 0x00, 0x00,               // mov esi, 3
+    0xB8, 0x0C, 0x00, 0x00, 0x00,               // mov eax, 12 (sys_svc_lookup)
+    0xCD, 0x80,                                   // int 0x80
+    // Check rax == 2
+    0x48, 0x83, 0xF8, 0x02,                       // cmp rax, 2
+    0x75, 0x11,                                   // jne fail @0x64
+    // --- All passed: sys_debug_write("SVC: overwrite ok\n", 18) ---
+    0x48, 0x8D, 0x3D, 0x0E, 0x00, 0x00, 0x00,   // lea rdi, [rip+0x0E]  -> msg @0x68
+    0xBE, 0x12, 0x00, 0x00, 0x00,               // mov esi, 18
+    0x31, 0xC0,                                   // xor eax, eax (sys_debug_write)
+    0xCD, 0x80,                                   // int 0x80
+    0xF4,                                         // hlt
+    // fail:
+    0xF4,                                         // hlt
+    // Data @0x65: "foo"
+    b'f', b'o', b'o',
+    // Data @0x68: "SVC: overwrite ok\n"
+    b'S', b'V', b'C', b':', b' ', b'o', b'v', b'e', b'r', b'w',
+    b'r', b'i', b't', b'e', b' ', b'o', b'k', b'\n',
 ];
 
 // SHM blobs
@@ -2626,6 +2680,22 @@ pub extern "C" fn kmain() -> ! {
         R4_ENDPOINTS[0].active = true;
 
         // Single task
+        R4_NUM_TASKS = 1;
+        r4_init_task(0, USER_CODE_VA, USER_STACK_TOP);
+        R4_TASKS[0].state = R4State::Running;
+        R4_CURRENT = 0;
+
+        enter_ring3_at(USER_CODE_VA, USER_STACK_TOP);
+    }
+
+    // R4: svc_overwrite_test — single task verifies duplicate registration overwrites endpoint
+    #[cfg(feature = "svc_overwrite_test")]
+    unsafe {
+        let kstack = &stack_top as *const u8 as u64;
+        tss_init(kstack);
+        setup_r4_pages(&SVC_OVERWRITE_BLOB, &SVC_OVERWRITE_BLOB);
+
+        // Single task (no endpoints needed — registry stores values only)
         R4_NUM_TASKS = 1;
         r4_init_task(0, USER_CODE_VA, USER_STACK_TOP);
         R4_TASKS[0].state = R4State::Running;

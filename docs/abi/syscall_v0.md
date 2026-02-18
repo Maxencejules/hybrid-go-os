@@ -116,7 +116,9 @@ contents. Sender and receiver agree on format by convention.
 - Kernel-side name→endpoint lookup table (4 slots max).
 - `sys_svc_register` stores a mapping; `sys_svc_lookup` retrieves it.
 - Names are compared byte-for-byte (up to 16 bytes).
-- Duplicate registrations overwrite the previous entry.
+- Duplicate registrations deterministically overwrite the endpoint value of
+  the existing entry and return 0. No additional slot is consumed.
+- If the name is new and all 4 slots are occupied, returns -1.
 
 ## User pointer safety (M3+)
 

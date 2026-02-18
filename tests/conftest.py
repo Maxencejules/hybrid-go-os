@@ -19,6 +19,7 @@ ISO_IPC_PATH = os.path.join(REPO_ROOT, "out", "os-ipc.iso")
 ISO_IPC_BADPTR_SEND_PATH = os.path.join(REPO_ROOT, "out", "os-ipc-badptr-send.iso")
 ISO_IPC_BADPTR_SVC_PATH = os.path.join(REPO_ROOT, "out", "os-ipc-badptr-svc.iso")
 ISO_IPC_BUFFER_FULL_PATH = os.path.join(REPO_ROOT, "out", "os-ipc-buffer-full.iso")
+ISO_IPC_SVC_OVERWRITE_PATH = os.path.join(REPO_ROOT, "out", "os-ipc-svc-overwrite.iso")
 ISO_SHM_PATH = os.path.join(REPO_ROOT, "out", "os-shm.iso")
 ISO_BLK_PATH = os.path.join(REPO_ROOT, "out", "os-blk.iso")
 BLK_DISK_IMG = os.path.join(REPO_ROOT, "out", "blk-test.img")
@@ -148,6 +149,14 @@ def qemu_serial_ipc_buffer_full():
     if not os.path.isfile(ISO_IPC_BUFFER_FULL_PATH):
         pytest.skip(f"ISO not built: {ISO_IPC_BUFFER_FULL_PATH}")
     return _boot_iso(ISO_IPC_BUFFER_FULL_PATH)
+
+
+@pytest.fixture
+def qemu_serial_ipc_svc_overwrite():
+    """Boot the SVC overwrite test OS image and return captured serial output."""
+    if not os.path.isfile(ISO_IPC_SVC_OVERWRITE_PATH):
+        pytest.skip(f"ISO not built: {ISO_IPC_SVC_OVERWRITE_PATH}")
+    return _boot_iso(ISO_IPC_SVC_OVERWRITE_PATH)
 
 
 @pytest.fixture

@@ -9,6 +9,7 @@
        build-ipc image-ipc build-ipc-badptr-send image-ipc-badptr-send \
        build-ipc-badptr-svc image-ipc-badptr-svc \
        build-ipc-buffer-full image-ipc-buffer-full \
+       build-ipc-svc-overwrite image-ipc-svc-overwrite \
        build-shm image-shm \
        build-blk image-blk \
        build-fs image-fs \
@@ -128,6 +129,12 @@ build-ipc-buffer-full: $(ASM_OBJS) boot/linker.ld
 	cd kernel_rs && cargo build --release --features ipc_buffer_full_test
 	$(LD) $(LDFLAGS) -o $(OUT)/kernel-ipc-buffer-full.elf $(ASM_OBJS) $(KERNEL_LIB)
 
+# --- R4: SVC overwrite test kernel -------------------------------------------
+
+build-ipc-svc-overwrite: $(ASM_OBJS) boot/linker.ld
+	cd kernel_rs && cargo build --release --features svc_overwrite_test
+	$(LD) $(LDFLAGS) -o $(OUT)/kernel-ipc-svc-overwrite.elf $(ASM_OBJS) $(KERNEL_LIB)
+
 # --- R4: SHM bulk test kernel ------------------------------------------------
 
 build-shm: $(ASM_OBJS) boot/linker.ld
@@ -181,6 +188,9 @@ image-ipc-badptr-svc: build-ipc-badptr-svc
 image-ipc-buffer-full: build-ipc-buffer-full
 	KERNEL_ELF=kernel-ipc-buffer-full.elf ISO_NAME=os-ipc-buffer-full.iso bash tools/mkimage.sh
 
+image-ipc-svc-overwrite: build-ipc-svc-overwrite
+	KERNEL_ELF=kernel-ipc-svc-overwrite.elf ISO_NAME=os-ipc-svc-overwrite.iso bash tools/mkimage.sh
+
 image-blk: build-blk
 	KERNEL_ELF=kernel-blk.elf ISO_NAME=os-blk.iso bash tools/mkimage.sh
 
@@ -216,7 +226,7 @@ image-go: build-go
 run: image
 	./tools/run_qemu.sh
 
-test-qemu: image image-panic image-pf image-idt image-sched image-user-hello image-syscall image-user-fault image-ipc image-ipc-badptr-send image-ipc-badptr-svc image-ipc-buffer-full image-shm image-blk image-fs image-net image-go
+test-qemu: image image-panic image-pf image-idt image-sched image-user-hello image-syscall image-user-fault image-ipc image-ipc-badptr-send image-ipc-badptr-svc image-ipc-buffer-full image-ipc-svc-overwrite image-shm image-blk image-fs image-net image-go
 	python3 -m pytest tests/ -v
 
 clean:
