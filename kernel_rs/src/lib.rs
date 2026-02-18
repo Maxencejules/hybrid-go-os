@@ -50,19 +50,19 @@ unsafe fn inb(port: u16) -> u8 {
     val
 }
 
-#[cfg(any(feature = "blk_test", feature = "fs_test"))]
+#[cfg(any(feature = "blk_test", feature = "fs_test", feature = "net_test"))]
 #[inline(always)]
 unsafe fn outw(port: u16, value: u16) {
     core::arch::asm!("out dx, ax", in("dx") port, in("ax") value, options(nomem, nostack));
 }
 
-#[cfg(any(feature = "blk_test", feature = "fs_test"))]
+#[cfg(any(feature = "blk_test", feature = "fs_test", feature = "net_test"))]
 #[inline(always)]
 unsafe fn outl(port: u16, value: u32) {
     core::arch::asm!("out dx, eax", in("dx") port, in("eax") value, options(nomem, nostack));
 }
 
-#[cfg(any(feature = "blk_test", feature = "fs_test"))]
+#[cfg(any(feature = "blk_test", feature = "fs_test", feature = "net_test"))]
 #[inline(always)]
 unsafe fn inl(port: u16) -> u32 {
     let val: u32;
@@ -70,7 +70,7 @@ unsafe fn inl(port: u16) -> u32 {
     val
 }
 
-#[cfg(any(feature = "blk_test", feature = "fs_test"))]
+#[cfg(any(feature = "blk_test", feature = "fs_test", feature = "net_test"))]
 #[inline(always)]
 unsafe fn inw(port: u16) -> u16 {
     let val: u16;
@@ -1111,12 +1111,12 @@ cfg_r4! {
 
 // --------------- M5: PCI config space access ---------------------------------
 
-#[cfg(any(feature = "blk_test", feature = "fs_test"))]
+#[cfg(any(feature = "blk_test", feature = "fs_test", feature = "net_test"))]
 const PCI_CONFIG_ADDR: u16 = 0xCF8;
-#[cfg(any(feature = "blk_test", feature = "fs_test"))]
+#[cfg(any(feature = "blk_test", feature = "fs_test", feature = "net_test"))]
 const PCI_CONFIG_DATA: u16 = 0xCFC;
 
-#[cfg(any(feature = "blk_test", feature = "fs_test"))]
+#[cfg(any(feature = "blk_test", feature = "fs_test", feature = "net_test"))]
 unsafe fn pci_read32(bus: u8, dev: u8, func: u8, offset: u8) -> u32 {
     let addr: u32 = (1u32 << 31)
         | ((bus as u32) << 16)
@@ -1153,27 +1153,27 @@ unsafe fn pci_find_virtio_blk() -> Option<u16> {
 
 // --------------- M5: VirtIO legacy transport registers -----------------------
 
-#[cfg(any(feature = "blk_test", feature = "fs_test"))]
+#[cfg(any(feature = "blk_test", feature = "fs_test", feature = "net_test"))]
 const VIRTIO_DEVICE_FEATURES: u16 = 0;
-#[cfg(any(feature = "blk_test", feature = "fs_test"))]
+#[cfg(any(feature = "blk_test", feature = "fs_test", feature = "net_test"))]
 const VIRTIO_GUEST_FEATURES: u16 = 4;
-#[cfg(any(feature = "blk_test", feature = "fs_test"))]
+#[cfg(any(feature = "blk_test", feature = "fs_test", feature = "net_test"))]
 const VIRTIO_QUEUE_PFN: u16 = 8;
-#[cfg(any(feature = "blk_test", feature = "fs_test"))]
+#[cfg(any(feature = "blk_test", feature = "fs_test", feature = "net_test"))]
 const VIRTIO_QUEUE_SIZE: u16 = 12;
-#[cfg(any(feature = "blk_test", feature = "fs_test"))]
+#[cfg(any(feature = "blk_test", feature = "fs_test", feature = "net_test"))]
 const VIRTIO_QUEUE_SEL: u16 = 14;
-#[cfg(any(feature = "blk_test", feature = "fs_test"))]
+#[cfg(any(feature = "blk_test", feature = "fs_test", feature = "net_test"))]
 const VIRTIO_QUEUE_NOTIFY: u16 = 16;
-#[cfg(any(feature = "blk_test", feature = "fs_test"))]
+#[cfg(any(feature = "blk_test", feature = "fs_test", feature = "net_test"))]
 const VIRTIO_DEVICE_STATUS: u16 = 18;
-#[cfg(any(feature = "blk_test", feature = "fs_test"))]
+#[cfg(any(feature = "blk_test", feature = "fs_test", feature = "net_test"))]
 const VIRTIO_ISR_STATUS: u16 = 19;
 
 // Descriptor flags
-#[cfg(any(feature = "blk_test", feature = "fs_test"))]
+#[cfg(any(feature = "blk_test", feature = "fs_test", feature = "net_test"))]
 const VRING_DESC_F_NEXT: u16 = 1;
-#[cfg(any(feature = "blk_test", feature = "fs_test"))]
+#[cfg(any(feature = "blk_test", feature = "fs_test", feature = "net_test"))]
 const VRING_DESC_F_WRITE: u16 = 2;
 
 // Block request types
@@ -1673,6 +1673,446 @@ static SHM_READER_BLOB: [u8; 105] = [
     b'c', b'k', b's', b'u', b'm', b' ', b'o', b'k', b'\n',
 ];
 
+// =============================================================================
+// M7: VirtIO net driver + net syscalls + UDP echo
+// =============================================================================
+
+// --------------- M7: VirtIO net device config --------------------------------
+
+#[cfg(feature = "net_test")]
+const VIRTIO_NET_HDR_SIZE: usize = 10; // legacy, no MRG_RXBUF
+
+#[cfg(feature = "net_test")]
+const NET_GUEST_IP: [u8; 4] = [10, 0, 2, 15]; // QEMU SLIRP default
+
+#[cfg(feature = "net_test")]
+const NET_ECHO_PORT: u16 = 7;
+
+// --------------- M7: PCI scan for virtio-net ---------------------------------
+
+#[cfg(feature = "net_test")]
+unsafe fn pci_find_virtio_net() -> Option<u16> {
+    for dev in 0..32u8 {
+        let id = pci_read32(0, dev, 0, 0);
+        let vendor = (id & 0xFFFF) as u16;
+        let device = ((id >> 16) & 0xFFFF) as u16;
+        // VirtIO-net transitional: vendor 0x1AF4, device 0x1000
+        if vendor == 0x1AF4 && device == 0x1000 {
+            let bar0_raw = pci_read32(0, dev, 0, 0x10);
+            let iobase = (bar0_raw & !3u32) as u16;
+            // Enable I/O space + bus mastering
+            let cmd = pci_read32(0, dev, 0, 0x04);
+            let new_cmd = cmd | 0x05;
+            let addr: u32 = (1u32 << 31) | ((dev as u32) << 11) | 0x04;
+            outl(PCI_CONFIG_ADDR, addr);
+            outl(PCI_CONFIG_DATA, new_cmd);
+            return Some(iobase);
+        }
+    }
+    None
+}
+
+// --------------- M7: Static memory for VirtIO net ----------------------------
+
+#[cfg(feature = "net_test")]
+#[repr(C, align(4096))]
+struct NetVqPages([u8; 16384]); // 4 pages per virtqueue
+
+#[cfg(feature = "net_test")]
+#[repr(C, align(4096))]
+struct NetBuf([u8; 4096]);
+
+#[cfg(feature = "net_test")]
+static mut NET_IOBASE: u16 = 0;
+#[cfg(feature = "net_test")]
+static mut NET_MAC: [u8; 6] = [0; 6];
+#[cfg(feature = "net_test")]
+static mut NET_KV2P_DELTA: u64 = 0;
+
+// RX queue
+#[cfg(feature = "net_test")]
+static mut NET_RXQ_MEM: NetVqPages = NetVqPages([0; 16384]);
+#[cfg(feature = "net_test")]
+static mut NET_RX_BUF: NetBuf = NetBuf([0; 4096]);
+#[cfg(feature = "net_test")]
+static mut NET_RX_DESCS: *mut u8 = core::ptr::null_mut();
+#[cfg(feature = "net_test")]
+static mut NET_RX_AVAIL: *mut u8 = core::ptr::null_mut();
+#[cfg(feature = "net_test")]
+static mut NET_RX_USED: *const u8 = core::ptr::null();
+#[cfg(feature = "net_test")]
+static mut NET_RX_LAST_USED: u16 = 0;
+#[cfg(feature = "net_test")]
+static mut NET_RX_QSIZE: u16 = 0;
+
+// TX queue
+#[cfg(feature = "net_test")]
+static mut NET_TXQ_MEM: NetVqPages = NetVqPages([0; 16384]);
+#[cfg(feature = "net_test")]
+static mut NET_TX_BUF: NetBuf = NetBuf([0; 4096]);
+#[cfg(feature = "net_test")]
+static mut NET_TX_DESCS: *mut u8 = core::ptr::null_mut();
+#[cfg(feature = "net_test")]
+static mut NET_TX_AVAIL: *mut u8 = core::ptr::null_mut();
+#[cfg(feature = "net_test")]
+static mut NET_TX_USED: *const u8 = core::ptr::null();
+#[cfg(feature = "net_test")]
+static mut NET_TX_LAST_USED: u16 = 0;
+#[cfg(feature = "net_test")]
+static mut NET_TX_QSIZE: u16 = 0;
+
+#[cfg(feature = "net_test")]
+unsafe fn net_kv2p(va: u64) -> u64 {
+    va.wrapping_add(NET_KV2P_DELTA)
+}
+
+// --------------- M7: VirtIO net init -----------------------------------------
+
+#[cfg(feature = "net_test")]
+unsafe fn virtio_net_init(iobase: u16) -> bool {
+    NET_IOBASE = iobase;
+
+    // Reset
+    outb(iobase + VIRTIO_DEVICE_STATUS, 0);
+    // Acknowledge
+    outb(iobase + VIRTIO_DEVICE_STATUS, 1);
+    // Driver
+    outb(iobase + VIRTIO_DEVICE_STATUS, 1 | 2);
+    // Feature negotiation — accept no features (no offloading)
+    let _features = inl(iobase + VIRTIO_DEVICE_FEATURES);
+    outl(iobase + VIRTIO_GUEST_FEATURES, 0);
+
+    // Read MAC address from device-specific config (offset 0x14)
+    for i in 0..6u16 {
+        NET_MAC[i as usize] = inb(iobase + 0x14 + i);
+    }
+
+    // --- Setup RX queue (queue 0) ---
+    outw(iobase + VIRTIO_QUEUE_SEL, 0);
+    let rxqsz = inw(iobase + VIRTIO_QUEUE_SIZE);
+    if rxqsz == 0 {
+        outb(iobase + VIRTIO_DEVICE_STATUS, 0x80);
+        return false;
+    }
+    NET_RX_QSIZE = rxqsz;
+    core::ptr::write_bytes(NET_RXQ_MEM.0.as_mut_ptr(), 0, NET_RXQ_MEM.0.len());
+    let rxbase = NET_RXQ_MEM.0.as_mut_ptr();
+    NET_RX_DESCS = rxbase;
+    let rx_avail_off = (rxqsz as usize) * 16;
+    NET_RX_AVAIL = rxbase.add(rx_avail_off);
+    let rx_avail_end = rx_avail_off + 6 + 2 * (rxqsz as usize);
+    let rx_used_off = (rx_avail_end + 4095) & !4095;
+    NET_RX_USED = rxbase.add(rx_used_off);
+    NET_RX_LAST_USED = 0;
+    let rxq_phys = net_kv2p(rxbase as u64);
+    outl(iobase + VIRTIO_QUEUE_PFN, (rxq_phys >> 12) as u32);
+
+    // --- Setup TX queue (queue 1) ---
+    outw(iobase + VIRTIO_QUEUE_SEL, 1);
+    let txqsz = inw(iobase + VIRTIO_QUEUE_SIZE);
+    if txqsz == 0 {
+        outb(iobase + VIRTIO_DEVICE_STATUS, 0x80);
+        return false;
+    }
+    NET_TX_QSIZE = txqsz;
+    core::ptr::write_bytes(NET_TXQ_MEM.0.as_mut_ptr(), 0, NET_TXQ_MEM.0.len());
+    let txbase = NET_TXQ_MEM.0.as_mut_ptr();
+    NET_TX_DESCS = txbase;
+    let tx_avail_off = (txqsz as usize) * 16;
+    NET_TX_AVAIL = txbase.add(tx_avail_off);
+    let tx_avail_end = tx_avail_off + 6 + 2 * (txqsz as usize);
+    let tx_used_off = (tx_avail_end + 4095) & !4095;
+    NET_TX_USED = txbase.add(tx_used_off);
+    NET_TX_LAST_USED = 0;
+    let txq_phys = net_kv2p(txbase as u64);
+    outl(iobase + VIRTIO_QUEUE_PFN, (txq_phys >> 12) as u32);
+
+    // DRIVER_OK
+    outb(iobase + VIRTIO_DEVICE_STATUS, 1 | 2 | 4);
+
+    // Pre-post RX buffer
+    virtio_net_post_rx();
+    true
+}
+
+// --------------- M7: RX buffer posting ---------------------------------------
+
+#[cfg(feature = "net_test")]
+unsafe fn virtio_net_post_rx() {
+    let buf_phys = net_kv2p(NET_RX_BUF.0.as_ptr() as u64);
+    // Descriptor 0: device-writable, receives virtio_net_hdr + frame
+    let d0 = NET_RX_DESCS;
+    core::ptr::write(d0.add(0) as *mut u64, buf_phys);
+    core::ptr::write(d0.add(8) as *mut u32, NET_RX_BUF.0.len() as u32);
+    core::ptr::write(d0.add(12) as *mut u16, VRING_DESC_F_WRITE);
+    core::ptr::write(d0.add(14) as *mut u16, 0);
+
+    // Add to available ring
+    let avail = NET_RX_AVAIL;
+    let avail_idx = core::ptr::read_volatile((avail as *const u16).add(1));
+    let qsz = NET_RX_QSIZE as usize;
+    let ring_slot = (avail as *mut u16).add(2 + (avail_idx as usize % qsz));
+    core::ptr::write_volatile(ring_slot, 0u16);
+    core::arch::asm!("mfence", options(nostack));
+    core::ptr::write_volatile((avail as *mut u16).add(1), avail_idx.wrapping_add(1));
+
+    // Notify device (queue 0)
+    outw(NET_IOBASE + VIRTIO_QUEUE_NOTIFY, 0);
+}
+
+// --------------- M7: Receive frame -------------------------------------------
+
+/// Non-blocking receive. Returns frame length (excluding virtio_net_hdr), or 0.
+#[cfg(feature = "net_test")]
+unsafe fn virtio_net_recv(buf: &mut [u8]) -> usize {
+    let used = NET_RX_USED;
+    let used_idx = core::ptr::read_volatile((used as *const u16).add(1));
+    if used_idx == NET_RX_LAST_USED {
+        return 0;
+    }
+    NET_RX_LAST_USED = NET_RX_LAST_USED.wrapping_add(1);
+
+    // Read length from used ring entry
+    let qsz = NET_RX_QSIZE as usize;
+    let entry_idx = (used_idx.wrapping_sub(1) as usize) % qsz;
+    let entry_ptr = (used as *const u8).add(4 + entry_idx * 8);
+    let total_len = core::ptr::read(entry_ptr.add(4) as *const u32) as usize;
+
+    // Acknowledge ISR
+    let _ = inb(NET_IOBASE + VIRTIO_ISR_STATUS);
+
+    // Strip virtio_net_hdr
+    if total_len <= VIRTIO_NET_HDR_SIZE {
+        virtio_net_post_rx();
+        return 0;
+    }
+    let frame_len = total_len - VIRTIO_NET_HDR_SIZE;
+    let copy_len = if frame_len > buf.len() { buf.len() } else { frame_len };
+    core::ptr::copy_nonoverlapping(
+        NET_RX_BUF.0.as_ptr().add(VIRTIO_NET_HDR_SIZE),
+        buf.as_mut_ptr(),
+        copy_len,
+    );
+
+    // Re-post RX buffer for next packet
+    virtio_net_post_rx();
+    copy_len
+}
+
+// --------------- M7: Send frame ----------------------------------------------
+
+/// Send an Ethernet frame. Prepends virtio_net_hdr (all zeros). Returns true on success.
+#[cfg(feature = "net_test")]
+unsafe fn virtio_net_send(frame: &[u8]) -> bool {
+    let total_len = VIRTIO_NET_HDR_SIZE + frame.len();
+    if total_len > NET_TX_BUF.0.len() {
+        return false;
+    }
+
+    // Prepare TX buffer: zero virtio_net_hdr + frame data
+    core::ptr::write_bytes(NET_TX_BUF.0.as_mut_ptr(), 0, VIRTIO_NET_HDR_SIZE);
+    core::ptr::copy_nonoverlapping(
+        frame.as_ptr(),
+        NET_TX_BUF.0.as_mut_ptr().add(VIRTIO_NET_HDR_SIZE),
+        frame.len(),
+    );
+
+    let buf_phys = net_kv2p(NET_TX_BUF.0.as_ptr() as u64);
+    let qsz = NET_TX_QSIZE as usize;
+
+    // Descriptor 0: device reads entire buffer
+    let d0 = NET_TX_DESCS;
+    core::ptr::write(d0.add(0) as *mut u64, buf_phys);
+    core::ptr::write(d0.add(8) as *mut u32, total_len as u32);
+    core::ptr::write(d0.add(12) as *mut u16, 0); // no WRITE flag = device reads
+    core::ptr::write(d0.add(14) as *mut u16, 0);
+
+    // Add to available ring
+    let avail = NET_TX_AVAIL;
+    let avail_idx = core::ptr::read_volatile((avail as *const u16).add(1));
+    let ring_slot = (avail as *mut u16).add(2 + (avail_idx as usize % qsz));
+    core::ptr::write_volatile(ring_slot, 0u16);
+    core::arch::asm!("mfence", options(nostack));
+    core::ptr::write_volatile((avail as *mut u16).add(1), avail_idx.wrapping_add(1));
+
+    // Notify device (queue 1)
+    outw(NET_IOBASE + VIRTIO_QUEUE_NOTIFY, 1);
+
+    // Poll used ring for completion
+    let used = NET_TX_USED;
+    let mut timeout: u32 = 10_000_000;
+    loop {
+        let idx = core::ptr::read_volatile((used as *const u16).add(1));
+        if idx != NET_TX_LAST_USED {
+            break;
+        }
+        core::arch::asm!("pause", options(nomem, nostack));
+        timeout -= 1;
+        if timeout == 0 {
+            return false;
+        }
+    }
+    NET_TX_LAST_USED = NET_TX_LAST_USED.wrapping_add(1);
+    let _ = inb(NET_IOBASE + VIRTIO_ISR_STATUS);
+    true
+}
+
+// --------------- M7: Net syscalls (raw frame) --------------------------------
+
+/// sys_net_send(user_ptr, len) -> bytes sent or -1
+/// Syscall 15: send a raw Ethernet frame from user buffer.
+#[cfg(feature = "net_test")]
+#[allow(dead_code)]
+unsafe fn sys_net_send(buf: u64, len: u64) -> u64 {
+    if len == 0 || len > 1514 { return 0xFFFF_FFFF_FFFF_FFFF; }
+    if buf >= 0x0000_8000_0000_0000 { return 0xFFFF_FFFF_FFFF_FFFF; }
+    if buf.checked_add(len).is_none() || buf + len > 0x0000_8000_0000_0000 {
+        return 0xFFFF_FFFF_FFFF_FFFF;
+    }
+    let mut kbuf = [0u8; 1514];
+    let n = len as usize;
+    core::ptr::copy_nonoverlapping(buf as *const u8, kbuf.as_mut_ptr(), n);
+    if virtio_net_send(&kbuf[..n]) { len } else { 0xFFFF_FFFF_FFFF_FFFF }
+}
+
+/// sys_net_recv(user_ptr, cap) -> bytes received or 0
+/// Syscall 16: receive a raw Ethernet frame into user buffer (non-blocking).
+#[cfg(feature = "net_test")]
+#[allow(dead_code)]
+unsafe fn sys_net_recv(buf: u64, cap: u64) -> u64 {
+    if cap == 0 || cap > 1514 { return 0; }
+    if buf >= 0x0000_8000_0000_0000 { return 0; }
+    if buf.checked_add(cap).is_none() || buf + cap > 0x0000_8000_0000_0000 {
+        return 0;
+    }
+    let mut kbuf = [0u8; 1514];
+    let n = virtio_net_recv(&mut kbuf[..cap as usize]);
+    if n > 0 {
+        core::ptr::copy_nonoverlapping(kbuf.as_ptr(), buf as *mut u8, n);
+    }
+    n as u64
+}
+
+// --------------- M7: Network protocol handling -------------------------------
+
+/// Handle a received Ethernet frame. Returns true if a UDP echo was performed.
+#[cfg(feature = "net_test")]
+unsafe fn net_handle_frame(frame: &[u8]) -> bool {
+    if frame.len() < 14 { return false; }
+    let ethertype = u16::from_be_bytes([frame[12], frame[13]]);
+    match ethertype {
+        0x0806 => { net_handle_arp(frame); false }
+        0x0800 => net_handle_ipv4(frame),
+        _ => false,
+    }
+}
+
+/// Handle ARP request: if target IP is ours, send ARP reply.
+#[cfg(feature = "net_test")]
+unsafe fn net_handle_arp(frame: &[u8]) {
+    if frame.len() < 42 { return; }
+    let arp = &frame[14..];
+    // Only handle ARP request (opcode 1)
+    let opcode = u16::from_be_bytes([arp[6], arp[7]]);
+    if opcode != 1 { return; }
+    // Check target IP is ours
+    if arp[24] != NET_GUEST_IP[0] || arp[25] != NET_GUEST_IP[1]
+        || arp[26] != NET_GUEST_IP[2] || arp[27] != NET_GUEST_IP[3] { return; }
+
+    // Build ARP reply
+    let mut reply = [0u8; 42];
+    // Ethernet: dst = sender's MAC, src = our MAC, type = ARP
+    reply[0..6].copy_from_slice(&frame[6..12]);
+    reply[6..12].copy_from_slice(&NET_MAC);
+    reply[12] = 0x08; reply[13] = 0x06;
+    // ARP: HTYPE=Ethernet, PTYPE=IPv4, HLEN=6, PLEN=4, Opcode=Reply
+    reply[14] = 0x00; reply[15] = 0x01;
+    reply[16] = 0x08; reply[17] = 0x00;
+    reply[18] = 6; reply[19] = 4;
+    reply[20] = 0x00; reply[21] = 0x02;
+    // Sender = us
+    reply[22..28].copy_from_slice(&NET_MAC);
+    reply[28..32].copy_from_slice(&NET_GUEST_IP);
+    // Target = original sender
+    reply[32..38].copy_from_slice(&arp[8..14]);
+    reply[38..42].copy_from_slice(&arp[14..18]);
+
+    virtio_net_send(&reply);
+}
+
+/// Handle IPv4/UDP: if UDP to echo port, echo back and return true.
+#[cfg(feature = "net_test")]
+unsafe fn net_handle_ipv4(frame: &[u8]) -> bool {
+    let ip = &frame[14..];
+    let ip_hdr_len = ((ip[0] & 0x0F) as usize) * 4;
+    if ip_hdr_len < 20 { return false; }
+    if frame.len() < 14 + ip_hdr_len + 8 { return false; }
+    // Check protocol = UDP (17)
+    if ip[9] != 17 { return false; }
+    // Check destination IP is ours
+    if ip[16] != NET_GUEST_IP[0] || ip[17] != NET_GUEST_IP[1]
+        || ip[18] != NET_GUEST_IP[2] || ip[19] != NET_GUEST_IP[3] { return false; }
+
+    // Parse UDP header
+    let udp = &ip[ip_hdr_len..];
+    let src_port = u16::from_be_bytes([udp[0], udp[1]]);
+    let dst_port = u16::from_be_bytes([udp[2], udp[3]]);
+    if dst_port != NET_ECHO_PORT { return false; }
+
+    // Build echo reply — copy entire frame, then swap fields
+    let total = frame.len();
+    if total > 1514 { return false; }
+    let mut reply = [0u8; 1514];
+    reply[..total].copy_from_slice(&frame[..total]);
+
+    // Swap Ethernet MACs
+    reply[0..6].copy_from_slice(&frame[6..12]);
+    reply[6..12].copy_from_slice(&NET_MAC);
+
+    // Swap IP addresses
+    let rip = &mut reply[14..];
+    let orig_src = [ip[12], ip[13], ip[14], ip[15]];
+    rip[12..16].copy_from_slice(&ip[16..20]);
+    rip[16..20].copy_from_slice(&orig_src);
+
+    // Recalculate IP header checksum
+    rip[10] = 0; rip[11] = 0;
+    let cksum = net_ip_checksum(&rip[..ip_hdr_len]);
+    rip[10] = (cksum >> 8) as u8;
+    rip[11] = (cksum & 0xFF) as u8;
+
+    // Swap UDP ports
+    let rudp = &mut rip[ip_hdr_len..];
+    rudp[0] = (dst_port >> 8) as u8;
+    rudp[1] = (dst_port & 0xFF) as u8;
+    rudp[2] = (src_port >> 8) as u8;
+    rudp[3] = (src_port & 0xFF) as u8;
+    // Zero UDP checksum (valid for IPv4)
+    rudp[6] = 0; rudp[7] = 0;
+
+    serial_write(b"NET: udp echo\n");
+    virtio_net_send(&reply[..total]);
+    true
+}
+
+/// Internet checksum (RFC 1071) over a byte slice.
+#[cfg(feature = "net_test")]
+fn net_ip_checksum(data: &[u8]) -> u16 {
+    let mut sum: u32 = 0;
+    let mut i = 0;
+    while i + 1 < data.len() {
+        sum += u16::from_be_bytes([data[i], data[i + 1]]) as u32;
+        i += 2;
+    }
+    if i < data.len() {
+        sum += (data[i] as u32) << 8;
+    }
+    while sum > 0xFFFF {
+        sum = (sum & 0xFFFF) + (sum >> 16);
+    }
+    !(sum as u16)
+}
+
 // --------------- Paging verification ---------------
 
 fn check_paging() {
@@ -2104,6 +2544,55 @@ pub extern "C" fn kmain() -> ! {
         enter_ring3_at(USER_CODE_VA, USER_STACK_TOP);
     }
 
+    // M7: net_test — VirtIO net + UDP echo
+    #[cfg(feature = "net_test")]
+    unsafe {
+        // Compute kv2p delta from Limine responses
+        let hhdm_resp_ptr = core::ptr::read_volatile(
+            core::ptr::addr_of!(HHDM_REQUEST.response));
+        let kaddr_resp_ptr = core::ptr::read_volatile(
+            core::ptr::addr_of!(KADDR_REQUEST.response));
+        let kphys = (*kaddr_resp_ptr).physical_base;
+        let kvirt = (*kaddr_resp_ptr).virtual_base;
+        NET_KV2P_DELTA = kphys.wrapping_sub(kvirt);
+
+        // PCI scan for VirtIO net device
+        match pci_find_virtio_net() {
+            None => {
+                serial_write(b"NET: not found\n");
+                qemu_exit(0x31);
+                loop { core::arch::asm!("cli; hlt", options(nomem, nostack)); }
+            }
+            Some(iobase) => {
+                if !virtio_net_init(iobase) {
+                    serial_write(b"NET: init failed\n");
+                    qemu_exit(0x31);
+                    loop { core::arch::asm!("cli; hlt", options(nomem, nostack)); }
+                }
+                serial_write(b"NET: virtio-net ready\n");
+            }
+        }
+
+        // Network polling loop — handle ARP and UDP echo
+        let mut rx_frame = [0u8; 1514];
+        let mut echoed = false;
+        let mut poll_count: u64 = 0;
+        let max_polls: u64 = 500_000_000;
+        while !echoed && poll_count < max_polls {
+            let len = virtio_net_recv(&mut rx_frame);
+            if len > 0 {
+                echoed = net_handle_frame(&rx_frame[..len]);
+            }
+            core::arch::asm!("pause", options(nomem, nostack));
+            poll_count += 1;
+        }
+        if !echoed {
+            serial_write(b"NET: timeout\n");
+        }
+        qemu_exit(0x31);
+        loop { core::arch::asm!("cli; hlt", options(nomem, nostack)); }
+    }
+
     // Normal boot path (M0/M1)
     #[cfg(not(any(
         feature = "sched_test",
@@ -2114,6 +2603,7 @@ pub extern "C" fn kmain() -> ! {
         feature = "shm_test",
         feature = "blk_test",
         feature = "fs_test",
+        feature = "net_test",
     )))]
     {
         serial_write(b"RUGO: halt ok\n");
