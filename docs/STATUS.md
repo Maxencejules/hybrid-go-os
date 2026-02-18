@@ -13,7 +13,7 @@ Full milestone definitions and acceptance criteria live in
 ## How to run
 
 ```bash
-# Rugo (build + QEMU smoke tests, 12 tests)
+# Rugo (build + QEMU smoke tests, 16 tests)
 make test-qemu
 
 # Legacy (build + QEMU smoke tests, 16 tests)
@@ -32,8 +32,8 @@ make docker-all
 | **M2** Scheduler + threads | ✅ | ✅ | Rugo: `tests/sched/test_timer_ticks.py` (`TICK: 100`), `tests/sched/test_two_threads.py` (interleaved `A`/`B`). Legacy: `legacy/tests/sched/test_timer_ticks.py`, `legacy/tests/sched/test_two_threads.py` |
 | **M3** User mode + syscalls | ✅ | ✅ | Rugo: `tests/user/test_enter_user_mode.py` (`USER: hello`), `tests/user/test_syscall_roundtrip.py` (`USER: write ok`), `tests/user/test_user_fault.py` (`USER: killed`). Legacy: `legacy/tests/user/` |
 | **M4** IPC + shared memory | ✅ | ✅ | Rugo: `tests/ipc/test_ping_pong.py` (`PING: ok`, `PONG: ok`), `tests/ipc/test_shm_bulk.py` (`SHM: checksum ok`). Legacy: `legacy/tests/ipc/` |
-| **M5** VirtIO block | ✅ | ⬜ | `legacy/tests/drivers/test_virtio_blk_identify.py`, `test_virtio_blk_rw.py` |
-| **M6** Filesystem + pkg + shell | ✅ | ⬜ | `legacy/tests/fs/test_fsd_smoke.py` (`FSD: mount ok`), `legacy/tests/pkg/test_pkg_install_run.py` (`APP: hello world`) |
+| **M5** VirtIO block | ✅ | ✅ | Rugo: `tests/drivers/test_virtio_blk_identify.py` (`BLK: found virtio-blk`), `tests/drivers/test_virtio_blk_rw.py` (`BLK: rw ok`). Legacy: `legacy/tests/drivers/` |
+| **M6** Filesystem + pkg + shell | ✅ | ✅ | Rugo: `tests/fs/test_fsd_smoke.py` (`FSD: mount ok`), `tests/pkg/test_pkg_install_run.py` (`APP: hello world`). Legacy: `legacy/tests/fs/test_fsd_smoke.py`, `legacy/tests/pkg/test_pkg_install_run.py` |
 | **M7** VirtIO net + UDP | ✅ | ⬜ | `legacy/tests/net/test_udp_echo.py` (`NET: udp echo`) |
 | **G0** Go kernel entry | ✅ | n/a | `legacy/tests/boot/test_go_entry.py` (`GO: kmain ok`). Legacy-only. |
 | **G1** Go services (TinyGo) | n/a | ⬜ | Rugo-only. Depends on M3. |
@@ -43,6 +43,7 @@ make docker-all
 
 ## Current focus
 
-The next Rugo milestone is **M5: VirtIO block**. M0–M4 are complete:
-boot, paging, traps, scheduler, user mode, syscalls, IPC, shared memory, and
-service registry are all functional with 12 passing QEMU integration tests.
+The next Rugo milestone is **M7: VirtIO net + UDP echo** (optional). M0–M6 are
+complete: boot, paging, traps, scheduler, user mode, syscalls, IPC, shared
+memory, service registry, VirtIO block, filesystem, package manager, and shell
+are all functional with 16 passing QEMU integration tests.

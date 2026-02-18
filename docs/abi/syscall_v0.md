@@ -48,6 +48,8 @@ indicates an error.
 | 10 | sys_time_now | -- | tick count | Implemented (M3) | Current monotonic tick count |
 | 11 | sys_svc_register | rdi=name_ptr, rsi=name_len, rdx=endpoint | 0 or -1 | **Implemented (R4)** | Register service name → endpoint mapping |
 | 12 | sys_svc_lookup | rdi=name_ptr, rsi=name_len | endpoint or -1 | **Implemented (R4)** | Lookup service endpoint by name |
+| 13 | sys_blk_read | rdi=lba, rsi=buf, rdx=len | bytes_read or -1 | **Implemented (M5)** | Read sectors from VirtIO block device |
+| 14 | sys_blk_write | rdi=lba, rsi=buf, rdx=len | bytes_written or -1 | **Implemented (M5)** | Write sectors to VirtIO block device |
 
 Stubs return -1 (0xFFFFFFFFFFFFFFFF) and will be implemented in later milestones.
 
@@ -119,11 +121,58 @@ If a page fault or GPF occurs while CS indicates ring 3 (user mode):
 - In R4 tests: silently kills the task and schedules the next ready task.
   When no tasks remain, the kernel exits.
 
+## Block I/O model (M5)
+
+### Device
+
+- VirtIO block device detected via PCI scan (vendor 0x1AF4, device 0x1001).
+- Legacy VirtIO transport (I/O port BAR0, `disable-modern=on` in QEMU).
+- Polling driver (no interrupts); deterministic bounded timeout.
+
+### Syscalls
+
+- `sys_blk_read(lba, buf, len)`: Read `len` bytes starting at sector `lba`.
+- `sys_blk_write(lba, buf, len)`: Write `len` bytes starting at sector `lba`.
+
+### Constraints
+
+- `len` must be a multiple of 512 bytes.
+- Maximum transfer size per call: 4096 bytes (one page).
+- `lba` is a sector number (512-byte units).
+- User pointer is validated via page table walk before DMA.
+- Data is copied through a kernel DMA buffer (copyin/copyout).
+
+## Filesystem model (M6)
+
+### Architecture
+
+Architecture A — services over IPC. The R4 IPC framework is ready. For v0,
+the kernel orchestrates filesystem and package operations in kernel space:
+
+- **fsd** (kernel-side): reads SimpleFS v0 from VirtIO block device, validates
+  superblock, prints `FSD: mount ok`.
+- **pkg** (kernel-side): reads `hello.pkg` from mounted filesystem, parses
+  PKG v0 header, extracts hello binary.
+- **sh** (kernel-side): loads extracted binary into user-mode page, enters
+  ring 3 via `iretq`.
+- **hello** (ring 3): prints `APP: hello world` via `sys_debug_write`.
+
+### Disk format
+
+SimpleFS v0 — see `docs/storage/fs_v0.md` for on-disk layout, package format,
+and image generation.
+
+### Kernel changes
+
+M6 reuses the M5 VirtIO block driver and the M3 user-mode infrastructure.
+No new syscalls are added; the kernel reads the disk directly and only the
+hello app runs in user mode. No VFS is added to the kernel.
+
 ## Notes
 
-- M3/R4 use `int 0x80` (software interrupt) rather than the `SYSCALL`/`SYSRET`
+- M3/R4/M5/M6 use `int 0x80` (software interrupt) rather than the `SYSCALL`/`SYSRET`
   MSR mechanism. This simplifies the first user-mode bringup.
 - Ring 3 entry is via `iretq` with proper user CS/SS selectors.
-- Interrupts may be disabled in user mode for M3/R4. Syscalls and faults still work.
+- Interrupts may be disabled in user mode for M3/R4/M5/M6. Syscalls and faults still work.
 - R4 uses cooperative two-task scheduling: tasks switch only on blocking
   syscalls (ipc_recv) or task death (fault/halt).

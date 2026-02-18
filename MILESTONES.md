@@ -63,12 +63,12 @@ Tests: `legacy/tests/` (boot, trap, sched, user, ipc, drivers, fs, pkg, net)
 | # | Milestone | Legacy | Rugo | Evidence |
 |---|-----------|--------|------|----------|
 | M0 | Boot + serial | ✅ | ✅ | Legacy: `legacy/tests/boot/test_boot_banner.py` (KERNEL markers). Rugo: `tests/boot/test_boot_banner.py` + `tests/boot/test_panic_path.py` (RUGO markers). |
-| M1 | Paging + traps | ✅ | — | Legacy: `legacy/tests/boot/test_paging_enabled.py`, `legacy/tests/trap/test_page_fault_report.py`. Rugo: not started. |
-| M2 | Scheduler + threads | ✅ | — | Legacy: `legacy/tests/sched/test_timer_ticks.py`, `legacy/tests/sched/test_two_threads.py`. Rugo: not started. |
-| M3 | User mode + syscalls | ✅ | — | Legacy: `legacy/tests/user/test_enter_user_mode.py`, `test_syscall_roundtrip.py`, `test_user_fault.py`. Rugo: not started. |
-| M4 | IPC + shared memory | ✅ | — | Legacy: `legacy/tests/ipc/test_ping_pong.py`, `legacy/tests/ipc/test_shm_bulk.py`. Rugo: not started. |
-| M5 | VirtIO block + syscalls | ✅ | — | Legacy: `legacy/tests/drivers/test_virtio_blk_identify.py`, `test_virtio_blk_rw.py`. Rugo: not started. |
-| M6 | Filesystem + pkg + shell | ✅ | — | Legacy: `legacy/tests/fs/test_fsd_smoke.py`, `legacy/tests/pkg/test_pkg_install_run.py`. Rugo: not started. |
+| M1 | Paging + traps | ✅ | ✅ | Legacy: `legacy/tests/boot/test_paging_enabled.py`, `legacy/tests/trap/test_page_fault_report.py`. Rugo: `tests/boot/test_paging_enabled.py`, `tests/trap/test_page_fault_report.py`, `tests/trap/test_idt_smoke.py`. |
+| M2 | Scheduler + threads | ✅ | ✅ | Legacy: `legacy/tests/sched/test_timer_ticks.py`, `legacy/tests/sched/test_two_threads.py`. Rugo: `tests/sched/test_timer_ticks.py`, `tests/sched/test_two_threads.py`. |
+| M3 | User mode + syscalls | ✅ | ✅ | Legacy: `legacy/tests/user/test_enter_user_mode.py`, `test_syscall_roundtrip.py`, `test_user_fault.py`. Rugo: `tests/user/test_enter_user_mode.py`, `tests/user/test_syscall_roundtrip.py`, `tests/user/test_user_fault.py`. |
+| M4 | IPC + shared memory | ✅ | ✅ | Legacy: `legacy/tests/ipc/test_ping_pong.py`, `legacy/tests/ipc/test_shm_bulk.py`. Rugo: `tests/ipc/test_ping_pong.py`, `tests/ipc/test_shm_bulk.py`. |
+| M5 | VirtIO block + syscalls | ✅ | ✅ | Legacy: `legacy/tests/drivers/test_virtio_blk_identify.py`, `test_virtio_blk_rw.py`. Rugo: `tests/drivers/test_virtio_blk_identify.py`, `tests/drivers/test_virtio_blk_rw.py`. |
+| M6 | Filesystem + pkg + shell | ✅ | ✅ | Legacy: `legacy/tests/fs/test_fsd_smoke.py`, `legacy/tests/pkg/test_pkg_install_run.py`. Rugo: `tests/fs/test_fsd_smoke.py`, `tests/pkg/test_pkg_install_run.py`. |
 | M7 | VirtIO net + UDP echo | ✅ | — | Legacy: `legacy/tests/net/test_udp_echo.py`. Rugo: not started (optional). |
 | G0 | Go kernel entry (gccgo) | ✅ | n/a | Legacy: `legacy/tests/boot/test_go_entry.py`. Legacy-only milestone. |
 | G1 | Go services (TinyGo) | n/a | — | Rugo-only milestone. Not started. |
@@ -324,7 +324,11 @@ Track B: Full Go port (long-term)
 
 ### Rugo evidence
 
-- Not started.
+- `tests/fs/test_fsd_smoke.py` asserts `FSD: mount ok`
+- `tests/pkg/test_pkg_install_run.py` asserts `APP: hello world`
+- `kernel_rs/src/lib.rs` (fs_test feature: SimpleFS v0 mount + PKG v0 parse + hello user-mode)
+- `tools/mkfs.py` (deterministic disk image builder)
+- `docs/storage/fs_v0.md` (on-disk format documentation)
 
 ---
 
