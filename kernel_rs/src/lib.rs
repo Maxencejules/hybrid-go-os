@@ -3,23 +3,23 @@
 
 use core::panic::PanicInfo;
 
-// Shorthand for "any M3 user-mode test feature is active"
+// Shorthand for "any M3 user-mode test feature is active (includes M5 blk_test, M6 fs_test)"
 macro_rules! cfg_m3 {
     ($($item:item)*) => {
         $(
-            #[cfg(any(feature = "user_hello_test", feature = "syscall_test", feature = "user_fault_test"))]
+            #[cfg(any(feature = "user_hello_test", feature = "syscall_test", feature = "user_fault_test", feature = "blk_test", feature = "fs_test"))]
             $item
         )*
     };
 }
 
-// Shorthand for "any user-mode feature (M3 or R4)"
+// Shorthand for "any user-mode feature (M3 or R4 or M5 or M6)"
 macro_rules! cfg_user {
     ($($item:item)*) => {
         $(
             #[cfg(any(
                 feature = "user_hello_test", feature = "syscall_test", feature = "user_fault_test",
-                feature = "ipc_test", feature = "shm_test",
+                feature = "ipc_test", feature = "shm_test", feature = "blk_test", feature = "fs_test",
             ))]
             $item
         )*
@@ -47,6 +47,34 @@ unsafe fn outb(port: u16, value: u8) {
 unsafe fn inb(port: u16) -> u8 {
     let val: u8;
     core::arch::asm!("in al, dx", out("al") val, in("dx") port, options(nomem, nostack));
+    val
+}
+
+#[cfg(any(feature = "blk_test", feature = "fs_test"))]
+#[inline(always)]
+unsafe fn outw(port: u16, value: u16) {
+    core::arch::asm!("out dx, ax", in("dx") port, in("ax") value, options(nomem, nostack));
+}
+
+#[cfg(any(feature = "blk_test", feature = "fs_test"))]
+#[inline(always)]
+unsafe fn outl(port: u16, value: u32) {
+    core::arch::asm!("out dx, eax", in("dx") port, in("eax") value, options(nomem, nostack));
+}
+
+#[cfg(any(feature = "blk_test", feature = "fs_test"))]
+#[inline(always)]
+unsafe fn inl(port: u16) -> u32 {
+    let val: u32;
+    core::arch::asm!("in eax, dx", out("eax") val, in("dx") port, options(nomem, nostack));
+    val
+}
+
+#[cfg(any(feature = "blk_test", feature = "fs_test"))]
+#[inline(always)]
+unsafe fn inw(port: u16) -> u16 {
+    let val: u16;
+    core::arch::asm!("in ax, dx", out("ax") val, in("dx") port, options(nomem, nostack));
     val
 }
 
@@ -453,6 +481,18 @@ unsafe fn syscall_dispatch(frame: *mut u64) {
     let arg2 = *frame.add(10); // rsi
     let arg3 = *frame.add(11); // rdx
 
+    // M5: blk_test dispatch
+    #[cfg(feature = "blk_test")]
+    {
+        match nr {
+            0  => { *frame.add(14) = sys_debug_write(arg1, arg2); }
+            13 => { *frame.add(14) = sys_blk_read(arg1, arg2, arg3); }
+            14 => { *frame.add(14) = sys_blk_write(arg1, arg2, arg3); }
+            _  => { *frame.add(14) = 0xFFFF_FFFF_FFFF_FFFF; }
+        }
+        return;
+    }
+
     // R4 dispatch
     #[cfg(any(feature = "ipc_test", feature = "shm_test"))]
     {
@@ -493,7 +533,7 @@ unsafe fn sys_debug_write(buf: u64, len: u64) -> u64 {
 
     #[cfg(any(
         feature = "user_hello_test", feature = "syscall_test", feature = "user_fault_test",
-        feature = "ipc_test", feature = "shm_test",
+        feature = "ipc_test", feature = "shm_test", feature = "blk_test", feature = "fs_test",
     ))]
     {
         let hhdm = HHDM_OFFSET;
@@ -531,7 +571,7 @@ unsafe fn sys_time_now() -> u64 {
 
 #[cfg(any(
     feature = "user_hello_test", feature = "syscall_test", feature = "user_fault_test",
-    feature = "ipc_test", feature = "shm_test",
+    feature = "ipc_test", feature = "shm_test", feature = "blk_test", feature = "fs_test",
 ))]
 unsafe fn check_page_user_accessible(va: u64, hhdm: u64) -> bool {
     let cr3: u64;
@@ -1065,6 +1105,432 @@ cfg_r4! {
     }
 }
 
+// =============================================================================
+// M5: VirtIO block driver + block syscalls
+// =============================================================================
+
+// --------------- M5: PCI config space access ---------------------------------
+
+#[cfg(any(feature = "blk_test", feature = "fs_test"))]
+const PCI_CONFIG_ADDR: u16 = 0xCF8;
+#[cfg(any(feature = "blk_test", feature = "fs_test"))]
+const PCI_CONFIG_DATA: u16 = 0xCFC;
+
+#[cfg(any(feature = "blk_test", feature = "fs_test"))]
+unsafe fn pci_read32(bus: u8, dev: u8, func: u8, offset: u8) -> u32 {
+    let addr: u32 = (1u32 << 31)
+        | ((bus as u32) << 16)
+        | ((dev as u32) << 11)
+        | ((func as u32) << 8)
+        | ((offset as u32) & 0xFC);
+    outl(PCI_CONFIG_ADDR, addr);
+    inl(PCI_CONFIG_DATA)
+}
+
+/// Scan PCI bus 0 for VirtIO block device (vendor 0x1AF4, device 0x1001).
+/// Returns the I/O base address (BAR0) if found.
+#[cfg(any(feature = "blk_test", feature = "fs_test"))]
+unsafe fn pci_find_virtio_blk() -> Option<u16> {
+    for dev in 0..32u8 {
+        let id = pci_read32(0, dev, 0, 0);
+        let vendor = (id & 0xFFFF) as u16;
+        let device = ((id >> 16) & 0xFFFF) as u16;
+        if vendor == 0x1AF4 && device == 0x1001 {
+            let bar0_raw = pci_read32(0, dev, 0, 0x10);
+            // BAR0 is I/O space (bit 0 = 1); mask lower 2 bits
+            let iobase = (bar0_raw & !3u32) as u16;
+            // Enable PCI bus mastering (command register, offset 0x04)
+            let cmd = pci_read32(0, dev, 0, 0x04);
+            let new_cmd = cmd | 0x05; // I/O space + bus master
+            let addr: u32 = (1u32 << 31) | ((dev as u32) << 11) | 0x04;
+            outl(PCI_CONFIG_ADDR, addr);
+            outl(PCI_CONFIG_DATA, new_cmd);
+            return Some(iobase);
+        }
+    }
+    None
+}
+
+// --------------- M5: VirtIO legacy transport registers -----------------------
+
+#[cfg(any(feature = "blk_test", feature = "fs_test"))]
+const VIRTIO_DEVICE_FEATURES: u16 = 0;
+#[cfg(any(feature = "blk_test", feature = "fs_test"))]
+const VIRTIO_GUEST_FEATURES: u16 = 4;
+#[cfg(any(feature = "blk_test", feature = "fs_test"))]
+const VIRTIO_QUEUE_PFN: u16 = 8;
+#[cfg(any(feature = "blk_test", feature = "fs_test"))]
+const VIRTIO_QUEUE_SIZE: u16 = 12;
+#[cfg(any(feature = "blk_test", feature = "fs_test"))]
+const VIRTIO_QUEUE_SEL: u16 = 14;
+#[cfg(any(feature = "blk_test", feature = "fs_test"))]
+const VIRTIO_QUEUE_NOTIFY: u16 = 16;
+#[cfg(any(feature = "blk_test", feature = "fs_test"))]
+const VIRTIO_DEVICE_STATUS: u16 = 18;
+#[cfg(any(feature = "blk_test", feature = "fs_test"))]
+const VIRTIO_ISR_STATUS: u16 = 19;
+
+// Descriptor flags
+#[cfg(any(feature = "blk_test", feature = "fs_test"))]
+const VRING_DESC_F_NEXT: u16 = 1;
+#[cfg(any(feature = "blk_test", feature = "fs_test"))]
+const VRING_DESC_F_WRITE: u16 = 2;
+
+// Block request types
+#[cfg(any(feature = "blk_test", feature = "fs_test"))]
+const VIRTIO_BLK_T_IN: u32 = 0;  // read
+#[cfg(any(feature = "blk_test", feature = "fs_test"))]
+const VIRTIO_BLK_T_OUT: u32 = 1; // write
+
+// --------------- M5: Virtqueue descriptor ------------------------------------
+
+#[cfg(any(feature = "blk_test", feature = "fs_test"))]
+#[repr(C, packed)]
+struct VringDesc {
+    addr: u64,
+    len: u32,
+    flags: u16,
+    next: u16,
+}
+
+// Block request header layout (written via raw offsets, 16 bytes):
+//   offset 0: type_ (u32) — VIRTIO_BLK_T_IN=0, VIRTIO_BLK_T_OUT=1
+//   offset 4: reserved (u32)
+//   offset 8: sector (u64)
+
+// --------------- M5: Static memory for VirtIO --------------------------------
+
+// Virtqueue area: 4 pages (16 KiB), enough for queue_size up to 256
+#[cfg(any(feature = "blk_test", feature = "fs_test"))]
+#[repr(C, align(4096))]
+struct VqMem([u8; 16384]);
+
+#[cfg(any(feature = "blk_test", feature = "fs_test"))]
+static mut VQ_MEM: VqMem = VqMem([0; 16384]);
+
+// DMA buffers: request header+status (1 page), data (1 page)
+#[cfg(any(feature = "blk_test", feature = "fs_test"))]
+static mut BLK_REQ_PAGE: Page = Page([0; 4096]);
+#[cfg(any(feature = "blk_test", feature = "fs_test"))]
+static mut BLK_DATA_PAGE: Page = Page([0; 4096]);
+
+// Driver state
+#[cfg(any(feature = "blk_test", feature = "fs_test"))]
+static mut BLK_IOBASE: u16 = 0;
+#[cfg(any(feature = "blk_test", feature = "fs_test"))]
+static mut BLK_QUEUE_SIZE: u16 = 0;
+#[cfg(any(feature = "blk_test", feature = "fs_test"))]
+static mut BLK_DESCS: *mut VringDesc = core::ptr::null_mut();
+#[cfg(any(feature = "blk_test", feature = "fs_test"))]
+static mut BLK_AVAIL: *mut u8 = core::ptr::null_mut();
+#[cfg(any(feature = "blk_test", feature = "fs_test"))]
+static mut BLK_USED: *const u8 = core::ptr::null();
+#[cfg(any(feature = "blk_test", feature = "fs_test"))]
+static mut BLK_LAST_USED: u16 = 0;
+#[cfg(any(feature = "blk_test", feature = "fs_test"))]
+static mut BLK_KV2P_DELTA: u64 = 0; // kphys - kvirt (wrapping)
+
+#[cfg(any(feature = "blk_test", feature = "fs_test"))]
+unsafe fn blk_kv2p(va: u64) -> u64 {
+    va.wrapping_add(BLK_KV2P_DELTA)
+}
+
+// --------------- M5: VirtIO block init ---------------------------------------
+
+#[cfg(any(feature = "blk_test", feature = "fs_test"))]
+unsafe fn virtio_blk_init(iobase: u16) -> bool {
+    BLK_IOBASE = iobase;
+
+    // Step 1: Reset
+    outb(iobase + VIRTIO_DEVICE_STATUS, 0);
+
+    // Step 2: Acknowledge
+    outb(iobase + VIRTIO_DEVICE_STATUS, 1);
+
+    // Step 3: Driver
+    outb(iobase + VIRTIO_DEVICE_STATUS, 1 | 2);
+
+    // Step 4: Feature negotiation — accept no features
+    let _features = inl(iobase + VIRTIO_DEVICE_FEATURES);
+    outl(iobase + VIRTIO_GUEST_FEATURES, 0);
+
+    // Step 5: Select queue 0, read queue size
+    outw(iobase + VIRTIO_QUEUE_SEL, 0);
+    let qsz = inw(iobase + VIRTIO_QUEUE_SIZE);
+    if qsz == 0 {
+        outb(iobase + VIRTIO_DEVICE_STATUS, 0x80); // FAILED
+        return false;
+    }
+    BLK_QUEUE_SIZE = qsz;
+
+    // Step 6: Zero queue memory and set up pointers
+    core::ptr::write_bytes(VQ_MEM.0.as_mut_ptr(), 0, VQ_MEM.0.len());
+
+    let base = VQ_MEM.0.as_mut_ptr();
+    BLK_DESCS = base as *mut VringDesc;
+
+    let avail_offset = (qsz as usize) * 16;
+    BLK_AVAIL = base.add(avail_offset);
+
+    let avail_end = avail_offset + 6 + 2 * (qsz as usize);
+    let used_offset = (avail_end + 4095) & !4095;
+    BLK_USED = base.add(used_offset) as *const u8;
+    BLK_LAST_USED = 0;
+
+    // Step 7: Write queue PFN (physical page frame number)
+    let queue_phys = blk_kv2p(base as u64);
+    outl(iobase + VIRTIO_QUEUE_PFN, (queue_phys >> 12) as u32);
+
+    // Step 8: DRIVER_OK
+    outb(iobase + VIRTIO_DEVICE_STATUS, 1 | 2 | 4);
+
+    true
+}
+
+// --------------- M5: VirtIO block I/O ----------------------------------------
+
+/// Perform a single block I/O operation. Returns true on success.
+/// `sector` is the starting 512-byte sector.
+/// `len` must be a multiple of 512, max 4096.
+/// For writes, data must already be in BLK_DATA_PAGE.
+/// For reads, data is placed in BLK_DATA_PAGE.
+#[cfg(any(feature = "blk_test", feature = "fs_test"))]
+unsafe fn virtio_blk_io(write: bool, sector: u64, len: usize) -> bool {
+    let iobase = BLK_IOBASE;
+    let qsz = BLK_QUEUE_SIZE as usize;
+
+    // Set up request header (via raw offsets to avoid packed ref UB)
+    let hdr = BLK_REQ_PAGE.0.as_mut_ptr();
+    // type_ at offset 0 (u32)
+    core::ptr::write_volatile(hdr as *mut u32,
+        if write { VIRTIO_BLK_T_OUT } else { VIRTIO_BLK_T_IN });
+    // reserved at offset 4 (u32)
+    core::ptr::write_volatile(hdr.add(4) as *mut u32, 0);
+    // sector at offset 8 (u64)
+    core::ptr::write_volatile(hdr.add(8) as *mut u64, sector);
+
+    // Status byte (after header, at offset 16 in req page)
+    let status_ptr = BLK_REQ_PAGE.0.as_mut_ptr().add(16);
+    core::ptr::write_volatile(status_ptr, 0xFF); // init to failure
+
+    let hdr_phys = blk_kv2p(hdr as u64);
+    let status_phys = blk_kv2p(status_ptr as u64);
+    let data_phys = blk_kv2p(BLK_DATA_PAGE.0.as_ptr() as u64);
+
+    // Write descriptors via raw pointers (VringDesc is packed)
+    // Each desc is 16 bytes: addr(u64) + len(u32) + flags(u16) + next(u16)
+
+    // Descriptor 0: request header (device reads, 16 bytes)
+    let d0 = BLK_DESCS as *mut u8;
+    core::ptr::write(d0.add(0) as *mut u64, hdr_phys);
+    core::ptr::write(d0.add(8) as *mut u32, 16);
+    core::ptr::write(d0.add(12) as *mut u16, VRING_DESC_F_NEXT);
+    core::ptr::write(d0.add(14) as *mut u16, 1);
+
+    // Descriptor 1: data buffer
+    let d1 = (BLK_DESCS as *mut u8).add(16);
+    core::ptr::write(d1.add(0) as *mut u64, data_phys);
+    core::ptr::write(d1.add(8) as *mut u32, len as u32);
+    core::ptr::write(d1.add(12) as *mut u16,
+        VRING_DESC_F_NEXT | if !write { VRING_DESC_F_WRITE } else { 0 });
+    core::ptr::write(d1.add(14) as *mut u16, 2);
+
+    // Descriptor 2: status byte (device writes, 1 byte)
+    let d2 = (BLK_DESCS as *mut u8).add(32);
+    core::ptr::write(d2.add(0) as *mut u64, status_phys);
+    core::ptr::write(d2.add(8) as *mut u32, 1);
+    core::ptr::write(d2.add(12) as *mut u16, VRING_DESC_F_WRITE);
+    core::ptr::write(d2.add(14) as *mut u16, 0);
+
+    // Add to available ring
+    let avail = BLK_AVAIL;
+    let avail_idx = core::ptr::read_volatile((avail as *const u16).add(1)); // avail->idx
+    let ring_slot = (avail as *mut u16).add(2 + (avail_idx as usize % qsz));
+    core::ptr::write_volatile(ring_slot, 0u16); // desc chain starts at index 0
+
+    // Memory barrier then update avail idx
+    core::arch::asm!("mfence", options(nostack));
+    core::ptr::write_volatile((avail as *mut u16).add(1), avail_idx.wrapping_add(1));
+
+    // Notify device
+    outw(iobase + VIRTIO_QUEUE_NOTIFY, 0);
+
+    // Poll used ring for completion
+    let used = BLK_USED;
+    let mut timeout: u32 = 10_000_000;
+    loop {
+        let used_idx = core::ptr::read_volatile((used as *const u16).add(1));
+        if used_idx != BLK_LAST_USED {
+            break;
+        }
+        core::arch::asm!("pause", options(nomem, nostack));
+        timeout -= 1;
+        if timeout == 0 {
+            return false;
+        }
+    }
+    BLK_LAST_USED = BLK_LAST_USED.wrapping_add(1);
+
+    // Acknowledge interrupt
+    let _ = inb(iobase + VIRTIO_ISR_STATUS);
+
+    // Check status byte
+    let st = core::ptr::read_volatile(status_ptr);
+    st == 0
+}
+
+// --------------- M5: Block syscalls ------------------------------------------
+
+/// sys_blk_read(lba, user_buf, len) -> bytes_read or -1
+/// len must be a multiple of 512, max 4096.
+#[cfg(feature = "blk_test")]
+unsafe fn sys_blk_read(lba: u64, buf: u64, len: u64) -> u64 {
+    if len == 0 || len > 4096 || len % 512 != 0 {
+        return 0xFFFF_FFFF_FFFF_FFFF;
+    }
+    if buf >= 0x0000_8000_0000_0000 {
+        return 0xFFFF_FFFF_FFFF_FFFF;
+    }
+    if buf.checked_add(len).is_none() || buf + len > 0x0000_8000_0000_0000 {
+        return 0xFFFF_FFFF_FFFF_FFFF;
+    }
+    // Page walk validation
+    let hhdm = HHDM_OFFSET;
+    let start_page = buf & !0xFFF;
+    let end_page = (buf + len - 1) & !0xFFF;
+    let mut page = start_page;
+    loop {
+        if !check_page_user_accessible(page, hhdm) {
+            return 0xFFFF_FFFF_FFFF_FFFF;
+        }
+        if page >= end_page { break; }
+        page += 4096;
+    }
+    // Read from disk
+    if !virtio_blk_io(false, lba, len as usize) {
+        return 0xFFFF_FFFF_FFFF_FFFF;
+    }
+    // Copyout to user buffer
+    core::ptr::copy_nonoverlapping(BLK_DATA_PAGE.0.as_ptr(), buf as *mut u8, len as usize);
+    len
+}
+
+/// sys_blk_write(lba, user_buf, len) -> bytes_written or -1
+/// len must be a multiple of 512, max 4096.
+#[cfg(feature = "blk_test")]
+unsafe fn sys_blk_write(lba: u64, buf: u64, len: u64) -> u64 {
+    if len == 0 || len > 4096 || len % 512 != 0 {
+        return 0xFFFF_FFFF_FFFF_FFFF;
+    }
+    if buf >= 0x0000_8000_0000_0000 {
+        return 0xFFFF_FFFF_FFFF_FFFF;
+    }
+    if buf.checked_add(len).is_none() || buf + len > 0x0000_8000_0000_0000 {
+        return 0xFFFF_FFFF_FFFF_FFFF;
+    }
+    // Page walk validation
+    let hhdm = HHDM_OFFSET;
+    let start_page = buf & !0xFFF;
+    let end_page = (buf + len - 1) & !0xFFF;
+    let mut page = start_page;
+    loop {
+        if !check_page_user_accessible(page, hhdm) {
+            return 0xFFFF_FFFF_FFFF_FFFF;
+        }
+        if page >= end_page { break; }
+        page += 4096;
+    }
+    // Copyin from user buffer to DMA page
+    core::ptr::copy_nonoverlapping(buf as *const u8, BLK_DATA_PAGE.0.as_mut_ptr(), len as usize);
+    // Write to disk
+    if !virtio_blk_io(true, lba, len as usize) {
+        return 0xFFFF_FFFF_FFFF_FFFF;
+    }
+    len
+}
+
+// --------------- M5: User blob for block r/w test ----------------------------
+//
+// This user program:
+//   1. Fills 512 bytes at (rsp - 0x200) with 0xAA
+//   2. sys_blk_write(lba=0, buf, 512)
+//   3. Zeroes the same buffer
+//   4. sys_blk_read(lba=0, buf, 512)
+//   5. Checks buf[0] == 0xAA && buf[511] == 0xAA
+//   6. Prints "BLK: rw ok\n" via sys_debug_write
+//   7. HLTs (triggers GPF → kernel exit)
+
+#[cfg(feature = "blk_test")]
+static BLK_TEST_BLOB: [u8; 111] = [
+    // mov rbx, rsp
+    0x48, 0x89, 0xE3,
+    // sub rbx, 0x200
+    0x48, 0x81, 0xEB, 0x00, 0x02, 0x00, 0x00,
+    // mov rdi, rbx  (buf for rep stosb)
+    0x48, 0x89, 0xDF,
+    // mov ecx, 512
+    0xB9, 0x00, 0x02, 0x00, 0x00,
+    // mov al, 0xAA
+    0xB0, 0xAA,
+    // rep stosb  (fill buf with 0xAA)
+    0xF3, 0xAA,
+    // --- sys_blk_write(0, rbx, 512) ---
+    // xor edi, edi        ; lba = 0
+    0x31, 0xFF,
+    // mov rsi, rbx        ; buf
+    0x48, 0x89, 0xDE,
+    // mov edx, 512        ; len
+    0xBA, 0x00, 0x02, 0x00, 0x00,
+    // mov eax, 14         ; sys_blk_write
+    0xB8, 0x0E, 0x00, 0x00, 0x00,
+    // int 0x80
+    0xCD, 0x80,
+    // --- zero buffer ---
+    // mov rdi, rbx
+    0x48, 0x89, 0xDF,
+    // mov ecx, 512
+    0xB9, 0x00, 0x02, 0x00, 0x00,
+    // xor eax, eax
+    0x31, 0xC0,
+    // rep stosb  (fill buf with 0x00)
+    0xF3, 0xAA,
+    // --- sys_blk_read(0, rbx, 512) ---
+    // xor edi, edi
+    0x31, 0xFF,
+    // mov rsi, rbx
+    0x48, 0x89, 0xDE,
+    // mov edx, 512
+    0xBA, 0x00, 0x02, 0x00, 0x00,
+    // mov eax, 13         ; sys_blk_read
+    0xB8, 0x0D, 0x00, 0x00, 0x00,
+    // int 0x80
+    0xCD, 0x80,
+    // --- verify ---
+    // cmp byte [rbx], 0xAA
+    0x80, 0x3B, 0xAA,
+    // jne .bad (+26 -> offset 99)
+    0x75, 0x1A,
+    // cmp byte [rbx + 511], 0xAA
+    0x80, 0xBB, 0xFF, 0x01, 0x00, 0x00, 0xAA,
+    // jne .bad (+17 -> offset 99)
+    0x75, 0x11,
+    // --- print "BLK: rw ok\n" ---
+    // lea rdi, [rip + 0x0B] -> .msg at offset 100
+    0x48, 0x8D, 0x3D, 0x0B, 0x00, 0x00, 0x00,
+    // mov esi, 11
+    0xBE, 0x0B, 0x00, 0x00, 0x00,
+    // xor eax, eax        ; sys_debug_write
+    0x31, 0xC0,
+    // int 0x80
+    0xCD, 0x80,
+    // hlt (triggers GPF in ring 3 → kernel exit)
+    0xF4,
+    // .bad:
+    0xF4,
+    // .msg: "BLK: rw ok\n"
+    b'B', b'L', b'K', b':', b' ', b'r', b'w', b' ', b'o', b'k', b'\n',
+];
+
 // --------------- R4: User program blobs (hand-assembled x86-64) --------------
 
 // IPC ping-pong blobs
@@ -1470,6 +1936,174 @@ pub extern "C" fn kmain() -> ! {
         enter_ring3_at(USER_CODE_VA, USER_STACK_TOP);
     }
 
+    // M5: blk_test — VirtIO block driver + syscalls
+    #[cfg(feature = "blk_test")]
+    unsafe {
+        // Compute kv2p delta from Limine responses
+        let hhdm_resp_ptr = core::ptr::read_volatile(
+            core::ptr::addr_of!(HHDM_REQUEST.response));
+        let kaddr_resp_ptr = core::ptr::read_volatile(
+            core::ptr::addr_of!(KADDR_REQUEST.response));
+        let kphys = (*kaddr_resp_ptr).physical_base;
+        let kvirt = (*kaddr_resp_ptr).virtual_base;
+        BLK_KV2P_DELTA = kphys.wrapping_sub(kvirt);
+
+        // PCI scan for VirtIO block device
+        match pci_find_virtio_blk() {
+            None => {
+                serial_write(b"BLK: not found\n");
+                qemu_exit(0x31);
+                loop { core::arch::asm!("cli; hlt", options(nomem, nostack)); }
+            }
+            Some(iobase) => {
+                if !virtio_blk_init(iobase) {
+                    serial_write(b"BLK: init failed\n");
+                    qemu_exit(0x31);
+                    loop { core::arch::asm!("cli; hlt", options(nomem, nostack)); }
+                }
+                serial_write(b"BLK: found virtio-blk\n");
+            }
+        }
+
+        // Set up user mode and run block test blob
+        let kstack = &stack_top as *const u8 as u64;
+        tss_init(kstack);
+        HHDM_OFFSET = (*hhdm_resp_ptr).offset;
+        setup_user_pages(&BLK_TEST_BLOB);
+        enter_ring3_at(USER_CODE_VA, USER_STACK_TOP);
+    }
+
+    // M6: fs_test — Filesystem + package manager + shell
+    //
+    // Architecture A (services over IPC): the R4 IPC infrastructure is proven.
+    // For v0 the kernel orchestrates fsd/pkg/sh logic (reading SimpleFS from
+    // the VirtIO block disk, parsing the PKG format, extracting the hello
+    // binary).  The hello app runs in genuine user mode (ring 3) to validate
+    // the full stack:  block driver → SimpleFS → PKG → user execution.
+    #[cfg(feature = "fs_test")]
+    unsafe {
+        // --- block driver init (same as blk_test) ---
+        let hhdm_resp_ptr = core::ptr::read_volatile(
+            core::ptr::addr_of!(HHDM_REQUEST.response));
+        let kaddr_resp_ptr = core::ptr::read_volatile(
+            core::ptr::addr_of!(KADDR_REQUEST.response));
+        let kphys = (*kaddr_resp_ptr).physical_base;
+        let kvirt = (*kaddr_resp_ptr).virtual_base;
+        BLK_KV2P_DELTA = kphys.wrapping_sub(kvirt);
+
+        match pci_find_virtio_blk() {
+            None => {
+                serial_write(b"BLK: not found\n");
+                qemu_exit(0x31);
+                loop { core::arch::asm!("cli; hlt", options(nomem, nostack)); }
+            }
+            Some(iobase) => {
+                if !virtio_blk_init(iobase) {
+                    serial_write(b"BLK: init failed\n");
+                    qemu_exit(0x31);
+                    loop { core::arch::asm!("cli; hlt", options(nomem, nostack)); }
+                }
+            }
+        }
+
+        // --- fsd: mount SimpleFS v0 ---
+        // Read superblock from sector 0
+        if !virtio_blk_io(false, 0, 512) {
+            serial_write(b"FSD: read error\n");
+            qemu_exit(0x31);
+            loop { core::arch::asm!("cli; hlt", options(nomem, nostack)); }
+        }
+        let sb_ptr = BLK_DATA_PAGE.0.as_ptr();
+        let sb_magic = core::ptr::read(sb_ptr as *const u32);
+        if sb_magic != 0x5346_5331u32 { // "SFS1"
+            serial_write(b"FSD: bad magic\n");
+            qemu_exit(0x31);
+            loop { core::arch::asm!("cli; hlt", options(nomem, nostack)); }
+        }
+        let file_count = core::ptr::read(sb_ptr.add(4) as *const u32);
+        serial_write(b"FSD: mount ok\n");
+
+        // --- fsd: read file table from sector 1 ---
+        if !virtio_blk_io(false, 1, 512) {
+            serial_write(b"FSD: ft read error\n");
+            qemu_exit(0x31);
+            loop { core::arch::asm!("cli; hlt", options(nomem, nostack)); }
+        }
+        // Save file table (BLK_DATA_PAGE is reused by next I/O)
+        let mut ft_buf = [0u8; 512];
+        core::ptr::copy_nonoverlapping(BLK_DATA_PAGE.0.as_ptr(), ft_buf.as_mut_ptr(), 512);
+
+        // --- pkg: find hello.pkg in file table ---
+        let pkg_name: &[u8; 9] = b"hello.pkg";
+        let mut pkg_sector = 0u32;
+        let mut pkg_size = 0u32;
+        let mut pkg_found = false;
+        let fc = if file_count > 16 { 16 } else { file_count as usize };
+        let mut fi = 0usize;
+        while fi < fc {
+            let base = fi * 32;
+            let mut ok = true;
+            let mut pi = 0usize;
+            while pi < pkg_name.len() {
+                if ft_buf[base + pi] != pkg_name[pi] { ok = false; break; }
+                pi += 1;
+            }
+            if ok {
+                pkg_sector = u32::from_le_bytes([
+                    ft_buf[base + 24], ft_buf[base + 25],
+                    ft_buf[base + 26], ft_buf[base + 27],
+                ]);
+                pkg_size = u32::from_le_bytes([
+                    ft_buf[base + 28], ft_buf[base + 29],
+                    ft_buf[base + 30], ft_buf[base + 31],
+                ]);
+                pkg_found = true;
+                break;
+            }
+            fi += 1;
+        }
+        if !pkg_found {
+            serial_write(b"PKG: hello.pkg not found\n");
+            qemu_exit(0x31);
+            loop { core::arch::asm!("cli; hlt", options(nomem, nostack)); }
+        }
+
+        // --- pkg: read hello.pkg from disk ---
+        if !virtio_blk_io(false, pkg_sector as u64, 512) {
+            serial_write(b"PKG: read error\n");
+            qemu_exit(0x31);
+            loop { core::arch::asm!("cli; hlt", options(nomem, nostack)); }
+        }
+
+        // Parse PKG v0 header: magic(4) + bin_size(4) + name(24) = 32 bytes
+        let pkg_magic = u32::from_le_bytes([
+            BLK_DATA_PAGE.0[0], BLK_DATA_PAGE.0[1],
+            BLK_DATA_PAGE.0[2], BLK_DATA_PAGE.0[3],
+        ]);
+        if pkg_magic != 0x0147_4B50u32 { // "PKG\x01"
+            serial_write(b"PKG: bad magic\n");
+            qemu_exit(0x31);
+            loop { core::arch::asm!("cli; hlt", options(nomem, nostack)); }
+        }
+        let bin_size = u32::from_le_bytes([
+            BLK_DATA_PAGE.0[4], BLK_DATA_PAGE.0[5],
+            BLK_DATA_PAGE.0[6], BLK_DATA_PAGE.0[7],
+        ]) as usize;
+        if bin_size == 0 || bin_size > 4064 {
+            serial_write(b"PKG: bad bin_size\n");
+            qemu_exit(0x31);
+            loop { core::arch::asm!("cli; hlt", options(nomem, nostack)); }
+        }
+
+        // --- sh: load hello binary into user page and run it ---
+        let hello_bin = &BLK_DATA_PAGE.0[32..32 + bin_size];
+        let kstack = &stack_top as *const u8 as u64;
+        tss_init(kstack);
+        HHDM_OFFSET = (*hhdm_resp_ptr).offset;
+        setup_user_pages(hello_bin);
+        enter_ring3_at(USER_CODE_VA, USER_STACK_TOP);
+    }
+
     // Normal boot path (M0/M1)
     #[cfg(not(any(
         feature = "sched_test",
@@ -1478,6 +2112,8 @@ pub extern "C" fn kmain() -> ! {
         feature = "user_fault_test",
         feature = "ipc_test",
         feature = "shm_test",
+        feature = "blk_test",
+        feature = "fs_test",
     )))]
     {
         serial_write(b"RUGO: halt ok\n");
