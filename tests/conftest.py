@@ -12,6 +12,8 @@ ISO_SCHED_PATH = os.path.join(REPO_ROOT, "out", "os-sched.iso")
 ISO_USER_HELLO_PATH = os.path.join(REPO_ROOT, "out", "os-user-hello.iso")
 ISO_SYSCALL_PATH = os.path.join(REPO_ROOT, "out", "os-syscall.iso")
 ISO_USER_FAULT_PATH = os.path.join(REPO_ROOT, "out", "os-user-fault.iso")
+ISO_IPC_PATH = os.path.join(REPO_ROOT, "out", "os-ipc.iso")
+ISO_SHM_PATH = os.path.join(REPO_ROOT, "out", "os-shm.iso")
 QEMU_TIMEOUT = 10  # seconds
 
 
@@ -101,3 +103,19 @@ def qemu_serial_user_fault():
     if not os.path.isfile(ISO_USER_FAULT_PATH):
         pytest.skip(f"ISO not built: {ISO_USER_FAULT_PATH}")
     return _boot_iso(ISO_USER_FAULT_PATH)
+
+
+@pytest.fixture
+def qemu_serial_ipc():
+    """Boot the IPC ping-pong test OS image and return captured serial output."""
+    if not os.path.isfile(ISO_IPC_PATH):
+        pytest.skip(f"ISO not built: {ISO_IPC_PATH}")
+    return _boot_iso(ISO_IPC_PATH)
+
+
+@pytest.fixture
+def qemu_serial_shm():
+    """Boot the SHM bulk test OS image and return captured serial output."""
+    if not os.path.isfile(ISO_SHM_PATH):
+        pytest.skip(f"ISO not built: {ISO_SHM_PATH}")
+    return _boot_iso(ISO_SHM_PATH)

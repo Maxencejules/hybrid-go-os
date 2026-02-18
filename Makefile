@@ -6,6 +6,7 @@
        build-sched image-sched \
        build-user-hello image-user-hello build-syscall image-syscall \
        build-user-fault image-user-fault \
+       build-ipc image-ipc build-shm image-shm \
        run test-qemu clean legacy docker-all
 
 # Tools
@@ -96,6 +97,18 @@ build-user-fault: $(ASM_OBJS) boot/linker.ld
 	cd kernel_rs && cargo build --release --features user_fault_test
 	$(LD) $(LDFLAGS) -o $(OUT)/kernel-user-fault.elf $(ASM_OBJS) $(KERNEL_LIB)
 
+# --- R4: IPC ping-pong test kernel -------------------------------------------
+
+build-ipc: $(ASM_OBJS) boot/linker.ld
+	cd kernel_rs && cargo build --release --features ipc_test
+	$(LD) $(LDFLAGS) -o $(OUT)/kernel-ipc.elf $(ASM_OBJS) $(KERNEL_LIB)
+
+# --- R4: SHM bulk test kernel ------------------------------------------------
+
+build-shm: $(ASM_OBJS) boot/linker.ld
+	cd kernel_rs && cargo build --release --features shm_test
+	$(LD) $(LDFLAGS) -o $(OUT)/kernel-shm.elf $(ASM_OBJS) $(KERNEL_LIB)
+
 # --- Image / Run / Test -------------------------------------------------------
 
 image: build
@@ -122,10 +135,16 @@ image-syscall: build-syscall
 image-user-fault: build-user-fault
 	KERNEL_ELF=kernel-user-fault.elf ISO_NAME=os-user-fault.iso bash tools/mkimage.sh
 
+image-ipc: build-ipc
+	KERNEL_ELF=kernel-ipc.elf ISO_NAME=os-ipc.iso bash tools/mkimage.sh
+
+image-shm: build-shm
+	KERNEL_ELF=kernel-shm.elf ISO_NAME=os-shm.iso bash tools/mkimage.sh
+
 run: image
 	./tools/run_qemu.sh
 
-test-qemu: image image-panic image-pf image-idt image-sched image-user-hello image-syscall image-user-fault
+test-qemu: image image-panic image-pf image-idt image-sched image-user-hello image-syscall image-user-fault image-ipc image-shm
 	python3 -m pytest tests/ -v
 
 clean:
