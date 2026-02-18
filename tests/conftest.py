@@ -22,6 +22,7 @@ BLK_DISK_IMG = os.path.join(REPO_ROOT, "out", "blk-test.img")
 ISO_FS_PATH = os.path.join(REPO_ROOT, "out", "os-fs.iso")
 FS_DISK_IMG = os.path.join(REPO_ROOT, "out", "fs-test.img")
 ISO_NET_PATH = os.path.join(REPO_ROOT, "out", "os-net.iso")
+ISO_GO_PATH = os.path.join(REPO_ROOT, "out", "os-go.iso")
 QEMU_TIMEOUT = 10  # seconds
 NET_TIMEOUT = 15   # longer timeout for networking
 
@@ -255,3 +256,11 @@ def qemu_serial_net():
     if not os.path.isfile(ISO_NET_PATH):
         pytest.skip(f"ISO not built: {ISO_NET_PATH}")
     return _boot_iso_with_net(ISO_NET_PATH)
+
+
+@pytest.fixture
+def qemu_serial_go():
+    """Boot the G1 TinyGo user-space test OS image."""
+    if not os.path.isfile(ISO_GO_PATH):
+        pytest.skip(f"ISO not built: {ISO_GO_PATH}")
+    return _boot_iso(ISO_GO_PATH)

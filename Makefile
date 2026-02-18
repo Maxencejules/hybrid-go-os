@@ -10,6 +10,7 @@
        build-blk image-blk \
        build-fs image-fs \
        build-net image-net \
+       build-go image-go \
        run test-qemu clean legacy docker-all docker-legacy
 
 # Tools
@@ -172,10 +173,20 @@ build-net: $(ASM_OBJS) boot/linker.ld
 image-net: build-net
 	KERNEL_ELF=kernel-net.elf ISO_NAME=os-net.iso bash tools/mkimage.sh
 
+# --- G1: TinyGo user-space test kernel ----------------------------------------
+
+build-go: $(ASM_OBJS) boot/linker.ld
+	bash tools/build_go.sh
+	cd kernel_rs && cargo build --release --features go_test
+	$(LD) $(LDFLAGS) -o $(OUT)/kernel-go.elf $(ASM_OBJS) $(KERNEL_LIB)
+
+image-go: build-go
+	KERNEL_ELF=kernel-go.elf ISO_NAME=os-go.iso bash tools/mkimage.sh
+
 run: image
 	./tools/run_qemu.sh
 
-test-qemu: image image-panic image-pf image-idt image-sched image-user-hello image-syscall image-user-fault image-ipc image-shm image-blk image-fs image-net
+test-qemu: image image-panic image-pf image-idt image-sched image-user-hello image-syscall image-user-fault image-ipc image-shm image-blk image-fs image-net image-go
 	python3 -m pytest tests/ -v
 
 clean:
