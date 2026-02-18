@@ -447,14 +447,14 @@ extern "C" { static stack_top: u8; }
 
 unsafe fn handle_user_fault(frame: *mut u64) {
     // R4: kill current task and switch to next
-    #[cfg(any(feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_svc_test"))]
+    #[cfg(any(feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "svc_overwrite_test"))]
     {
         r4_kill_and_switch(frame);
         return;
     }
 
     // M3: kill user task and return to kernel
-    #[cfg(not(any(feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_svc_test")))]
+    #[cfg(not(any(feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "svc_overwrite_test")))]
     {
         serial_write(b"USER: killed\n");
         let kstack = &stack_top as *const u8 as u64;
@@ -495,7 +495,7 @@ unsafe fn syscall_dispatch(frame: *mut u64) {
     }
 
     // R4 dispatch
-    #[cfg(any(feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_svc_test"))]
+    #[cfg(any(feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "svc_overwrite_test"))]
     {
         match nr {
             0  => { *frame.add(14) = sys_debug_write(arg1, arg2); }
@@ -512,7 +512,7 @@ unsafe fn syscall_dispatch(frame: *mut u64) {
     }
 
     // M3 dispatch
-    #[cfg(not(any(feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_svc_test")))]
+    #[cfg(not(any(feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "svc_overwrite_test")))]
     {
         let ret: u64 = match nr {
             0  => sys_debug_write(arg1, arg2),
@@ -534,7 +534,7 @@ unsafe fn sys_debug_write(buf: u64, len: u64) -> u64 {
 
     #[cfg(any(
         feature = "user_hello_test", feature = "syscall_test", feature = "user_fault_test",
-        feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_svc_test", feature = "blk_test", feature = "fs_test",
+        feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "svc_overwrite_test", feature = "blk_test", feature = "fs_test",
         feature = "go_test",
     ))]
     {
@@ -573,7 +573,7 @@ unsafe fn sys_time_now() -> u64 {
 
 #[cfg(any(
     feature = "user_hello_test", feature = "syscall_test", feature = "user_fault_test",
-    feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_svc_test", feature = "blk_test", feature = "fs_test",
+    feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "svc_overwrite_test", feature = "blk_test", feature = "fs_test",
     feature = "go_test",
 ))]
 unsafe fn check_page_user_accessible(va: u64, hhdm: u64) -> bool {
@@ -601,7 +601,7 @@ unsafe fn check_page_user_accessible(va: u64, hhdm: u64) -> bool {
 
 #[cfg(any(
     feature = "user_hello_test", feature = "syscall_test", feature = "user_fault_test",
-    feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_svc_test", feature = "blk_test", feature = "fs_test",
+    feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "svc_overwrite_test", feature = "blk_test", feature = "fs_test",
     feature = "go_test",
 ))]
 #[allow(dead_code)]
@@ -615,7 +615,7 @@ fn user_range_ok(ptr: u64, len: usize) -> bool {
 
 #[cfg(any(
     feature = "user_hello_test", feature = "syscall_test", feature = "user_fault_test",
-    feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_svc_test", feature = "blk_test", feature = "fs_test",
+    feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "svc_overwrite_test", feature = "blk_test", feature = "fs_test",
     feature = "go_test",
 ))]
 #[allow(dead_code)]
@@ -637,7 +637,7 @@ unsafe fn user_pages_ok(ptr: u64, len: usize) -> bool {
 
 #[cfg(any(
     feature = "user_hello_test", feature = "syscall_test", feature = "user_fault_test",
-    feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_svc_test", feature = "blk_test", feature = "fs_test",
+    feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "svc_overwrite_test", feature = "blk_test", feature = "fs_test",
     feature = "go_test",
 ))]
 #[allow(dead_code)]
@@ -653,7 +653,7 @@ unsafe fn copyin_user(dst: &mut [u8], user_ptr: u64) -> Result<(), ()> {
 
 #[cfg(any(
     feature = "user_hello_test", feature = "syscall_test", feature = "user_fault_test",
-    feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_svc_test", feature = "blk_test", feature = "fs_test",
+    feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "svc_overwrite_test", feature = "blk_test", feature = "fs_test",
     feature = "go_test",
 ))]
 #[allow(dead_code)]
@@ -669,7 +669,7 @@ unsafe fn copyout_user(user_ptr: u64, src: &[u8]) -> Result<(), ()> {
 
 #[cfg(any(
     feature = "user_hello_test", feature = "syscall_test", feature = "user_fault_test",
-    feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_svc_test", feature = "blk_test", feature = "fs_test",
+    feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "svc_overwrite_test", feature = "blk_test", feature = "fs_test",
     feature = "go_test",
 ))]
 #[allow(dead_code)]
