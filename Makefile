@@ -6,7 +6,8 @@
        build-sched image-sched \
        build-user-hello image-user-hello build-syscall image-syscall \
        build-user-fault image-user-fault \
-       build-ipc image-ipc build-shm image-shm \
+       build-ipc image-ipc build-ipc-badptr-send image-ipc-badptr-send \
+       build-ipc-badptr-svc image-ipc-badptr-svc build-shm image-shm \
        build-blk image-blk \
        build-fs image-fs \
        build-net image-net \
@@ -107,6 +108,18 @@ build-ipc: $(ASM_OBJS) boot/linker.ld
 	cd kernel_rs && cargo build --release --features ipc_test
 	$(LD) $(LDFLAGS) -o $(OUT)/kernel-ipc.elf $(ASM_OBJS) $(KERNEL_LIB)
 
+# --- R4: IPC bad-pointer send test kernel ------------------------------------
+
+build-ipc-badptr-send: $(ASM_OBJS) boot/linker.ld
+	cd kernel_rs && cargo build --release --features ipc_badptr_send_test
+	$(LD) $(LDFLAGS) -o $(OUT)/kernel-ipc-badptr-send.elf $(ASM_OBJS) $(KERNEL_LIB)
+
+# --- R4: IPC bad-pointer service registry test kernel ------------------------
+
+build-ipc-badptr-svc: $(ASM_OBJS) boot/linker.ld
+	cd kernel_rs && cargo build --release --features ipc_badptr_svc_test
+	$(LD) $(LDFLAGS) -o $(OUT)/kernel-ipc-badptr-svc.elf $(ASM_OBJS) $(KERNEL_LIB)
+
 # --- R4: SHM bulk test kernel ------------------------------------------------
 
 build-shm: $(ASM_OBJS) boot/linker.ld
@@ -151,6 +164,12 @@ image-ipc: build-ipc
 image-shm: build-shm
 	KERNEL_ELF=kernel-shm.elf ISO_NAME=os-shm.iso bash tools/mkimage.sh
 
+image-ipc-badptr-send: build-ipc-badptr-send
+	KERNEL_ELF=kernel-ipc-badptr-send.elf ISO_NAME=os-ipc-badptr-send.iso bash tools/mkimage.sh
+
+image-ipc-badptr-svc: build-ipc-badptr-svc
+	KERNEL_ELF=kernel-ipc-badptr-svc.elf ISO_NAME=os-ipc-badptr-svc.iso bash tools/mkimage.sh
+
 image-blk: build-blk
 	KERNEL_ELF=kernel-blk.elf ISO_NAME=os-blk.iso bash tools/mkimage.sh
 
@@ -186,7 +205,7 @@ image-go: build-go
 run: image
 	./tools/run_qemu.sh
 
-test-qemu: image image-panic image-pf image-idt image-sched image-user-hello image-syscall image-user-fault image-ipc image-shm image-blk image-fs image-net image-go
+test-qemu: image image-panic image-pf image-idt image-sched image-user-hello image-syscall image-user-fault image-ipc image-ipc-badptr-send image-ipc-badptr-svc image-shm image-blk image-fs image-net image-go
 	python3 -m pytest tests/ -v
 
 clean:

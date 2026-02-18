@@ -19,7 +19,7 @@ macro_rules! cfg_user {
         $(
             #[cfg(any(
                 feature = "user_hello_test", feature = "syscall_test", feature = "user_fault_test",
-                feature = "ipc_test", feature = "shm_test", feature = "blk_test", feature = "fs_test",
+                feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_svc_test", feature = "blk_test", feature = "fs_test",
                 feature = "go_test",
             ))]
             $item
@@ -31,7 +31,7 @@ macro_rules! cfg_user {
 macro_rules! cfg_r4 {
     ($($item:item)*) => {
         $(
-            #[cfg(any(feature = "ipc_test", feature = "shm_test"))]
+            #[cfg(any(feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_svc_test"))]
             $item
         )*
     };
@@ -447,14 +447,14 @@ extern "C" { static stack_top: u8; }
 
 unsafe fn handle_user_fault(frame: *mut u64) {
     // R4: kill current task and switch to next
-    #[cfg(any(feature = "ipc_test", feature = "shm_test"))]
+    #[cfg(any(feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_svc_test"))]
     {
         r4_kill_and_switch(frame);
         return;
     }
 
     // M3: kill user task and return to kernel
-    #[cfg(not(any(feature = "ipc_test", feature = "shm_test")))]
+    #[cfg(not(any(feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_svc_test")))]
     {
         serial_write(b"USER: killed\n");
         let kstack = &stack_top as *const u8 as u64;
@@ -495,7 +495,7 @@ unsafe fn syscall_dispatch(frame: *mut u64) {
     }
 
     // R4 dispatch
-    #[cfg(any(feature = "ipc_test", feature = "shm_test"))]
+    #[cfg(any(feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_svc_test"))]
     {
         match nr {
             0  => { *frame.add(14) = sys_debug_write(arg1, arg2); }
@@ -512,7 +512,7 @@ unsafe fn syscall_dispatch(frame: *mut u64) {
     }
 
     // M3 dispatch
-    #[cfg(not(any(feature = "ipc_test", feature = "shm_test")))]
+    #[cfg(not(any(feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_svc_test")))]
     {
         let ret: u64 = match nr {
             0  => sys_debug_write(arg1, arg2),
@@ -534,7 +534,7 @@ unsafe fn sys_debug_write(buf: u64, len: u64) -> u64 {
 
     #[cfg(any(
         feature = "user_hello_test", feature = "syscall_test", feature = "user_fault_test",
-        feature = "ipc_test", feature = "shm_test", feature = "blk_test", feature = "fs_test",
+        feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_svc_test", feature = "blk_test", feature = "fs_test",
         feature = "go_test",
     ))]
     {
@@ -573,7 +573,7 @@ unsafe fn sys_time_now() -> u64 {
 
 #[cfg(any(
     feature = "user_hello_test", feature = "syscall_test", feature = "user_fault_test",
-    feature = "ipc_test", feature = "shm_test", feature = "blk_test", feature = "fs_test",
+    feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_svc_test", feature = "blk_test", feature = "fs_test",
     feature = "go_test",
 ))]
 unsafe fn check_page_user_accessible(va: u64, hhdm: u64) -> bool {
@@ -601,7 +601,7 @@ unsafe fn check_page_user_accessible(va: u64, hhdm: u64) -> bool {
 
 #[cfg(any(
     feature = "user_hello_test", feature = "syscall_test", feature = "user_fault_test",
-    feature = "ipc_test", feature = "shm_test", feature = "blk_test", feature = "fs_test",
+    feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_svc_test", feature = "blk_test", feature = "fs_test",
     feature = "go_test",
 ))]
 #[allow(dead_code)]
@@ -615,7 +615,7 @@ fn user_range_ok(ptr: u64, len: usize) -> bool {
 
 #[cfg(any(
     feature = "user_hello_test", feature = "syscall_test", feature = "user_fault_test",
-    feature = "ipc_test", feature = "shm_test", feature = "blk_test", feature = "fs_test",
+    feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_svc_test", feature = "blk_test", feature = "fs_test",
     feature = "go_test",
 ))]
 #[allow(dead_code)]
@@ -637,7 +637,7 @@ unsafe fn user_pages_ok(ptr: u64, len: usize) -> bool {
 
 #[cfg(any(
     feature = "user_hello_test", feature = "syscall_test", feature = "user_fault_test",
-    feature = "ipc_test", feature = "shm_test", feature = "blk_test", feature = "fs_test",
+    feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_svc_test", feature = "blk_test", feature = "fs_test",
     feature = "go_test",
 ))]
 #[allow(dead_code)]
@@ -653,7 +653,7 @@ unsafe fn copyin_user(dst: &mut [u8], user_ptr: u64) -> Result<(), ()> {
 
 #[cfg(any(
     feature = "user_hello_test", feature = "syscall_test", feature = "user_fault_test",
-    feature = "ipc_test", feature = "shm_test", feature = "blk_test", feature = "fs_test",
+    feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_svc_test", feature = "blk_test", feature = "fs_test",
     feature = "go_test",
 ))]
 #[allow(dead_code)]
@@ -669,7 +669,7 @@ unsafe fn copyout_user(user_ptr: u64, src: &[u8]) -> Result<(), ()> {
 
 #[cfg(any(
     feature = "user_hello_test", feature = "syscall_test", feature = "user_fault_test",
-    feature = "ipc_test", feature = "shm_test", feature = "blk_test", feature = "fs_test",
+    feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_svc_test", feature = "blk_test", feature = "fs_test",
     feature = "go_test",
 ))]
 #[allow(dead_code)]
@@ -1696,6 +1696,56 @@ static IPC_PING_BLOB: [u8; 102] = [
     b'P', b'I', b'N', b'G', b':', b' ', b'o', b'k', b'\n', // @93: marke
 ];
 
+// IPC bad-pointer send blob (single task: send with unmapped buf → expect -1)
+#[cfg(feature = "ipc_badptr_send_test")]
+static IPC_BADPTR_SEND_BLOB: [u8; 63] = [
+    // sys_ipc_send(endpoint=0, buf=0xDEAD0000, len=16)
+    0x31, 0xFF,                                   // xor edi, edi
+    0xBE, 0x00, 0x00, 0xAD, 0xDE,               // mov esi, 0xDEAD0000
+    0xBA, 0x10, 0x00, 0x00, 0x00,               // mov edx, 16
+    0xB8, 0x08, 0x00, 0x00, 0x00,               // mov eax, 8
+    0xCD, 0x80,                                   // int 0x80
+    // cmp rax, -1; jne fail
+    0x48, 0x83, 0xF8, 0xFF,                       // cmp rax, -1
+    0x75, 0x11,                                   // jne +17 (fail@42)
+    // sys_debug_write("IPC: badptr send ok\n", 20)
+    0x48, 0x8D, 0x3D, 0x0B, 0x00, 0x00, 0x00,   // lea rdi, [rip+0x0B] -> msg@43
+    0xBE, 0x14, 0x00, 0x00, 0x00,               // mov esi, 20
+    0x31, 0xC0,                                   // xor eax, eax
+    0xCD, 0x80,                                   // int 0x80
+    0xF4,                                         // hlt
+    // fail:
+    0xF4,                                         // hlt
+    // Data @43: "IPC: badptr send ok\n"
+    b'I', b'P', b'C', b':', b' ', b'b', b'a', b'd', b'p', b't',
+    b'r', b' ', b's', b'e', b'n', b'd', b' ', b'o', b'k', b'\n',
+];
+
+// Service registry bad-pointer blob (single task: register with unmapped name → expect -1)
+#[cfg(feature = "ipc_badptr_svc_test")]
+static SVC_BADPTR_BLOB: [u8; 58] = [
+    // sys_svc_register(name_ptr=0xDEAD0000, name_len=8, endpoint=0)
+    0xBF, 0x00, 0x00, 0xAD, 0xDE,               // mov edi, 0xDEAD0000
+    0xBE, 0x08, 0x00, 0x00, 0x00,               // mov esi, 8
+    0x31, 0xD2,                                   // xor edx, edx
+    0xB8, 0x0B, 0x00, 0x00, 0x00,               // mov eax, 11
+    0xCD, 0x80,                                   // int 0x80
+    // cmp rax, -1; jne fail
+    0x48, 0x83, 0xF8, 0xFF,                       // cmp rax, -1
+    0x75, 0x11,                                   // jne +17 (fail@42)
+    // sys_debug_write("SVC: badptr ok\n", 15)
+    0x48, 0x8D, 0x3D, 0x0B, 0x00, 0x00, 0x00,   // lea rdi, [rip+0x0B] -> msg@43
+    0xBE, 0x0F, 0x00, 0x00, 0x00,               // mov esi, 15
+    0x31, 0xC0,                                   // xor eax, eax
+    0xCD, 0x80,                                   // int 0x80
+    0xF4,                                         // hlt
+    // fail:
+    0xF4,                                         // hlt
+    // Data @43: "SVC: badptr ok\n"
+    b'S', b'V', b'C', b':', b' ', b'b', b'a', b'd', b'p', b't',
+    b'r', b' ', b'o', b'k', b'\n',
+];
+
 // SHM blobs
 #[cfg(feature = "shm_test")]
 static SHM_WRITER_BLOB: [u8; 69] = [
@@ -2473,6 +2523,41 @@ pub extern "C" fn kmain() -> ! {
         enter_ring3_at(USER_CODE_VA, USER_STACK_TOP);
     }
 
+    // R4: ipc_badptr_send_test — single task sends to endpoint 0 with bad pointer
+    #[cfg(feature = "ipc_badptr_send_test")]
+    unsafe {
+        let kstack = &stack_top as *const u8 as u64;
+        tss_init(kstack);
+        setup_r4_pages(&IPC_BADPTR_SEND_BLOB, &IPC_BADPTR_SEND_BLOB);
+
+        // Pre-create endpoint 0 so send reaches the pointer check
+        R4_ENDPOINTS[0].active = true;
+
+        // Single task
+        R4_NUM_TASKS = 1;
+        r4_init_task(0, USER_CODE_VA, USER_STACK_TOP);
+        R4_TASKS[0].state = R4State::Running;
+        R4_CURRENT = 0;
+
+        enter_ring3_at(USER_CODE_VA, USER_STACK_TOP);
+    }
+
+    // R4: ipc_badptr_svc_test — single task calls svc_register with bad name pointer
+    #[cfg(feature = "ipc_badptr_svc_test")]
+    unsafe {
+        let kstack = &stack_top as *const u8 as u64;
+        tss_init(kstack);
+        setup_r4_pages(&SVC_BADPTR_BLOB, &SVC_BADPTR_BLOB);
+
+        // Single task (no endpoints needed for svc_register)
+        R4_NUM_TASKS = 1;
+        r4_init_task(0, USER_CODE_VA, USER_STACK_TOP);
+        R4_TASKS[0].state = R4State::Running;
+        R4_CURRENT = 0;
+
+        enter_ring3_at(USER_CODE_VA, USER_STACK_TOP);
+    }
+
     // M5: blk_test — VirtIO block driver + syscalls
     #[cfg(feature = "blk_test")]
     unsafe {
@@ -2706,6 +2791,8 @@ pub extern "C" fn kmain() -> ! {
         feature = "syscall_test",
         feature = "user_fault_test",
         feature = "ipc_test",
+        feature = "ipc_badptr_send_test",
+        feature = "ipc_badptr_svc_test",
         feature = "shm_test",
         feature = "blk_test",
         feature = "fs_test",
