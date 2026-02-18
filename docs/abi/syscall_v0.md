@@ -50,6 +50,8 @@ indicates an error.
 | 12 | sys_svc_lookup | rdi=name_ptr, rsi=name_len | endpoint or -1 | **Implemented (R4)** | Lookup service endpoint by name |
 | 13 | sys_blk_read | rdi=lba, rsi=buf, rdx=len | bytes_read or -1 | **Implemented (M5)** | Read sectors from VirtIO block device |
 | 14 | sys_blk_write | rdi=lba, rsi=buf, rdx=len | bytes_written or -1 | **Implemented (M5)** | Write sectors to VirtIO block device |
+| 15 | sys_net_send | rdi=buf, rsi=len | bytes_sent or -1 | **Implemented (M7)** | Send raw Ethernet frame via VirtIO net |
+| 16 | sys_net_recv | rdi=buf, rsi=cap | bytes_received or 0 | **Implemented (M7)** | Receive raw Ethernet frame (non-blocking) |
 
 Stubs return -1 (0xFFFFFFFFFFFFFFFF) and will be implemented in later milestones.
 
@@ -167,6 +169,29 @@ and image generation.
 M6 reuses the M5 VirtIO block driver and the M3 user-mode infrastructure.
 No new syscalls are added; the kernel reads the disk directly and only the
 hello app runs in user mode. No VFS is added to the kernel.
+
+## Net I/O model (M7)
+
+### Device
+
+- VirtIO net device detected via PCI scan (vendor 0x1AF4, device 0x1000).
+- Legacy VirtIO transport (I/O port BAR0, `disable-modern=on` in QEMU).
+- Polling driver (no interrupts); deterministic bounded timeout.
+- Two virtqueues: RX (queue 0) and TX (queue 1).
+- 10-byte `virtio_net_hdr` prepended/stripped by driver (transparent to syscalls).
+
+### Syscalls
+
+- `sys_net_send(buf, len)`: Send `len` bytes as a raw Ethernet frame.
+- `sys_net_recv(buf, cap)`: Non-blocking receive into `buf` (max `cap` bytes).
+
+### Constraints
+
+- `len`/`cap` must be 1–1514 bytes (standard Ethernet MTU).
+- User pointer is validated (must be below 0x0000_8000_0000_0000).
+- `sys_net_recv` returns 0 if no frame is available (non-blocking).
+- Frames are raw Ethernet II (14-byte header + payload).
+- No socket abstraction; the caller handles protocol parsing.
 
 ## Notes
 

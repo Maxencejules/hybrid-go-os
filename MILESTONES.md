@@ -69,7 +69,7 @@ Tests: `legacy/tests/` (boot, trap, sched, user, ipc, drivers, fs, pkg, net)
 | M4 | IPC + shared memory | ✅ | ✅ | Legacy: `legacy/tests/ipc/test_ping_pong.py`, `legacy/tests/ipc/test_shm_bulk.py`. Rugo: `tests/ipc/test_ping_pong.py`, `tests/ipc/test_shm_bulk.py`. |
 | M5 | VirtIO block + syscalls | ✅ | ✅ | Legacy: `legacy/tests/drivers/test_virtio_blk_identify.py`, `test_virtio_blk_rw.py`. Rugo: `tests/drivers/test_virtio_blk_identify.py`, `tests/drivers/test_virtio_blk_rw.py`. |
 | M6 | Filesystem + pkg + shell | ✅ | ✅ | Legacy: `legacy/tests/fs/test_fsd_smoke.py`, `legacy/tests/pkg/test_pkg_install_run.py`. Rugo: `tests/fs/test_fsd_smoke.py`, `tests/pkg/test_pkg_install_run.py`. |
-| M7 | VirtIO net + UDP echo | ✅ | — | Legacy: `legacy/tests/net/test_udp_echo.py`. Rugo: not started (optional). |
+| M7 | VirtIO net + UDP echo | ✅ | ✅ | Legacy: `legacy/tests/net/test_udp_echo.py`. Rugo: `tests/net/test_udp_echo.py` (`NET: udp echo`). |
 | G0 | Go kernel entry (gccgo) | ✅ | n/a | Legacy: `legacy/tests/boot/test_go_entry.py`. Legacy-only milestone. |
 | G1 | Go services (TinyGo) | n/a | — | Rugo-only milestone. Not started. |
 | G2 | Full Go port | n/a | — | Rugo-only milestone. Not started. Long-term. |
@@ -353,7 +353,10 @@ Track B: Full Go port (long-term)
 
 ### Rugo evidence
 
-- Not started.
+- `tests/net/test_udp_echo.py` asserts `NET: udp echo`
+- `kernel_rs/src/lib.rs` (net_test feature: VirtIO net driver + ARP/UDP echo)
+- `docs/net/udp_echo_v0.md` (protocol documentation)
+- `docs/abi/syscall_v0.md` (sys_net_send/sys_net_recv at syscalls 15–16)
 
 ---
 
