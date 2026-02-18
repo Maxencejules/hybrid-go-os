@@ -55,7 +55,7 @@ out/kernel.elf + Limine  ──[xorriso + tools/mkimage.sh]──▶  out/os.iso
 The root `Makefile` orchestrates all steps:
 
 - `make build` — compiles entry.o, runs `cargo build --release`, links kernel.elf
-- `make image` — fetches Limine (if needed), builds bootable ISO
+- `make image` — builds bootable ISO using vendored Limine (no network required)
 - `make test-qemu` — boots the ISO in QEMU headless, runs pytest assertions
 
 ## Host dependencies
@@ -65,7 +65,7 @@ The root `Makefile` orchestrates all steps:
 | nasm | `nasm` | Assemble x86-64 entry point |
 | ld | `binutils` | Link kernel ELF |
 | xorriso | `xorriso` | Create bootable ISO |
-| git | `git` | Fetch Limine bootloader |
+| cc (gcc/clang) | `gcc` or `clang` | Build vendored Limine CLI |
 | make | `make` | Build orchestration |
 | qemu-system-x86_64 | `qemu-system-x86` | Run smoke tests |
 | python3 + pytest | `python3 python3-pytest` | Test assertions |

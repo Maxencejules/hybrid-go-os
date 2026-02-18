@@ -1,34 +1,35 @@
 #!/usr/bin/env bash
 # Build a bootable ISO: Limine BIOS + kernel ELF.
+# Limine binaries and CLI source are vendored in vendor/limine/.
+# No network access is required.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 OUT="$ROOT/out"
 ISO_ROOT="$OUT/iso_root"
-LIMINE_DIR="$ROOT/limine"
+VENDOR_LIMINE="$ROOT/vendor/limine"
 
 # Callers can override which kernel ELF and output ISO name to use.
 KERNEL_ELF="${KERNEL_ELF:-kernel.elf}"
 ISO_NAME="${ISO_NAME:-os.iso}"
-LIMINE_BRANCH="${LIMINE_BRANCH:-v8.x-binary}"
 
-# --- Fetch Limine if needed ---------------------------------------------------
-if [ ! -f "$LIMINE_DIR/limine" ]; then
-    echo "==> Fetching Limine ($LIMINE_BRANCH)..."
-    rm -rf "$LIMINE_DIR"
-    git clone https://github.com/limine-bootloader/limine.git \
-        --branch="$LIMINE_BRANCH" --depth=1 "$LIMINE_DIR"
-    make -C "$LIMINE_DIR"
+# --- Build Limine CLI from vendored source (if needed) ------------------------
+LIMINE_CLI="$OUT/limine-cli"
+if [ ! -f "$LIMINE_CLI" ]; then
+    echo "==> Building Limine CLI from vendored source..."
+    mkdir -p "$OUT"
+    cc -O2 -pipe -Wall -Wextra -std=c99 \
+        -o "$LIMINE_CLI" "$VENDOR_LIMINE/limine.c"
 fi
 
 # --- Assemble ISO tree --------------------------------------------------------
 rm -rf "$ISO_ROOT"
 mkdir -p "$ISO_ROOT/boot/limine"
 
-cp "$OUT/$KERNEL_ELF"                "$ISO_ROOT/boot/kernel.elf"
-cp "$ROOT/boot/limine.conf"         "$ISO_ROOT/boot/limine/limine.conf"
-cp "$LIMINE_DIR/limine-bios.sys"    "$ISO_ROOT/boot/limine/"
-cp "$LIMINE_DIR/limine-bios-cd.bin" "$ISO_ROOT/boot/limine/"
+cp "$OUT/$KERNEL_ELF"                       "$ISO_ROOT/boot/kernel.elf"
+cp "$ROOT/boot/limine.conf"                "$ISO_ROOT/boot/limine/limine.conf"
+cp "$VENDOR_LIMINE/limine-bios.sys"        "$ISO_ROOT/boot/limine/"
+cp "$VENDOR_LIMINE/limine-bios-cd.bin"     "$ISO_ROOT/boot/limine/"
 
 # --- Create ISO ---------------------------------------------------------------
 xorriso -as mkisofs \
@@ -39,6 +40,6 @@ xorriso -as mkisofs \
     "$ISO_ROOT"
 
 # --- Install Limine BIOS boot stages -----------------------------------------
-"$LIMINE_DIR/limine" bios-install "$OUT/$ISO_NAME"
+"$LIMINE_CLI" bios-install "$OUT/$ISO_NAME"
 
 echo "==> Image ready: $OUT/$ISO_NAME"

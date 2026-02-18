@@ -43,11 +43,16 @@ jobs:
         with:
           components: rust-src
 
+      - name: Verify vendored Limine checksums
+        run: cd vendor/limine && sha256sum -c SHA256SUMS
+
       - name: Build kernel
         run: make build
 
-      - name: Create bootable ISO
+      - name: Create bootable ISO (offline — no git clone)
         run: make image
+        env:
+          GIT_TERMINAL_PROMPT: "0"
 
       - name: QEMU smoke tests
         run: make test-qemu

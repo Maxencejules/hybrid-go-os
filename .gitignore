@@ -2,8 +2,8 @@
 out/
 kernel_rs/target/
 
-# Limine bootloader (fetched at build time)
-limine/
+# Limine bootloader (stale git-clone artifact; vendored copy is in vendor/limine/)
+/limine/
 
 # Object files
 *.o

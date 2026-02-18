@@ -1,0 +1,92 @@
+# Build Guide
+
+## Prerequisites
+
+| Tool | Version | Purpose |
+|------|---------|---------|
+| rustup + nightly | latest nightly | Rust compiler + `rust-src` component |
+| nasm | any recent | x86-64 assembly |
+| ld (binutils) | any recent | Linking kernel ELF |
+| xorriso | any recent | ISO image creation |
+| cc (gcc/clang) | C99-capable | Build vendored Limine CLI |
+| qemu-system-x86_64 | any recent | Smoke tests |
+| python3 + pytest | 3.x | Test harness |
+| tinygo | 0.40.1 | Go user-space binary (G1 milestone) |
+| go | 1.25.3 | Required by TinyGo |
+
+## Building
+
+```bash
+make build          # compile kernel ELF
+make image          # build bootable ISO (no network required)
+make test-qemu      # full QEMU smoke-test suite
+```
+
+## Pinned External Dependencies
+
+### Limine Bootloader
+
+The Limine bootloader binaries and CLI source are **vendored** in
+`vendor/limine/`. No network access is needed during the build.
+
+| Field | Value |
+|-------|-------|
+| Version | v8.7.0 |
+| Branch | `v8.x-binary` |
+| Commit | `aad3edd370955449717a334f0289dee10e2c5f01` |
+| Date | 2025-01-10 |
+| Upstream | https://github.com/limine-bootloader/limine |
+
+**Vendored files:**
+
+| File | Purpose |
+|------|---------|
+| `limine-bios.sys` | BIOS boot stage (copied into ISO) |
+| `limine-bios-cd.bin` | CD-ROM boot stage (copied into ISO) |
+| `limine.c` | CLI installer source (compiled at build time) |
+| `limine-bios-hdd.h` | Embedded HDD data (included by `limine.c`) |
+| `SHA256SUMS` | Integrity checksums |
+| `VERSION` | Pinned version metadata |
+
+### How to Update Limine
+
+1. Clone the upstream release branch at the desired tag:
+   ```bash
+   git clone https://github.com/limine-bootloader/limine.git \
+       --branch=v8.x-binary --depth=1 /tmp/limine-update
+   ```
+
+2. Copy the required files into the vendor directory:
+   ```bash
+   cp /tmp/limine-update/limine-bios.sys    vendor/limine/
+   cp /tmp/limine-update/limine-bios-cd.bin vendor/limine/
+   cp /tmp/limine-update/limine.c           vendor/limine/
+   cp /tmp/limine-update/limine-bios-hdd.h  vendor/limine/
+   ```
+
+3. Regenerate checksums:
+   ```bash
+   cd vendor/limine
+   sha256sum limine-bios.sys limine-bios-cd.bin limine.c limine-bios-hdd.h > SHA256SUMS
+   ```
+
+4. Update `vendor/limine/VERSION` with the new commit hash and version.
+
+5. Run `make clean image test-qemu` to verify the new version works.
+
+6. Commit all changes together.
+
+### Rust Toolchain
+
+Pinned via `rust-toolchain.toml` (nightly channel with `rust-src`).
+Rustup manages installation automatically.
+
+### Go / TinyGo (CI & Docker only)
+
+| Tool | Version | Pinned in |
+|------|---------|-----------|
+| Go | 1.25.3 | `.github/workflows/ci.yml`, `Dockerfile` |
+| TinyGo | 0.40.1 | `.github/workflows/ci.yml`, `Dockerfile` |
+
+These are host toolchain installs, not build-artifact dependencies.
+Update the version numbers in CI and Dockerfile together when upgrading.
