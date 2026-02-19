@@ -590,6 +590,133 @@ unsafe fn sys_yield() -> u64 {
     0
 }
 
+#[cfg(feature = "fs_test")]
+#[inline(always)]
+fn sha256_rotr(x: u32, n: u32) -> u32 {
+    (x >> n) | (x << (32 - n))
+}
+
+#[cfg(feature = "fs_test")]
+fn sha256_compress(state: &mut [u32; 8], block: &[u8; 64]) {
+    const K: [u32; 64] = [
+        0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5,
+        0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
+        0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3,
+        0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
+        0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc,
+        0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
+        0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7,
+        0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
+        0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13,
+        0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
+        0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3,
+        0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
+        0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5,
+        0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
+        0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208,
+        0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2,
+    ];
+
+    let mut w = [0u32; 64];
+    let mut t = 0usize;
+    while t < 16 {
+        let j = t * 4;
+        w[t] = u32::from_be_bytes([block[j], block[j + 1], block[j + 2], block[j + 3]]);
+        t += 1;
+    }
+    while t < 64 {
+        let s0 = sha256_rotr(w[t - 15], 7) ^ sha256_rotr(w[t - 15], 18) ^ (w[t - 15] >> 3);
+        let s1 = sha256_rotr(w[t - 2], 17) ^ sha256_rotr(w[t - 2], 19) ^ (w[t - 2] >> 10);
+        w[t] = w[t - 16]
+            .wrapping_add(s0)
+            .wrapping_add(w[t - 7])
+            .wrapping_add(s1);
+        t += 1;
+    }
+
+    let mut a = state[0];
+    let mut b = state[1];
+    let mut c = state[2];
+    let mut d = state[3];
+    let mut e = state[4];
+    let mut f = state[5];
+    let mut g = state[6];
+    let mut h = state[7];
+
+    t = 0;
+    while t < 64 {
+        let s1 = sha256_rotr(e, 6) ^ sha256_rotr(e, 11) ^ sha256_rotr(e, 25);
+        let ch = (e & f) ^ ((!e) & g);
+        let temp1 = h
+            .wrapping_add(s1)
+            .wrapping_add(ch)
+            .wrapping_add(K[t])
+            .wrapping_add(w[t]);
+        let s0 = sha256_rotr(a, 2) ^ sha256_rotr(a, 13) ^ sha256_rotr(a, 22);
+        let maj = (a & b) ^ (a & c) ^ (b & c);
+        let temp2 = s0.wrapping_add(maj);
+
+        h = g;
+        g = f;
+        f = e;
+        e = d.wrapping_add(temp1);
+        d = c;
+        c = b;
+        b = a;
+        a = temp1.wrapping_add(temp2);
+        t += 1;
+    }
+
+    state[0] = state[0].wrapping_add(a);
+    state[1] = state[1].wrapping_add(b);
+    state[2] = state[2].wrapping_add(c);
+    state[3] = state[3].wrapping_add(d);
+    state[4] = state[4].wrapping_add(e);
+    state[5] = state[5].wrapping_add(f);
+    state[6] = state[6].wrapping_add(g);
+    state[7] = state[7].wrapping_add(h);
+}
+
+#[cfg(feature = "fs_test")]
+fn sha256_digest(data: &[u8]) -> [u8; 32] {
+    let mut state = [
+        0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
+        0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19,
+    ];
+
+    let mut offset = 0usize;
+    while offset + 64 <= data.len() {
+        let mut block = [0u8; 64];
+        block.copy_from_slice(&data[offset..offset + 64]);
+        sha256_compress(&mut state, &block);
+        offset += 64;
+    }
+
+    let mut block = [0u8; 64];
+    let rem = data.len() - offset;
+    if rem > 0 {
+        block[..rem].copy_from_slice(&data[offset..]);
+    }
+    block[rem] = 0x80;
+
+    if rem >= 56 {
+        sha256_compress(&mut state, &block);
+        block = [0u8; 64];
+    }
+
+    let bit_len = (data.len() as u64).wrapping_mul(8);
+    block[56..64].copy_from_slice(&bit_len.to_be_bytes());
+    sha256_compress(&mut state, &block);
+
+    let mut out = [0u8; 32];
+    let mut i = 0usize;
+    while i < 8 {
+        out[i * 4..(i + 1) * 4].copy_from_slice(&state[i].to_be_bytes());
+        i += 1;
+    }
+    out
+}
+
 // --------------- User pointer validation (page table walk) -------------------
 
 #[cfg(any(
@@ -3151,7 +3278,7 @@ pub extern "C" fn kmain() -> ! {
             loop { core::arch::asm!("cli; hlt", options(nomem, nostack)); }
         }
 
-        // Parse PKG v0 header: magic(4) + bin_size(4) + name(24) = 32 bytes
+        // Parse PKG v0 header: magic(4) + bin_size(4) + name(24) + sha256(32) = 64 bytes
         let pkg_magic = u32::from_le_bytes([
             BLK_DATA_PAGE.0[0], BLK_DATA_PAGE.0[1],
             BLK_DATA_PAGE.0[2], BLK_DATA_PAGE.0[3],
@@ -3165,14 +3292,23 @@ pub extern "C" fn kmain() -> ! {
             BLK_DATA_PAGE.0[4], BLK_DATA_PAGE.0[5],
             BLK_DATA_PAGE.0[6], BLK_DATA_PAGE.0[7],
         ]) as usize;
-        if bin_size == 0 || bin_size > 4064 {
+        if bin_size == 0 || bin_size > 4032 {
             serial_write(b"PKG: bad bin_size\n");
             qemu_exit(0x31);
             loop { core::arch::asm!("cli; hlt", options(nomem, nostack)); }
         }
+        let mut expected_hash = [0u8; 32];
+        expected_hash.copy_from_slice(&BLK_DATA_PAGE.0[32..64]);
 
         // --- sh: load hello binary into user page and run it ---
-        let hello_bin = &BLK_DATA_PAGE.0[32..32 + bin_size];
+        let hello_bin = &BLK_DATA_PAGE.0[64..64 + bin_size];
+        let actual_hash = sha256_digest(hello_bin);
+        if actual_hash != expected_hash {
+            serial_write(b"PKG: bad hash\n");
+            qemu_exit(0x31);
+            loop { core::arch::asm!("cli; hlt", options(nomem, nostack)); }
+        }
+        serial_write(b"PKG: hash ok\n");
         let kstack = &stack_top as *const u8 as u64;
         tss_init(kstack);
         HHDM_OFFSET = (*hhdm_resp_ptr).offset;

@@ -30,6 +30,7 @@ blk_badptr_test = ["blk_test"]
 blk_invariants_test = []
 fs_test = []
 fs_badmagic_test = ["fs_test"]
+pkg_hash_test = ["fs_test"]
 net_test = []
 go_test = []
 

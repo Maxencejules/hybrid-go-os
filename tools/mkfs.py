@@ -10,9 +10,11 @@ Package format v0 (hello.pkg):
   Offset 0:  magic     (u32le) = 0x01474B50 ("PKG\\x01")
   Offset 4:  bin_size  (u32le) = size of binary payload
   Offset 8:  name      (24 bytes, NUL-padded)
-  Offset 32: binary payload
+  Offset 32: sha256    (32 bytes, payload hash)
+  Offset 64: binary payload
 """
 
+import hashlib
 import os
 import struct
 import sys
@@ -47,11 +49,12 @@ HELLO_BINARY = bytes([
 
 
 def build_pkg(name, binary):
-    """Build a PKG v0 package: 32-byte header + binary payload."""
+    """Build a PKG v0 package: 64-byte header + binary payload."""
     header = struct.pack('<II', PKG_MAGIC, len(binary))
     name_bytes = name.encode('ascii')[:24].ljust(24, b'\x00')
     header += name_bytes
-    assert len(header) == 32
+    header += hashlib.sha256(binary).digest()
+    assert len(header) == 64
     return header + binary
 
 
@@ -93,7 +96,7 @@ def build_disk_image(output_path, corrupt_superblock_magic=False):
     print(f"    SimpleFS: {file_count} file(s), data_start={data_start}, "
           f"next_free={next_free}")
     print(f"    hello.pkg: {len(hello_pkg)} bytes "
-          f"(header=32, binary={len(HELLO_BINARY)})")
+          f"(header=64, binary={len(HELLO_BINARY)})")
 
 
 if __name__ == '__main__':
