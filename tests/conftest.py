@@ -33,6 +33,7 @@ ISO_IPC_SVC_OVERWRITE_PATH = ISO_SVC_OVERWRITE_PATH
 ISO_SVC_FULL_PATH = os.path.join(REPO_ROOT, "out", "os-svc-full.iso")
 ISO_SHM_PATH = os.path.join(REPO_ROOT, "out", "os-shm.iso")
 ISO_BLK_PATH = os.path.join(REPO_ROOT, "out", "os-blk.iso")
+ISO_STRESS_BLK_PATH = os.path.join(REPO_ROOT, "out", "os-stress-blk.iso")
 ISO_BLK_BADLEN_PATH = os.path.join(REPO_ROOT, "out", "os-blk-badlen.iso")
 ISO_BLK_BADPTR_PATH = os.path.join(REPO_ROOT, "out", "os-blk-badptr.iso")
 ISO_BLK_INVARIANTS_PATH = os.path.join(REPO_ROOT, "out", "os-blk-invariants.iso")
@@ -316,6 +317,14 @@ def qemu_serial_blk():
     if not os.path.isfile(ISO_BLK_PATH):
         pytest.skip(f"ISO not built: {ISO_BLK_PATH}")
     return _boot_iso_with_disk(ISO_BLK_PATH, BLK_DISK_IMG)
+
+
+@pytest.fixture
+def qemu_serial_stress_blk():
+    """Boot the stress VirtIO block test OS image with a raw disk attached."""
+    if not os.path.isfile(ISO_STRESS_BLK_PATH):
+        pytest.skip(f"ISO not built: {ISO_STRESS_BLK_PATH}")
+    return _boot_iso_with_disk(ISO_STRESS_BLK_PATH, BLK_DISK_IMG)
 
 
 @pytest.fixture
