@@ -5,6 +5,7 @@
 .PHONY: build image build-panic image-panic build-pf image-pf build-idt image-idt \
        build-sched image-sched \
        build-user-hello image-user-hello build-syscall image-syscall \
+       build-syscall-invalid image-syscall-invalid \
        build-user-fault image-user-fault \
        build-ipc image-ipc build-ipc-badptr-send image-ipc-badptr-send \
        build-ipc-badptr-svc image-ipc-badptr-svc \
@@ -100,6 +101,12 @@ build-syscall: $(ASM_OBJS) boot/linker.ld
 	cd kernel_rs && cargo build --release --features syscall_test
 	$(LD) $(LDFLAGS) -o $(OUT)/kernel-syscall.elf $(ASM_OBJS) $(KERNEL_LIB)
 
+# --- M3: Invalid-syscall-test kernel ------------------------------------------
+
+build-syscall-invalid: $(ASM_OBJS) boot/linker.ld
+	cd kernel_rs && cargo build --release --features syscall_invalid_test
+	$(LD) $(LDFLAGS) -o $(OUT)/kernel-syscall-invalid.elf $(ASM_OBJS) $(KERNEL_LIB)
+
 # --- M3: User-fault-test kernel -----------------------------------------------
 
 build-user-fault: $(ASM_OBJS) boot/linker.ld
@@ -171,6 +178,9 @@ image-user-hello: build-user-hello
 image-syscall: build-syscall
 	KERNEL_ELF=kernel-syscall.elf ISO_NAME=os-syscall.iso bash tools/mkimage.sh
 
+image-syscall-invalid: build-syscall-invalid
+	KERNEL_ELF=kernel-syscall-invalid.elf ISO_NAME=os-syscall-invalid.iso bash tools/mkimage.sh
+
 image-user-fault: build-user-fault
 	KERNEL_ELF=kernel-user-fault.elf ISO_NAME=os-user-fault.iso bash tools/mkimage.sh
 
@@ -236,7 +246,7 @@ image-go: build-go
 run: image
 	./tools/run_qemu.sh
 
-test-qemu: image image-panic image-pf image-idt image-sched image-user-hello image-syscall image-user-fault image-ipc image-ipc-badptr-send image-ipc-badptr-svc image-ipc-buffer-full image-ipc-svc-overwrite image-shm image-blk image-blk-invariants image-fs image-net image-go
+test-qemu: image image-panic image-pf image-idt image-sched image-user-hello image-syscall image-syscall-invalid image-user-fault image-ipc image-ipc-badptr-send image-ipc-badptr-svc image-ipc-buffer-full image-ipc-svc-overwrite image-shm image-blk image-blk-invariants image-fs image-net image-go
 	python3 -m pytest tests/ -v
 
 clean:

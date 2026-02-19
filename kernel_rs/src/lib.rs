@@ -7,7 +7,7 @@ use core::panic::PanicInfo;
 macro_rules! cfg_m3 {
     ($($item:item)*) => {
         $(
-            #[cfg(any(feature = "user_hello_test", feature = "syscall_test", feature = "user_fault_test", feature = "blk_test", feature = "fs_test", feature = "go_test"))]
+            #[cfg(any(feature = "user_hello_test", feature = "syscall_test", feature = "syscall_invalid_test", feature = "user_fault_test", feature = "blk_test", feature = "fs_test", feature = "go_test"))]
             $item
         )*
     };
@@ -18,7 +18,7 @@ macro_rules! cfg_user {
     ($($item:item)*) => {
         $(
             #[cfg(any(
-                feature = "user_hello_test", feature = "syscall_test", feature = "user_fault_test",
+                feature = "user_hello_test", feature = "syscall_test", feature = "syscall_invalid_test", feature = "user_fault_test",
                 feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "svc_overwrite_test", feature = "blk_test", feature = "fs_test",
                 feature = "go_test",
             ))]
@@ -514,6 +514,14 @@ unsafe fn syscall_dispatch(frame: *mut u64) {
     // M3 dispatch
     #[cfg(not(any(feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "svc_overwrite_test")))]
     {
+        #[cfg(feature = "syscall_invalid_test")]
+        {
+            if nr == 98 {
+                qemu_exit(arg1 as u8);
+                loop { core::arch::asm!("cli; hlt", options(nomem, nostack)); }
+            }
+        }
+
         let ret: u64 = match nr {
             0  => sys_debug_write(arg1, arg2),
             10 => sys_time_now(),
@@ -792,6 +800,32 @@ cfg_m3! {
         0xf4,
     ];
 }
+
+#[cfg(feature = "syscall_invalid_test")]
+static USER_SYSCALL_INVALID_BLOB: [u8; 63] = [
+    // mov eax, 99 ; unknown syscall
+    0xB8, 0x63, 0x00, 0x00, 0x00,
+    // int 0x80
+    0xCD, 0x80,
+    // cmp rax, -1 ; kernel must return -1
+    0x48, 0x83, 0xF8, 0xFF,
+    // jne fail
+    0x75, 0x1D,
+    // sys_debug_write("SYSCALL: invalid ok\n", 20)
+    0x48, 0x8D, 0x3D, 0x17, 0x00, 0x00, 0x00,
+    0xBE, 0x14, 0x00, 0x00, 0x00,
+    0x31, 0xC0,
+    0xCD, 0x80,
+    // test-only syscall: qemu_exit(0x31)
+    0xBF, 0x31, 0x00, 0x00, 0x00,
+    0xB8, 0x62, 0x00, 0x00, 0x00,
+    0xCD, 0x80,
+    // success/fail halt fallback
+    0xF4,
+    0xF4,
+    b'S', b'Y', b'S', b'C', b'A', b'L', b'L', b':', b' ', b'i',
+    b'n', b'v', b'a', b'l', b'i', b'd', b' ', b'o', b'k', b'\n',
+];
 
 // --------------- G1: TinyGo user blob ----------------------------------------
 
@@ -2596,6 +2630,15 @@ pub extern "C" fn kmain() -> ! {
         enter_ring3_at(USER_CODE_VA, USER_STACK_TOP);
     }
 
+    // M3: syscall_invalid_test
+    #[cfg(feature = "syscall_invalid_test")]
+    unsafe {
+        let kstack = &stack_top as *const u8 as u64;
+        tss_init(kstack);
+        setup_user_pages(&USER_SYSCALL_INVALID_BLOB);
+        enter_ring3_at(USER_CODE_VA, USER_STACK_TOP);
+    }
+
     // M3: user_fault_test
     #[cfg(feature = "user_fault_test")]
     unsafe {
@@ -2977,6 +3020,7 @@ pub extern "C" fn kmain() -> ! {
         feature = "sched_test",
         feature = "user_hello_test",
         feature = "syscall_test",
+        feature = "syscall_invalid_test",
         feature = "user_fault_test",
         feature = "ipc_test",
         feature = "ipc_badptr_send_test",
