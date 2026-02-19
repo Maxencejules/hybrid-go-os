@@ -16,6 +16,7 @@ endif
        build-user-hello image-user-hello build-syscall image-syscall \
        build-syscall-invalid image-syscall-invalid \
        build-stress-syscall image-stress-syscall \
+       build-stress-ipc image-stress-ipc \
        build-yield image-yield \
        build-user-fault image-user-fault \
        build-ipc image-ipc build-ipc-badptr-send image-ipc-badptr-send \
@@ -149,6 +150,12 @@ build-stress-syscall: $(ASM_OBJS) boot/linker.ld
 	cd kernel_rs && $(CARGO) build --release --features stress_syscall_test
 	$(LD) $(LDFLAGS) -o $(OUT)/kernel-stress-syscall.elf $(ASM_OBJS) $(KERNEL_LIB)
 
+# --- R4: Stress-IPC-test kernel ----------------------------------------------
+
+build-stress-ipc: $(ASM_OBJS) boot/linker.ld
+	cd kernel_rs && $(CARGO) build --release --features stress_ipc_test
+	$(LD) $(LDFLAGS) -o $(OUT)/kernel-stress-ipc.elf $(ASM_OBJS) $(KERNEL_LIB)
+
 # --- M3: Yield-test kernel ----------------------------------------------------
 
 build-yield: $(ASM_OBJS) boot/linker.ld
@@ -259,6 +266,9 @@ image-syscall-invalid: build-syscall-invalid
 image-stress-syscall: build-stress-syscall
 	PATH="$(WSL_PATH)" CC="$(CC)" XORRISO="$(XORRISO)" KERNEL_ELF=kernel-stress-syscall.elf ISO_NAME=os-stress-syscall.iso bash tools/mkimage.sh
 
+image-stress-ipc: build-stress-ipc
+	PATH="$(WSL_PATH)" CC="$(CC)" XORRISO="$(XORRISO)" KERNEL_ELF=kernel-stress-ipc.elf ISO_NAME=os-stress-ipc.iso bash tools/mkimage.sh
+
 image-yield: build-yield
 	PATH="$(WSL_PATH)" CC="$(CC)" XORRISO="$(XORRISO)" KERNEL_ELF=kernel-yield.elf ISO_NAME=os-yield.iso bash tools/mkimage.sh
 
@@ -359,7 +369,7 @@ image-go: build-go
 run: image
 	./tools/run_qemu.sh
 
-test-qemu: image image-panic image-pf image-idt image-sched image-user-hello image-syscall image-syscall-invalid image-stress-syscall image-yield image-user-fault image-ipc image-ipc-badptr-send image-ipc-badptr-recv image-svc-badptr image-ipc-buffer-full image-ipc-svc-overwrite image-svc-full image-shm image-blk image-blk-badlen image-blk-badptr image-blk-invariants image-fs image-fs-badmagic image-pkg-hash image-net image-go
+test-qemu: image image-panic image-pf image-idt image-sched image-user-hello image-syscall image-syscall-invalid image-stress-syscall image-stress-ipc image-yield image-user-fault image-ipc image-ipc-badptr-send image-ipc-badptr-recv image-svc-badptr image-ipc-buffer-full image-ipc-svc-overwrite image-svc-full image-shm image-blk image-blk-badlen image-blk-badptr image-blk-invariants image-fs image-fs-badmagic image-pkg-hash image-net image-go
 	$(PYTHON) -m pytest tests/ -v
 
 repro-check:

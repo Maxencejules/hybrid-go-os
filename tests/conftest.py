@@ -17,6 +17,7 @@ ISO_USER_HELLO_PATH = os.path.join(REPO_ROOT, "out", "os-user-hello.iso")
 ISO_SYSCALL_PATH = os.path.join(REPO_ROOT, "out", "os-syscall.iso")
 ISO_SYSCALL_INVALID_PATH = os.path.join(REPO_ROOT, "out", "os-syscall-invalid.iso")
 ISO_STRESS_SYSCALL_PATH = os.path.join(REPO_ROOT, "out", "os-stress-syscall.iso")
+ISO_STRESS_IPC_PATH = os.path.join(REPO_ROOT, "out", "os-stress-ipc.iso")
 ISO_YIELD_PATH = os.path.join(REPO_ROOT, "out", "os-yield.iso")
 ISO_USER_FAULT_PATH = os.path.join(REPO_ROOT, "out", "os-user-fault.iso")
 ISO_IPC_PATH = os.path.join(REPO_ROOT, "out", "os-ipc.iso")
@@ -170,6 +171,14 @@ def qemu_serial_stress_syscall():
     if not os.path.isfile(ISO_STRESS_SYSCALL_PATH):
         pytest.skip(f"ISO not built: {ISO_STRESS_SYSCALL_PATH}")
     return _boot_iso(ISO_STRESS_SYSCALL_PATH)
+
+
+@pytest.fixture
+def qemu_serial_stress_ipc():
+    """Boot the stress-ipc-test OS image and return captured serial output."""
+    if not os.path.isfile(ISO_STRESS_IPC_PATH):
+        pytest.skip(f"ISO not built: {ISO_STRESS_IPC_PATH}")
+    return _boot_iso(ISO_STRESS_IPC_PATH)
 
 
 @pytest.fixture

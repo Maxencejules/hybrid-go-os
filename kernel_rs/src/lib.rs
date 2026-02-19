@@ -19,7 +19,7 @@ macro_rules! cfg_user {
         $(
             #[cfg(any(
                 feature = "user_hello_test", feature = "syscall_test", feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test", feature = "user_fault_test",
-                feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_recv_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "svc_overwrite_test", feature = "svc_full_test", feature = "blk_test", feature = "fs_test",
+                feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_recv_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "svc_overwrite_test", feature = "svc_full_test", feature = "stress_ipc_test", feature = "blk_test", feature = "fs_test",
                 feature = "go_test",
             ))]
             $item
@@ -31,7 +31,7 @@ macro_rules! cfg_user {
 macro_rules! cfg_r4 {
     ($($item:item)*) => {
         $(
-            #[cfg(any(feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_recv_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "svc_overwrite_test", feature = "svc_full_test"))]
+            #[cfg(any(feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_recv_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "svc_overwrite_test", feature = "svc_full_test", feature = "stress_ipc_test"))]
             $item
         )*
     };
@@ -447,14 +447,14 @@ extern "C" { static stack_top: u8; }
 
 unsafe fn handle_user_fault(frame: *mut u64) {
     // R4: kill current task and switch to next
-    #[cfg(any(feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_recv_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "svc_overwrite_test", feature = "svc_full_test"))]
+    #[cfg(any(feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_recv_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "svc_overwrite_test", feature = "svc_full_test", feature = "stress_ipc_test"))]
     {
         r4_kill_and_switch(frame);
         return;
     }
 
     // M3: kill user task and return to kernel
-    #[cfg(not(any(feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_recv_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "svc_overwrite_test", feature = "svc_full_test")))]
+    #[cfg(not(any(feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_recv_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "svc_overwrite_test", feature = "svc_full_test", feature = "stress_ipc_test")))]
     {
         serial_write(b"USER: killed\n");
         let kstack = &stack_top as *const u8 as u64;
@@ -494,7 +494,7 @@ unsafe fn syscall_dispatch(frame: *mut u64) {
     }
 
     // R4 dispatch
-    #[cfg(any(feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_recv_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "svc_overwrite_test", feature = "svc_full_test"))]
+    #[cfg(any(feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_recv_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "svc_overwrite_test", feature = "svc_full_test", feature = "stress_ipc_test"))]
     {
         if nr == 98 {
             qemu_exit(arg1 as u8);
@@ -502,7 +502,7 @@ unsafe fn syscall_dispatch(frame: *mut u64) {
         }
         match nr {
             0  => { *frame.add(14) = sys_debug_write(arg1, arg2); }
-            3  => { *frame.add(14) = sys_yield(); }
+            3  => { r4_yield_and_switch(frame); }
             6  => { *frame.add(14) = sys_shm_create_r4(arg1); }
             7  => { *frame.add(14) = sys_shm_map_r4(arg1, arg2, arg3); }
             8  => { *frame.add(14) = sys_ipc_send_r4(arg1, arg2, arg3); }
@@ -516,7 +516,7 @@ unsafe fn syscall_dispatch(frame: *mut u64) {
     }
 
     // M3 dispatch
-    #[cfg(not(any(feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_recv_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "svc_overwrite_test", feature = "svc_full_test")))]
+    #[cfg(not(any(feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_recv_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "svc_overwrite_test", feature = "svc_full_test", feature = "stress_ipc_test")))]
     {
         #[cfg(any(feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test"))]
         {
@@ -1047,9 +1047,25 @@ static GO_USER_BIN: &[u8] = include_bytes!("../../out/gousr.bin");
 cfg_r4! {
     const USER_CODE2_VA: u64   = 0x40_1000;
     const USER_STACK2_TOP: u64 = 0x7F_F000;
+    #[cfg(feature = "stress_ipc_test")]
+    const USER_CODE3_VA: u64   = 0x40_2000;
+    #[cfg(feature = "stress_ipc_test")]
+    const USER_STACK3_TOP: u64 = 0x7F_E000;
+    #[cfg(feature = "stress_ipc_test")]
+    const USER_CODE4_VA: u64   = 0x40_3000;
+    #[cfg(feature = "stress_ipc_test")]
+    const USER_STACK4_TOP: u64 = 0x7F_D000;
 
     static mut USER_CODE_PAGE_2:  Page = Page([0; 4096]);
     static mut USER_STACK_PAGE_2: Page = Page([0; 4096]);
+    #[cfg(feature = "stress_ipc_test")]
+    static mut USER_CODE_PAGE_3:  Page = Page([0; 4096]);
+    #[cfg(feature = "stress_ipc_test")]
+    static mut USER_STACK_PAGE_3: Page = Page([0; 4096]);
+    #[cfg(feature = "stress_ipc_test")]
+    static mut USER_CODE_PAGE_4:  Page = Page([0; 4096]);
+    #[cfg(feature = "stress_ipc_test")]
+    static mut USER_STACK_PAGE_4: Page = Page([0; 4096]);
 }
 
 // --------------- R4: SHM backing pages ---------------------------------------
@@ -1075,6 +1091,9 @@ static mut R4_SHM_OBJECTS: [ShmObject; 2] = [
 // --------------- R4: Task model ----------------------------------------------
 
 cfg_r4! {
+    #[cfg(feature = "stress_ipc_test")]
+    const R4_MAX_TASKS: usize = 4;
+    #[cfg(not(feature = "stress_ipc_test"))]
     const R4_MAX_TASKS: usize = 2;
 
     #[derive(Clone, Copy, PartialEq)]
@@ -1112,10 +1131,13 @@ cfg_r4! {
     }
 
     unsafe fn r4_find_ready(exclude: usize) -> Option<usize> {
-        for i in 0..R4_NUM_TASKS {
+        if R4_NUM_TASKS == 0 { return None; }
+        let mut i = (exclude + 1) % R4_NUM_TASKS;
+        for _ in 0..R4_NUM_TASKS {
             if i != exclude && R4_TASKS[i].state == R4State::Ready {
                 return Some(i);
             }
+            i = (i + 1) % R4_NUM_TASKS;
         }
         None
     }
@@ -1128,6 +1150,22 @@ cfg_r4! {
 
     unsafe fn r4_save_frame(frame: *mut u64, tid: usize) {
         for i in 0..22 { R4_TASKS[tid].saved_frame[i] = *frame.add(i); }
+    }
+
+    unsafe fn r4_yield_and_switch(frame: *mut u64) {
+        let cur = R4_CURRENT;
+        r4_save_frame(frame, cur);
+        R4_TASKS[cur].saved_frame[14] = 0;
+        match r4_find_ready(cur) {
+            Some(tid) => {
+                R4_TASKS[cur].state = R4State::Ready;
+                r4_switch_to(frame, tid);
+            }
+            None => {
+                R4_TASKS[cur].state = R4State::Running;
+                *frame.add(14) = 0;
+            }
+        }
     }
 
     unsafe fn r4_kill_and_switch(frame: *mut u64) {
@@ -1147,6 +1185,8 @@ cfg_r4! {
     }
 
     extern "C" fn r4_all_done() -> ! {
+        #[cfg(feature = "stress_ipc_test")]
+        serial_write(b"STRESS: ipc ok");
         qemu_exit(0x31);
         loop { unsafe { core::arch::asm!("cli; hlt", options(nomem, nostack)); } }
     }
@@ -1452,6 +1492,58 @@ cfg_r4! {
             blob1.as_ptr(), USER_CODE_PAGE_2.0.as_mut_ptr(), blob1.len());
 
         // Switch CR3
+        let new_pml4_phys = kv2p(new_pml4 as u64);
+        core::arch::asm!("mov cr3, {}", in(reg) new_pml4_phys, options(nostack));
+    }
+
+    #[cfg(feature = "stress_ipc_test")]
+    unsafe fn setup_r4_pages4(blob0: &[u8], blob1: &[u8], blob2: &[u8], blob3: &[u8]) {
+        let hhdm_resp_ptr = core::ptr::read_volatile(
+            core::ptr::addr_of!(HHDM_REQUEST.response));
+        let kaddr_resp_ptr = core::ptr::read_volatile(
+            core::ptr::addr_of!(KADDR_REQUEST.response));
+        let hhdm = (*hhdm_resp_ptr).offset;
+        let kphys = (*kaddr_resp_ptr).physical_base;
+        let kvirt = (*kaddr_resp_ptr).virtual_base;
+        HHDM_OFFSET = hhdm;
+        let kv2p = |va: u64| -> u64 { va - kvirt + kphys };
+
+        let cr3: u64;
+        core::arch::asm!("mov {}, cr3", out(reg) cr3, options(nomem, nostack));
+        let old_pml4 = ((cr3 & 0x000F_FFFF_FFFF_F000) + hhdm) as *const u64;
+        let new_pml4 = USER_PML4.0.as_mut_ptr() as *mut u64;
+        for i in 0..512 { *new_pml4.add(i) = *old_pml4.add(i); }
+
+        let pdpt = USER_PDPT.0.as_mut_ptr() as *mut u64;
+        *pdpt = kv2p(USER_PD.0.as_ptr() as u64) | 0x07;
+
+        let pd = USER_PD.0.as_mut_ptr() as *mut u64;
+        *pd.add(2) = kv2p(USER_PT_CODE.0.as_ptr() as u64) | 0x07;
+        *pd.add(3) = kv2p(USER_PT_STACK.0.as_ptr() as u64) | 0x07;
+
+        let pt_code = USER_PT_CODE.0.as_mut_ptr() as *mut u64;
+        *pt_code.add(0) = kv2p(USER_CODE_PAGE.0.as_ptr() as u64) | 0x05;
+        *pt_code.add(1) = kv2p(USER_CODE_PAGE_2.0.as_ptr() as u64) | 0x05;
+        *pt_code.add(2) = kv2p(USER_CODE_PAGE_3.0.as_ptr() as u64) | 0x05;
+        *pt_code.add(3) = kv2p(USER_CODE_PAGE_4.0.as_ptr() as u64) | 0x05;
+
+        let pt_stack = USER_PT_STACK.0.as_mut_ptr() as *mut u64;
+        *pt_stack.add(511) = kv2p(USER_STACK_PAGE.0.as_ptr() as u64) | 0x07;
+        *pt_stack.add(510) = kv2p(USER_STACK_PAGE_2.0.as_ptr() as u64) | 0x07;
+        *pt_stack.add(509) = kv2p(USER_STACK_PAGE_3.0.as_ptr() as u64) | 0x07;
+        *pt_stack.add(508) = kv2p(USER_STACK_PAGE_4.0.as_ptr() as u64) | 0x07;
+
+        *new_pml4 = kv2p(USER_PDPT.0.as_ptr() as u64) | 0x07;
+
+        core::ptr::copy_nonoverlapping(
+            blob0.as_ptr(), USER_CODE_PAGE.0.as_mut_ptr(), blob0.len());
+        core::ptr::copy_nonoverlapping(
+            blob1.as_ptr(), USER_CODE_PAGE_2.0.as_mut_ptr(), blob1.len());
+        core::ptr::copy_nonoverlapping(
+            blob2.as_ptr(), USER_CODE_PAGE_3.0.as_mut_ptr(), blob2.len());
+        core::ptr::copy_nonoverlapping(
+            blob3.as_ptr(), USER_CODE_PAGE_4.0.as_mut_ptr(), blob3.len());
+
         let new_pml4_phys = kv2p(new_pml4 as u64);
         core::arch::asm!("mov cr3, {}", in(reg) new_pml4_phys, options(nostack));
     }
@@ -1993,6 +2085,114 @@ static IPC_PING_BLOB: [u8; 102] = [
 ];
 
 // IPC bad-pointer send blob (single task: send with unmapped buf → expect -1)
+#[cfg(feature = "stress_ipc_test")]
+static STRESS_IPC_SENDER_A_BLOB: [u8; 56] = [
+    // mov r12d, 200
+    0x41, 0xBC, 0xC8, 0x00, 0x00, 0x00,
+    // send_loop: sys_ipc_send(ep=0, msg, 5)
+    0xBF, 0x00, 0x00, 0x00, 0x00,
+    0x48, 0x8D, 0x35, 0x21, 0x00, 0x00, 0x00,
+    0xBA, 0x05, 0x00, 0x00, 0x00,
+    0xB8, 0x08, 0x00, 0x00, 0x00,
+    0xCD, 0x80,
+    // if rax == -1 => sys_yield + retry
+    0x48, 0x83, 0xF8, 0xFF,
+    0x75, 0x09,
+    0xB8, 0x03, 0x00, 0x00, 0x00,
+    0xCD, 0x80,
+    0xEB, 0xD9,
+    // sent: dec loop; continue until done
+    0x41, 0xFF, 0xCC,
+    0x75, 0xD4,
+    0xF4,
+    // msg
+    b'A', b'-', b'i', b'p', b'c',
+];
+
+#[cfg(feature = "stress_ipc_test")]
+static STRESS_IPC_SENDER_B_BLOB: [u8; 56] = [
+    // mov r12d, 200
+    0x41, 0xBC, 0xC8, 0x00, 0x00, 0x00,
+    // send_loop: sys_ipc_send(ep=1, msg, 5)
+    0xBF, 0x01, 0x00, 0x00, 0x00,
+    0x48, 0x8D, 0x35, 0x21, 0x00, 0x00, 0x00,
+    0xBA, 0x05, 0x00, 0x00, 0x00,
+    0xB8, 0x08, 0x00, 0x00, 0x00,
+    0xCD, 0x80,
+    // if rax == -1 => sys_yield + retry
+    0x48, 0x83, 0xF8, 0xFF,
+    0x75, 0x09,
+    0xB8, 0x03, 0x00, 0x00, 0x00,
+    0xCD, 0x80,
+    0xEB, 0xD9,
+    // sent: dec loop; continue until done
+    0x41, 0xFF, 0xCC,
+    0x75, 0xD4,
+    0xF4,
+    // msg
+    b'B', b'-', b'i', b'p', b'c',
+];
+
+#[cfg(feature = "stress_ipc_test")]
+static STRESS_IPC_RECV_C_BLOB: [u8; 73] = [
+    // mov r12d, 200
+    0x41, 0xBC, 0xC8, 0x00, 0x00, 0x00,
+    // recv_loop: sys_ipc_recv(ep=0, rsp-256, 256)
+    0xBF, 0x00, 0x00, 0x00, 0x00,
+    0x48, 0x89, 0xE6,
+    0x48, 0x81, 0xEE, 0x00, 0x01, 0x00, 0x00,
+    0xBA, 0x00, 0x01, 0x00, 0x00,
+    0xB8, 0x09, 0x00, 0x00, 0x00,
+    0xCD, 0x80,
+    // validate len == 5
+    0x48, 0x83, 0xF8, 0x05,
+    0x75, 0x15,
+    // validate prefix byte == 'A'
+    0x48, 0x89, 0xE6,
+    0x48, 0x81, 0xEE, 0x00, 0x01, 0x00, 0x00,
+    0x80, 0x3E, 0x41,
+    0x75, 0x06,
+    // dec loop; continue until done
+    0x41, 0xFF, 0xCC,
+    0x75, 0xCB,
+    0xF4,
+    // fail: sys_debug_exit(0x33)
+    0xBF, 0x33, 0x00, 0x00, 0x00,
+    0xB8, 0x62, 0x00, 0x00, 0x00,
+    0xCD, 0x80,
+    0xF4,
+];
+
+#[cfg(feature = "stress_ipc_test")]
+static STRESS_IPC_RECV_D_BLOB: [u8; 73] = [
+    // mov r12d, 200
+    0x41, 0xBC, 0xC8, 0x00, 0x00, 0x00,
+    // recv_loop: sys_ipc_recv(ep=1, rsp-256, 256)
+    0xBF, 0x01, 0x00, 0x00, 0x00,
+    0x48, 0x89, 0xE6,
+    0x48, 0x81, 0xEE, 0x00, 0x01, 0x00, 0x00,
+    0xBA, 0x00, 0x01, 0x00, 0x00,
+    0xB8, 0x09, 0x00, 0x00, 0x00,
+    0xCD, 0x80,
+    // validate len == 5
+    0x48, 0x83, 0xF8, 0x05,
+    0x75, 0x15,
+    // validate prefix byte == 'B'
+    0x48, 0x89, 0xE6,
+    0x48, 0x81, 0xEE, 0x00, 0x01, 0x00, 0x00,
+    0x80, 0x3E, 0x42,
+    0x75, 0x06,
+    // dec loop; continue until done
+    0x41, 0xFF, 0xCC,
+    0x75, 0xCB,
+    0xF4,
+    // fail: sys_debug_exit(0x33)
+    0xBF, 0x33, 0x00, 0x00, 0x00,
+    0xB8, 0x62, 0x00, 0x00, 0x00,
+    0xCD, 0x80,
+    0xF4,
+];
+
 #[cfg(feature = "ipc_badptr_send_test")]
 static IPC_BADPTR_SEND_BLOB: [u8; 75] = [
     // sys_ipc_send(endpoint=0, buf=0xDEAD0000, len=16)
@@ -3014,6 +3214,34 @@ pub extern "C" fn kmain() -> ! {
     }
 
     // R4: shm_test — shared memory bulk transfe
+    // R4: stress_ipc_test - two senders + two receivers
+    #[cfg(feature = "stress_ipc_test")]
+    unsafe {
+        let kstack = &stack_top as *const u8 as u64;
+        tss_init(kstack);
+        setup_r4_pages4(
+            &STRESS_IPC_SENDER_A_BLOB,
+            &STRESS_IPC_SENDER_B_BLOB,
+            &STRESS_IPC_RECV_C_BLOB,
+            &STRESS_IPC_RECV_D_BLOB,
+        );
+
+        // Endpoints: A->C on 0, B->D on 1
+        R4_ENDPOINTS[0].active = true;
+        R4_ENDPOINTS[1].active = true;
+
+        R4_NUM_TASKS = 4;
+        r4_init_task(0, USER_CODE_VA, USER_STACK_TOP);
+        r4_init_task(1, USER_CODE2_VA, USER_STACK2_TOP);
+        r4_init_task(2, USER_CODE3_VA, USER_STACK3_TOP);
+        r4_init_task(3, USER_CODE4_VA, USER_STACK4_TOP);
+        R4_TASKS[0].state = R4State::Running;
+        R4_CURRENT = 0;
+
+        enter_ring3_at(USER_CODE_VA, USER_STACK_TOP);
+    }
+
+    // R4: shm_test â€” shared memory bulk transfer
     #[cfg(feature = "shm_test")]
     unsafe {
         let kstack = &stack_top as *const u8 as u64;
@@ -3426,6 +3654,7 @@ pub extern "C" fn kmain() -> ! {
         feature = "ipc_badptr_send_test",
         feature = "ipc_badptr_recv_test",
         feature = "ipc_badptr_svc_test",
+        feature = "stress_ipc_test",
         feature = "svc_full_test",
         feature = "shm_test",
         feature = "blk_test",
