@@ -20,7 +20,21 @@
 make build          # compile kernel ELF
 make image          # build bootable ISO (no network required)
 make test-qemu      # full QEMU smoke-test suite
+make repro-check    # deterministic ISO gate (build twice + SHA256 compare)
 ```
+
+## Reproducible ISO Check
+
+`make repro-check` performs a deterministic build check by:
+
+1. Building kernel+ISO in `out/repro-1`.
+2. Building kernel+ISO again in `out/repro-2`.
+3. Forcing reproducible image timestamps via `SOURCE_DATE_EPOCH=1`.
+4. Comparing SHA-256 hashes of both ISOs and failing on mismatch.
+
+The ISO creation step uses fixed volume metadata (`-V/-volset/-A/-p/-P`) and,
+when `SOURCE_DATE_EPOCH` is set, normalizes mtimes of all files in the ISO
+root before calling `xorriso`.
 
 ## Pinned External Dependencies
 

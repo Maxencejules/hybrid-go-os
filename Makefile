@@ -325,12 +325,17 @@ run: image
 test-qemu: image image-panic image-pf image-idt image-sched image-user-hello image-syscall image-syscall-invalid image-yield image-user-fault image-ipc image-ipc-badptr-send image-ipc-badptr-recv image-svc-badptr image-ipc-buffer-full image-ipc-svc-overwrite image-svc-full image-shm image-blk image-blk-badlen image-blk-badptr image-blk-invariants image-fs image-fs-badmagic image-pkg-hash image-net image-go
 	python3 -m pytest tests/ -v
 
-repro-check: build
+repro-check:
 	@set -e; \
-	ISO_NAME=os-repro-1.iso bash tools/mkimage.sh; \
-	ISO_NAME=os-repro-2.iso bash tools/mkimage.sh; \
-	SHA1=$$(sha256sum $(OUT)/os-repro-1.iso | awk '{print $$1}'); \
-	SHA2=$$(sha256sum $(OUT)/os-repro-2.iso | awk '{print $$1}'); \
+	OUT1="$(OUT)/repro-1"; \
+	OUT2="$(OUT)/repro-2"; \
+	rm -rf "$$OUT1" "$$OUT2"; \
+	$(MAKE) OUT="$$OUT1" build; \
+	OUT="$$OUT1" ISO_NAME=os.iso SOURCE_DATE_EPOCH=1 bash tools/mkimage.sh; \
+	$(MAKE) OUT="$$OUT2" build; \
+	OUT="$$OUT2" ISO_NAME=os.iso SOURCE_DATE_EPOCH=1 bash tools/mkimage.sh; \
+	SHA1=$$(sha256sum "$$OUT1/os.iso" | awk '{print $$1}'); \
+	SHA2=$$(sha256sum "$$OUT2/os.iso" | awk '{print $$1}'); \
 	echo "repro-check: $$SHA1"; \
 	echo "repro-check: $$SHA2"; \
 	test "$$SHA1" = "$$SHA2"
