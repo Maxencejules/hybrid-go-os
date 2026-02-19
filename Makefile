@@ -10,6 +10,7 @@
        build-user-fault image-user-fault \
        build-ipc image-ipc build-ipc-badptr-send image-ipc-badptr-send \
        build-ipc-badptr-recv image-ipc-badptr-recv \
+       build-svc-badptr image-svc-badptr \
        build-ipc-badptr-svc image-ipc-badptr-svc \
        build-ipc-buffer-full image-ipc-buffer-full \
        build-ipc-svc-overwrite image-ipc-svc-overwrite \
@@ -144,11 +145,14 @@ build-ipc-badptr-recv: $(ASM_OBJS) boot/linker.ld
 	cd kernel_rs && cargo build --release --features ipc_badptr_recv_test
 	$(LD) $(LDFLAGS) -o $(OUT)/kernel-ipc-badptr-recv.elf $(ASM_OBJS) $(KERNEL_LIB)
 
-# --- R4: IPC bad-pointer service registry test kernel ------------------------
+# --- R4: Service registry bad-pointer test kernel -----------------------------
 
-build-ipc-badptr-svc: $(ASM_OBJS) boot/linker.ld
-	cd kernel_rs && cargo build --release --features ipc_badptr_svc_test
-	$(LD) $(LDFLAGS) -o $(OUT)/kernel-ipc-badptr-svc.elf $(ASM_OBJS) $(KERNEL_LIB)
+build-svc-badptr: $(ASM_OBJS) boot/linker.ld
+	cd kernel_rs && cargo build --release --features svc_badptr_test
+	$(LD) $(LDFLAGS) -o $(OUT)/kernel-svc-badptr.elf $(ASM_OBJS) $(KERNEL_LIB)
+
+# Backward-compatible alias
+build-ipc-badptr-svc: build-svc-badptr
 
 # --- R4: IPC buffer-full test kernel ------------------------------------------
 
@@ -236,8 +240,12 @@ image-ipc-badptr-send: build-ipc-badptr-send
 image-ipc-badptr-recv: build-ipc-badptr-recv
 	KERNEL_ELF=kernel-ipc-badptr-recv.elf ISO_NAME=os-ipc-badptr-recv.iso bash tools/mkimage.sh
 
-image-ipc-badptr-svc: build-ipc-badptr-svc
-	KERNEL_ELF=kernel-ipc-badptr-svc.elf ISO_NAME=os-ipc-badptr-svc.iso bash tools/mkimage.sh
+image-svc-badptr: build-svc-badptr
+	KERNEL_ELF=kernel-svc-badptr.elf ISO_NAME=os-svc-badptr.iso bash tools/mkimage.sh
+
+# Backward-compatible alias
+image-ipc-badptr-svc: build-svc-badptr
+	KERNEL_ELF=kernel-svc-badptr.elf ISO_NAME=os-ipc-badptr-svc.iso bash tools/mkimage.sh
 
 image-ipc-buffer-full: build-ipc-buffer-full
 	KERNEL_ELF=kernel-ipc-buffer-full.elf ISO_NAME=os-ipc-buffer-full.iso bash tools/mkimage.sh
@@ -314,7 +322,7 @@ image-go: build-go
 run: image
 	./tools/run_qemu.sh
 
-test-qemu: image image-panic image-pf image-idt image-sched image-user-hello image-syscall image-syscall-invalid image-yield image-user-fault image-ipc image-ipc-badptr-send image-ipc-badptr-recv image-ipc-badptr-svc image-ipc-buffer-full image-ipc-svc-overwrite image-svc-full image-shm image-blk image-blk-badlen image-blk-badptr image-blk-invariants image-fs image-fs-badmagic image-pkg-hash image-net image-go
+test-qemu: image image-panic image-pf image-idt image-sched image-user-hello image-syscall image-syscall-invalid image-yield image-user-fault image-ipc image-ipc-badptr-send image-ipc-badptr-recv image-svc-badptr image-ipc-buffer-full image-ipc-svc-overwrite image-svc-full image-shm image-blk image-blk-badlen image-blk-badptr image-blk-invariants image-fs image-fs-badmagic image-pkg-hash image-net image-go
 	python3 -m pytest tests/ -v
 
 repro-check: build

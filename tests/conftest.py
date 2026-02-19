@@ -20,7 +20,9 @@ ISO_USER_FAULT_PATH = os.path.join(REPO_ROOT, "out", "os-user-fault.iso")
 ISO_IPC_PATH = os.path.join(REPO_ROOT, "out", "os-ipc.iso")
 ISO_IPC_BADPTR_SEND_PATH = os.path.join(REPO_ROOT, "out", "os-ipc-badptr-send.iso")
 ISO_IPC_BADPTR_RECV_PATH = os.path.join(REPO_ROOT, "out", "os-ipc-badptr-recv.iso")
-ISO_IPC_BADPTR_SVC_PATH = os.path.join(REPO_ROOT, "out", "os-ipc-badptr-svc.iso")
+ISO_SVC_BADPTR_PATH = os.path.join(REPO_ROOT, "out", "os-svc-badptr.iso")
+# Backward-compatible alias
+ISO_IPC_BADPTR_SVC_PATH = ISO_SVC_BADPTR_PATH
 ISO_IPC_BUFFER_FULL_PATH = os.path.join(REPO_ROOT, "out", "os-ipc-buffer-full.iso")
 ISO_IPC_SVC_OVERWRITE_PATH = os.path.join(REPO_ROOT, "out", "os-ipc-svc-overwrite.iso")
 ISO_SVC_FULL_PATH = os.path.join(REPO_ROOT, "out", "os-svc-full.iso")
@@ -170,11 +172,17 @@ def qemu_serial_ipc_badptr_recv():
 
 
 @pytest.fixture
-def qemu_serial_ipc_badptr_svc():
-    """Boot the IPC bad-pointer service registry test OS image and return captured serial output."""
-    if not os.path.isfile(ISO_IPC_BADPTR_SVC_PATH):
-        pytest.skip(f"ISO not built: {ISO_IPC_BADPTR_SVC_PATH}")
-    return _boot_iso(ISO_IPC_BADPTR_SVC_PATH)
+def qemu_serial_svc_badptr():
+    """Boot the service-registry bad-pointer test OS image and return captured serial output."""
+    if not os.path.isfile(ISO_SVC_BADPTR_PATH):
+        pytest.skip(f"ISO not built: {ISO_SVC_BADPTR_PATH}")
+    return _boot_iso(ISO_SVC_BADPTR_PATH)
+
+
+@pytest.fixture
+def qemu_serial_ipc_badptr_svc(qemu_serial_svc_badptr):
+    """Backward-compatible alias for the service-registry bad-pointer fixture."""
+    return qemu_serial_svc_badptr
 
 
 @pytest.fixture

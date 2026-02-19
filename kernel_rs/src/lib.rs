@@ -496,6 +496,10 @@ unsafe fn syscall_dispatch(frame: *mut u64) {
     // R4 dispatch
     #[cfg(any(feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_recv_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "svc_overwrite_test", feature = "svc_full_test"))]
     {
+        if nr == 98 {
+            qemu_exit(arg1 as u8);
+            loop { core::arch::asm!("cli; hlt", options(nomem, nostack)); }
+        }
         match nr {
             0  => { *frame.add(14) = sys_debug_write(arg1, arg2); }
             3  => { *frame.add(14) = sys_yield(); }
@@ -1937,7 +1941,7 @@ static IPC_PING_BLOB: [u8; 102] = [
 
 // IPC bad-pointer send blob (single task: send with unmapped buf → expect -1)
 #[cfg(feature = "ipc_badptr_send_test")]
-static IPC_BADPTR_SEND_BLOB: [u8; 63] = [
+static IPC_BADPTR_SEND_BLOB: [u8; 75] = [
     // sys_ipc_send(endpoint=0, buf=0xDEAD0000, len=16)
     0x31, 0xFF,                                   // xor edi, edi
     0xBE, 0x00, 0x00, 0xAD, 0xDE,               // mov esi, 0xDEAD0000
@@ -1946,23 +1950,27 @@ static IPC_BADPTR_SEND_BLOB: [u8; 63] = [
     0xCD, 0x80,                                   // int 0x80
     // cmp rax, -1; jne fail
     0x48, 0x83, 0xF8, 0xFF,                       // cmp rax, -1
-    0x75, 0x11,                                   // jne +17 (fail@42)
+    0x75, 0x1D,                                   // jne +29 (fail@54)
     // sys_debug_write("IPC: badptr send ok\n", 20)
-    0x48, 0x8D, 0x3D, 0x0B, 0x00, 0x00, 0x00,   // lea rdi, [rip+0x0B] -> msg@43
+    0x48, 0x8D, 0x3D, 0x17, 0x00, 0x00, 0x00,   // lea rdi, [rip+0x17] -> msg@55
     0xBE, 0x14, 0x00, 0x00, 0x00,               // mov esi, 20
     0x31, 0xC0,                                   // xor eax, eax
+    0xCD, 0x80,                                   // int 0x80
+    // sys_debug_exit(0x31)
+    0xBF, 0x31, 0x00, 0x00, 0x00,               // mov edi, 0x31
+    0xB8, 0x62, 0x00, 0x00, 0x00,               // mov eax, 98
     0xCD, 0x80,                                   // int 0x80
     0xF4,                                         // hlt
     // fail:
     0xF4,                                         // hlt
-    // Data @43: "IPC: badptr send ok\n"
+    // Data @55: "IPC: badptr send ok\n"
     b'I', b'P', b'C', b':', b' ', b'b', b'a', b'd', b'p', b't',
     b'r', b' ', b's', b'e', b'n', b'd', b' ', b'o', b'k', b'\n',
 ];
 
 // IPC bad-pointer recv blob (single task: recv with unmapped buf → expect -1)
 #[cfg(feature = "ipc_badptr_recv_test")]
-static IPC_BADPTR_RECV_BLOB: [u8; 63] = [
+static IPC_BADPTR_RECV_BLOB: [u8; 75] = [
     // sys_ipc_recv(endpoint=0, buf=0xDEADBEEF, cap=16)
     0x31, 0xFF,                                   // xor edi, edi
     0xBE, 0xEF, 0xBE, 0xAD, 0xDE,               // mov esi, 0xDEADBEEF
@@ -1971,23 +1979,27 @@ static IPC_BADPTR_RECV_BLOB: [u8; 63] = [
     0xCD, 0x80,                                   // int 0x80
     // cmp rax, -1; jne fail
     0x48, 0x83, 0xF8, 0xFF,                       // cmp rax, -1
-    0x75, 0x11,                                   // jne +17 (fail@42)
+    0x75, 0x1D,                                   // jne +29 (fail@54)
     // sys_debug_write("IPC: badptr recv ok\n", 20)
-    0x48, 0x8D, 0x3D, 0x0B, 0x00, 0x00, 0x00,   // lea rdi, [rip+0x0B] -> msg@43
+    0x48, 0x8D, 0x3D, 0x17, 0x00, 0x00, 0x00,   // lea rdi, [rip+0x17] -> msg@55
     0xBE, 0x14, 0x00, 0x00, 0x00,               // mov esi, 20
     0x31, 0xC0,                                   // xor eax, eax
+    0xCD, 0x80,                                   // int 0x80
+    // sys_debug_exit(0x31)
+    0xBF, 0x31, 0x00, 0x00, 0x00,               // mov edi, 0x31
+    0xB8, 0x62, 0x00, 0x00, 0x00,               // mov eax, 98
     0xCD, 0x80,                                   // int 0x80
     0xF4,                                         // hlt
     // fail:
     0xF4,                                         // hlt
-    // Data @43: "IPC: badptr recv ok\n"
+    // Data @55: "IPC: badptr recv ok\n"
     b'I', b'P', b'C', b':', b' ', b'b', b'a', b'd', b'p', b't',
     b'r', b' ', b'r', b'e', b'c', b'v', b' ', b'o', b'k', b'\n',
 ];
 
 // Service registry bad-pointer blob (single task: register with unmapped name → expect -1)
 #[cfg(feature = "ipc_badptr_svc_test")]
-static SVC_BADPTR_BLOB: [u8; 58] = [
+static SVC_BADPTR_BLOB: [u8; 70] = [
     // sys_svc_register(name_ptr=0xDEAD0000, name_len=8, endpoint=0)
     0xBF, 0x00, 0x00, 0xAD, 0xDE,               // mov edi, 0xDEAD0000
     0xBE, 0x08, 0x00, 0x00, 0x00,               // mov esi, 8
@@ -1996,16 +2008,20 @@ static SVC_BADPTR_BLOB: [u8; 58] = [
     0xCD, 0x80,                                   // int 0x80
     // cmp rax, -1; jne fail
     0x48, 0x83, 0xF8, 0xFF,                       // cmp rax, -1
-    0x75, 0x11,                                   // jne +17 (fail@42)
+    0x75, 0x1D,                                   // jne +29 (fail@54)
     // sys_debug_write("SVC: badptr ok\n", 15)
-    0x48, 0x8D, 0x3D, 0x0B, 0x00, 0x00, 0x00,   // lea rdi, [rip+0x0B] -> msg@43
+    0x48, 0x8D, 0x3D, 0x17, 0x00, 0x00, 0x00,   // lea rdi, [rip+0x17] -> msg@55
     0xBE, 0x0F, 0x00, 0x00, 0x00,               // mov esi, 15
     0x31, 0xC0,                                   // xor eax, eax
+    0xCD, 0x80,                                   // int 0x80
+    // sys_debug_exit(0x31)
+    0xBF, 0x31, 0x00, 0x00, 0x00,               // mov edi, 0x31
+    0xB8, 0x62, 0x00, 0x00, 0x00,               // mov eax, 98
     0xCD, 0x80,                                   // int 0x80
     0xF4,                                         // hlt
     // fail:
     0xF4,                                         // hlt
-    // Data @43: "SVC: badptr ok\n"
+    // Data @55: "SVC: badptr ok\n"
     b'S', b'V', b'C', b':', b' ', b'b', b'a', b'd', b'p', b't',
     b'r', b' ', b'o', b'k', b'\n',
 ];
