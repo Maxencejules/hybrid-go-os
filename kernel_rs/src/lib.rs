@@ -1725,6 +1725,34 @@ static BLK_TEST_BLOB: [u8; 111] = [
     b'B', b'L', b'K', b':', b' ', b'r', b'w', b' ', b'o', b'k', b'\n',
 ];
 
+#[cfg(feature = "blk_badlen_test")]
+static BLK_BADLEN_BLOB: [u8; 66] = [
+    // mov rbx, rsp
+    0x48, 0x89, 0xE3,
+    // sub rbx, 0x200
+    0x48, 0x81, 0xEB, 0x00, 0x02, 0x00, 0x00,
+    // sys_blk_read(lba=0, buf=rbx, len=513)
+    0x31, 0xFF,                                   // xor edi, edi
+    0x48, 0x89, 0xDE,                             // mov rsi, rbx
+    0xBA, 0x01, 0x02, 0x00, 0x00,               // mov edx, 513
+    0xB8, 0x0D, 0x00, 0x00, 0x00,               // mov eax, 13
+    0xCD, 0x80,                                   // int 0x80
+    // cmp rax, -1; jne fail
+    0x48, 0x83, 0xF8, 0xFF,                       // cmp rax, -1
+    0x75, 0x11,                                   // jne +17 (fail@50)
+    // sys_debug_write("BLK: badlen ok\n", 15)
+    0x48, 0x8D, 0x3D, 0x0B, 0x00, 0x00, 0x00,   // lea rdi, [rip+0x0B] -> msg@51
+    0xBE, 0x0F, 0x00, 0x00, 0x00,               // mov esi, 15
+    0x31, 0xC0,                                   // xor eax, eax
+    0xCD, 0x80,                                   // int 0x80
+    0xF4,                                         // hlt
+    // fail:
+    0xF4,                                         // hlt
+    // Data @51: "BLK: badlen ok\n"
+    b'B', b'L', b'K', b':', b' ', b'b', b'a', b'd',
+    b'l', b'e', b'n', b' ', b'o', b'k', b'\n',
+];
+
 // --------------- R4: User program blobs (hand-assembled x86-64) --------------
 
 // IPC ping-pong blobs
@@ -2953,7 +2981,11 @@ pub extern "C" fn kmain() -> ! {
         let kstack = &stack_top as *const u8 as u64;
         tss_init(kstack);
         HHDM_OFFSET = (*hhdm_resp_ptr).offset;
-        setup_user_pages(&BLK_TEST_BLOB);
+        #[cfg(feature = "blk_badlen_test")]
+        let user_blob = &BLK_BADLEN_BLOB;
+        #[cfg(not(feature = "blk_badlen_test"))]
+        let user_blob = &BLK_TEST_BLOB;
+        setup_user_pages(user_blob);
         enter_ring3_at(USER_CODE_VA, USER_STACK_TOP);
     }
 
