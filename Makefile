@@ -13,6 +13,7 @@
        build-ipc-badptr-svc image-ipc-badptr-svc \
        build-ipc-buffer-full image-ipc-buffer-full \
        build-ipc-svc-overwrite image-ipc-svc-overwrite \
+       build-svc-full image-svc-full \
        build-shm image-shm \
        build-blk image-blk \
        build-blk-invariants image-blk-invariants \
@@ -157,6 +158,12 @@ build-ipc-svc-overwrite: $(ASM_OBJS) boot/linker.ld
 	cd kernel_rs && cargo build --release --features svc_overwrite_test
 	$(LD) $(LDFLAGS) -o $(OUT)/kernel-ipc-svc-overwrite.elf $(ASM_OBJS) $(KERNEL_LIB)
 
+# --- R4: SVC table-full test kernel ------------------------------------------
+
+build-svc-full: $(ASM_OBJS) boot/linker.ld
+	cd kernel_rs && cargo build --release --features svc_full_test
+	$(LD) $(LDFLAGS) -o $(OUT)/kernel-svc-full.elf $(ASM_OBJS) $(KERNEL_LIB)
+
 # --- R4: SHM bulk test kernel ------------------------------------------------
 
 build-shm: $(ASM_OBJS) boot/linker.ld
@@ -222,6 +229,9 @@ image-ipc-buffer-full: build-ipc-buffer-full
 image-ipc-svc-overwrite: build-ipc-svc-overwrite
 	KERNEL_ELF=kernel-ipc-svc-overwrite.elf ISO_NAME=os-ipc-svc-overwrite.iso bash tools/mkimage.sh
 
+image-svc-full: build-svc-full
+	KERNEL_ELF=kernel-svc-full.elf ISO_NAME=os-svc-full.iso bash tools/mkimage.sh
+
 image-blk: build-blk
 	KERNEL_ELF=kernel-blk.elf ISO_NAME=os-blk.iso bash tools/mkimage.sh
 
@@ -266,7 +276,7 @@ image-go: build-go
 run: image
 	./tools/run_qemu.sh
 
-test-qemu: image image-panic image-pf image-idt image-sched image-user-hello image-syscall image-syscall-invalid image-yield image-user-fault image-ipc image-ipc-badptr-send image-ipc-badptr-recv image-ipc-badptr-svc image-ipc-buffer-full image-ipc-svc-overwrite image-shm image-blk image-blk-invariants image-fs image-net image-go
+test-qemu: image image-panic image-pf image-idt image-sched image-user-hello image-syscall image-syscall-invalid image-yield image-user-fault image-ipc image-ipc-badptr-send image-ipc-badptr-recv image-ipc-badptr-svc image-ipc-buffer-full image-ipc-svc-overwrite image-svc-full image-shm image-blk image-blk-invariants image-fs image-net image-go
 	python3 -m pytest tests/ -v
 
 clean:
