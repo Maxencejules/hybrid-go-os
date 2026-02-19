@@ -251,7 +251,7 @@ image-ipc-buffer-full: build-ipc-buffer-full
 	KERNEL_ELF=kernel-ipc-buffer-full.elf ISO_NAME=os-ipc-buffer-full.iso bash tools/mkimage.sh
 
 image-ipc-svc-overwrite: build-ipc-svc-overwrite
-	KERNEL_ELF=kernel-ipc-svc-overwrite.elf ISO_NAME=os-ipc-svc-overwrite.iso bash tools/mkimage.sh
+	KERNEL_ELF=kernel-ipc-svc-overwrite.elf ISO_NAME=os-svc-overwrite.iso bash tools/mkimage.sh
 
 image-svc-full: build-svc-full
 	KERNEL_ELF=kernel-svc-full.elf ISO_NAME=os-svc-full.iso bash tools/mkimage.sh

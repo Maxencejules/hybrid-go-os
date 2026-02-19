@@ -119,6 +119,7 @@ contents. Sender and receiver agree on format by convention.
 - Duplicate registrations deterministically overwrite the endpoint value of
   the existing entry and return 0. No additional slot is consumed.
 - If the name is new and all 4 slots are occupied, returns -1.
+- Acceptance variants: `svc_overwrite_test` and `svc_full_test`.
 
 ## User pointer safety (M3+)
 
