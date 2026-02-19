@@ -128,11 +128,13 @@ All pointer-taking syscalls use a uniform kernel copy layer (`copyin_user`,
 1. Buffer must be in user address range (below 0x0000_8000_0000_0000).
 2. `ptr + len` must not overflow.
 3. Every page spanned by the buffer must be present and user-accessible
-   (kernel walks page tables via `check_page_user_accessible`).
+   with required permissions (`user_pages_ok` page-table walk).
 4. Data is copied to/from a kernel-side buffer; the kernel never operates
    directly on user mappings.
 5. On validation failure, the syscall returns -1 (0xFFFFFFFFFFFFFFFF)
    without crashing or faulting.
+
+Invalid user pointers are always treated as syscall errors (`-1`), never as a kernel crash path.
 
 This applies to `sys_debug_write`, `sys_ipc_send`, `sys_ipc_recv`,
 `sys_svc_register`, `sys_svc_lookup`, `sys_blk_read`, `sys_blk_write`,

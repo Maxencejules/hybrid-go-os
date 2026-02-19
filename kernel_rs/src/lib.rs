@@ -468,9 +468,7 @@ unsafe fn handle_user_fault(frame: *mut u64) {
 
 // --------------- Syscall dispatch (int 0x80) ---------------------------------
 
-cfg_user! {
-    static mut HHDM_OFFSET: u64 = 0;
-}
+static mut HHDM_OFFSET: u64 = 0;
 
 cfg_m3! {
     static mut MONOTONIC_TICK: u64 = 1;
@@ -538,33 +536,10 @@ unsafe fn sys_debug_write(buf: u64, len: u64) -> u64 {
     let max_len = 256u64;
     let actual_len = if len > max_len { max_len } else { len };
     if actual_len == 0 { return 0; }
-    if buf >= 0x0000_8000_0000_0000 { return 0xFFFF_FFFF_FFFF_FFFF; }
-    if buf.checked_add(actual_len).is_none() || buf + actual_len > 0x0000_8000_0000_0000 {
-        return 0xFFFF_FFFF_FFFF_FFFF;
-    }
-
-    #[cfg(any(
-        feature = "user_hello_test", feature = "syscall_test", feature = "user_fault_test",
-        feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_recv_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "svc_overwrite_test", feature = "svc_full_test", feature = "blk_test", feature = "fs_test",
-        feature = "go_test",
-    ))]
-    {
-        let hhdm = HHDM_OFFSET;
-        let start_page = buf & !0xFFF;
-        let end_page = (buf + actual_len - 1) & !0xFFF;
-        let mut page = start_page;
-        loop {
-            if !check_page_user_accessible(page, hhdm) {
-                return 0xFFFF_FFFF_FFFF_FFFF;
-            }
-            if page >= end_page { break; }
-            page += 4096;
-        }
-    }
 
     let mut kbuf = [0u8; 256];
     let n = actual_len as usize;
-    core::ptr::copy_nonoverlapping(buf as *const u8, kbuf.as_mut_ptr(), n);
+    if copyin_user(&mut kbuf, buf, n).is_err() { return 0xFFFF_FFFF_FFFF_FFFF; }
     serial_write(&kbuf[..n]);
     actual_len
 }
@@ -719,62 +694,94 @@ fn sha256_digest(data: &[u8]) -> [u8; 32] {
 
 // --------------- User pointer validation (page table walk) -------------------
 
-#[cfg(any(
-    feature = "user_hello_test", feature = "syscall_test", feature = "user_fault_test",
-    feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_recv_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "svc_overwrite_test", feature = "svc_full_test", feature = "blk_test", feature = "fs_test",
-    feature = "go_test",
-))]
-unsafe fn check_page_user_accessible(va: u64, hhdm: u64) -> bool {
+const USER_VA_LIMIT: u64 = 0x0000_8000_0000_0000;
+const USER_PERM_READ: u64 = 1 << 0;
+const USER_PERM_WRITE: u64 = 1 << 1;
+const USER_COPYINSTR_MAX: usize = 256;
+
+#[allow(dead_code)]
+struct Vec<T> {
+    len: usize,
+    buf: [u8; USER_COPYINSTR_MAX],
+    _marker: core::marker::PhantomData<T>,
+}
+
+impl Vec<u8> {
+    fn new() -> Self {
+        Self {
+            len: 0,
+            buf: [0u8; USER_COPYINSTR_MAX],
+            _marker: core::marker::PhantomData,
+        }
+    }
+
+    fn push(&mut self, b: u8) -> Result<(), ()> {
+        if self.len >= self.buf.len() { return Err(()); }
+        self.buf[self.len] = b;
+        self.len += 1;
+        Ok(())
+    }
+
+    fn as_slice(&self) -> &[u8] {
+        &self.buf[..self.len]
+    }
+}
+
+impl core::ops::Deref for Vec<u8> {
+    type Target = [u8];
+    fn deref(&self) -> &Self::Target {
+        self.as_slice()
+    }
+}
+
+unsafe fn check_page_user_perms(va: u64, hhdm: u64, required_perms: u64) -> bool {
+    let need_write = (required_perms & USER_PERM_WRITE) != 0;
     let cr3: u64;
     core::arch::asm!("mov {}, cr3", out(reg) cr3, options(nomem, nostack));
     let pml4_phys = cr3 & 0x000F_FFFF_FFFF_F000;
     let pml4 = (pml4_phys + hhdm) as *const u64;
     let pml4e = *pml4.add(((va >> 39) & 0x1FF) as usize);
     if pml4e & 1 == 0 || pml4e & 4 == 0 { return false; }
+    if need_write && pml4e & 2 == 0 { return false; }
     let pdpt = ((pml4e & 0x000F_FFFF_FFFF_F000) + hhdm) as *const u64;
     let pdpte = *pdpt.add(((va >> 30) & 0x1FF) as usize);
     if pdpte & 1 == 0 || pdpte & 4 == 0 { return false; }
+    if need_write && pdpte & 2 == 0 { return false; }
     if pdpte & 0x80 != 0 { return true; }
     let pd = ((pdpte & 0x000F_FFFF_FFFF_F000) + hhdm) as *const u64;
     let pde = *pd.add(((va >> 21) & 0x1FF) as usize);
     if pde & 1 == 0 || pde & 4 == 0 { return false; }
+    if need_write && pde & 2 == 0 { return false; }
     if pde & 0x80 != 0 { return true; }
     let pt = ((pde & 0x000F_FFFF_FFFF_F000) + hhdm) as *const u64;
     let pte = *pt.add(((va >> 12) & 0x1FF) as usize);
-    pte & 1 != 0 && pte & 4 != 0
+    if pte & 1 == 0 || pte & 4 == 0 { return false; }
+    if need_write && pte & 2 == 0 { return false; }
+    true
 }
 
 // --------------- Uniform user-memory access helpers --------------------------
-// Available to all user-mode features; not every feature uses every helper yet.
-
-#[cfg(any(
-    feature = "user_hello_test", feature = "syscall_test", feature = "user_fault_test",
-    feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_recv_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "svc_overwrite_test", feature = "svc_full_test", feature = "blk_test", feature = "fs_test",
-    feature = "go_test",
-))]
-#[allow(dead_code)]
 fn user_range_ok(ptr: u64, len: usize) -> bool {
     if len == 0 { return true; }
     match ptr.checked_add(len as u64) {
-        Some(end) => end <= 0x0000_8000_0000_0000,
+        Some(end) => ptr < USER_VA_LIMIT && end <= USER_VA_LIMIT,
         None => false,
     }
 }
 
-#[cfg(any(
-    feature = "user_hello_test", feature = "syscall_test", feature = "user_fault_test",
-    feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_recv_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "svc_overwrite_test", feature = "svc_full_test", feature = "blk_test", feature = "fs_test",
-    feature = "go_test",
-))]
-#[allow(dead_code)]
-unsafe fn user_pages_ok(ptr: u64, len: usize) -> bool {
+unsafe fn user_pages_ok(ptr: u64, len: usize, required_perms: u64) -> bool {
     if len == 0 { return true; }
+    if !user_range_ok(ptr, len) { return false; }
     let hhdm = HHDM_OFFSET;
     let start_page = ptr & !0xFFF;
-    let end_page = (ptr + len as u64 - 1) & !0xFFF;
+    let end = match ptr.checked_add(len as u64 - 1) {
+        Some(v) => v,
+        None => return false,
+    };
+    let end_page = end & !0xFFF;
     let mut page = start_page;
     loop {
-        if !check_page_user_accessible(page, hhdm) {
+        if !check_page_user_perms(page, hhdm, required_perms) {
             return false;
         }
         if page >= end_page { break; }
@@ -783,52 +790,35 @@ unsafe fn user_pages_ok(ptr: u64, len: usize) -> bool {
     true
 }
 
-#[cfg(any(
-    feature = "user_hello_test", feature = "syscall_test", feature = "user_fault_test",
-    feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_recv_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "svc_overwrite_test", feature = "svc_full_test", feature = "blk_test", feature = "fs_test",
-    feature = "go_test",
-))]
-#[allow(dead_code)]
-unsafe fn copyin_user(dst: &mut [u8], user_ptr: u64) -> Result<(), ()> {
-    let len = dst.len();
+unsafe fn copyin_user(dst: &mut [u8], user_ptr: u64, len: usize) -> Result<(), ()> {
+    if len > dst.len() { return Err(()); }
     if !user_range_ok(user_ptr, len) { return Err(()); }
-    if !user_pages_ok(user_ptr, len) { return Err(()); }
+    if !user_pages_ok(user_ptr, len, USER_PERM_READ) { return Err(()); }
     if len > 0 {
         core::ptr::copy_nonoverlapping(user_ptr as *const u8, dst.as_mut_ptr(), len);
     }
     Ok(())
 }
 
-#[cfg(any(
-    feature = "user_hello_test", feature = "syscall_test", feature = "user_fault_test",
-    feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_recv_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "svc_overwrite_test", feature = "svc_full_test", feature = "blk_test", feature = "fs_test",
-    feature = "go_test",
-))]
-#[allow(dead_code)]
-unsafe fn copyout_user(user_ptr: u64, src: &[u8]) -> Result<(), ()> {
-    let len = src.len();
+unsafe fn copyout_user(user_ptr: u64, src: &[u8], len: usize) -> Result<(), ()> {
+    if len > src.len() { return Err(()); }
     if !user_range_ok(user_ptr, len) { return Err(()); }
-    if !user_pages_ok(user_ptr, len) { return Err(()); }
+    if !user_pages_ok(user_ptr, len, USER_PERM_WRITE) { return Err(()); }
     if len > 0 {
         core::ptr::copy_nonoverlapping(src.as_ptr(), user_ptr as *mut u8, len);
     }
     Ok(())
 }
 
-#[cfg(any(
-    feature = "user_hello_test", feature = "syscall_test", feature = "user_fault_test",
-    feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_recv_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "svc_overwrite_test", feature = "svc_full_test", feature = "blk_test", feature = "fs_test",
-    feature = "go_test",
-))]
-#[allow(dead_code)]
-unsafe fn copyinstr_user(dst: &mut [u8], user_ptr: u64, max: usize) -> Result<usize, ()> {
-    let limit = if max < dst.len() { max } else { dst.len() };
+unsafe fn copyinstr_user(user_ptr: u64, max: usize) -> Result<Vec<u8>, ()> {
+    let limit = if max > USER_COPYINSTR_MAX { USER_COPYINSTR_MAX } else { max };
     if !user_range_ok(user_ptr, limit) { return Err(()); }
-    if !user_pages_ok(user_ptr, limit) { return Err(()); }
+    if !user_pages_ok(user_ptr, limit, USER_PERM_READ) { return Err(()); }
+    let mut out = Vec::new();
     for i in 0..limit {
         let b = *(user_ptr as *const u8).add(i);
-        if b == 0 { return Ok(i); }
-        dst[i] = b;
+        out.push(b)?;
+        if b == 0 { return Ok(out); }
     }
     Err(()) // no NUL found within limit
 }
@@ -1148,7 +1138,7 @@ cfg_r4! {
         // Copy from user to kernel buffer (validates range + page tables)
         let mut kbuf = [0u8; R4_MAX_MSG_LEN];
         if n > 0 {
-            if copyin_user(&mut kbuf[..n], buf).is_err() { return 0xFFFF_FFFF_FFFF_FFFF; }
+            if copyin_user(&mut kbuf[..n], buf, n).is_err() { return 0xFFFF_FFFF_FFFF_FFFF; }
         }
 
         // If someone is blocked on recv for this endpoint, deliver directly
@@ -1157,7 +1147,7 @@ cfg_r4! {
             let wt = waiter as usize;
             let wn = if n < R4_TASKS[wt].recv_cap as usize { n } else { R4_TASKS[wt].recv_cap as usize };
             if wn > 0 {
-                if copyout_user(R4_TASKS[wt].recv_buf, &kbuf[..wn]).is_err() {
+                if copyout_user(R4_TASKS[wt].recv_buf, &kbuf[..wn], wn).is_err() {
                     return 0xFFFF_FFFF_FFFF_FFFF;
                 }
             }
@@ -1181,7 +1171,7 @@ cfg_r4! {
             return;
         }
         let cap_n = if cap > R4_MAX_MSG_LEN as u64 { R4_MAX_MSG_LEN } else { cap as usize };
-        if !user_range_ok(buf, cap_n) || !user_pages_ok(buf, cap_n) {
+        if !user_range_ok(buf, cap_n) || !user_pages_ok(buf, cap_n, USER_PERM_WRITE) {
             *frame.add(14) = 0xFFFF_FFFF_FFFF_FFFF;
             return;
         }
@@ -1194,7 +1184,7 @@ cfg_r4! {
                 cap as usize
             };
             if n > 0 {
-                if copyout_user(buf, &R4_ENDPOINTS[ep].msg_data[..n]).is_err() {
+                if copyout_user(buf, &R4_ENDPOINTS[ep].msg_data[..n], n).is_err() {
                     *frame.add(14) = 0xFFFF_FFFF_FFFF_FFFF;
                     return;
                 }
@@ -1253,7 +1243,7 @@ cfg_r4! {
         let n = name_len as usize;
         if n == 0 || n > 16 { return 0xFFFF_FFFF_FFFF_FFFF; }
         let mut name = [0u8; 16];
-        if copyin_user(&mut name[..n], name_ptr).is_err() { return 0xFFFF_FFFF_FFFF_FFFF; }
+        if copyin_user(&mut name[..n], name_ptr, n).is_err() { return 0xFFFF_FFFF_FFFF_FFFF; }
         // Overwrite if name already registered
         for i in 0..R4_MAX_SERVICES {
             if R4_SERVICES[i].active && R4_SERVICES[i].name_len == n
@@ -1280,7 +1270,7 @@ cfg_r4! {
         let n = name_len as usize;
         if n == 0 || n > 16 { return 0xFFFF_FFFF_FFFF_FFFF; }
         let mut name = [0u8; 16];
-        if copyin_user(&mut name[..n], name_ptr).is_err() { return 0xFFFF_FFFF_FFFF_FFFF; }
+        if copyin_user(&mut name[..n], name_ptr, n).is_err() { return 0xFFFF_FFFF_FFFF_FFFF; }
         for i in 0..R4_MAX_SERVICES {
             if R4_SERVICES[i].active && R4_SERVICES[i].name_len == n
                 && R4_SERVICES[i].name[..n] == name[..n]
@@ -1709,30 +1699,18 @@ unsafe fn sys_blk_read(lba: u64, buf: u64, len: u64) -> u64 {
     if len == 0 || len > 4096 || len % 512 != 0 {
         return 0xFFFF_FFFF_FFFF_FFFF;
     }
-    if buf >= 0x0000_8000_0000_0000 {
+    let n = len as usize;
+    if !user_range_ok(buf, n) || !user_pages_ok(buf, n, USER_PERM_WRITE) {
         return 0xFFFF_FFFF_FFFF_FFFF;
-    }
-    if buf.checked_add(len).is_none() || buf + len > 0x0000_8000_0000_0000 {
-        return 0xFFFF_FFFF_FFFF_FFFF;
-    }
-    // Page walk validation
-    let hhdm = HHDM_OFFSET;
-    let start_page = buf & !0xFFF;
-    let end_page = (buf + len - 1) & !0xFFF;
-    let mut page = start_page;
-    loop {
-        if !check_page_user_accessible(page, hhdm) {
-            return 0xFFFF_FFFF_FFFF_FFFF;
-        }
-        if page >= end_page { break; }
-        page += 4096;
     }
     // Read from disk
-    if !virtio_blk_io(false, lba, len as usize) {
+    if !virtio_blk_io(false, lba, n) {
         return 0xFFFF_FFFF_FFFF_FFFF;
     }
     // Copyout to user buffer
-    core::ptr::copy_nonoverlapping(BLK_DATA_PAGE.0.as_ptr(), buf as *mut u8, len as usize);
+    if copyout_user(buf, &BLK_DATA_PAGE.0[..n], n).is_err() {
+        return 0xFFFF_FFFF_FFFF_FFFF;
+    }
     len
 }
 
@@ -1743,28 +1721,13 @@ unsafe fn sys_blk_write(lba: u64, buf: u64, len: u64) -> u64 {
     if len == 0 || len > 4096 || len % 512 != 0 {
         return 0xFFFF_FFFF_FFFF_FFFF;
     }
-    if buf >= 0x0000_8000_0000_0000 {
-        return 0xFFFF_FFFF_FFFF_FFFF;
-    }
-    if buf.checked_add(len).is_none() || buf + len > 0x0000_8000_0000_0000 {
-        return 0xFFFF_FFFF_FFFF_FFFF;
-    }
-    // Page walk validation
-    let hhdm = HHDM_OFFSET;
-    let start_page = buf & !0xFFF;
-    let end_page = (buf + len - 1) & !0xFFF;
-    let mut page = start_page;
-    loop {
-        if !check_page_user_accessible(page, hhdm) {
-            return 0xFFFF_FFFF_FFFF_FFFF;
-        }
-        if page >= end_page { break; }
-        page += 4096;
-    }
+    let n = len as usize;
     // Copyin from user buffer to DMA page
-    core::ptr::copy_nonoverlapping(buf as *const u8, BLK_DATA_PAGE.0.as_mut_ptr(), len as usize);
+    if copyin_user(&mut BLK_DATA_PAGE.0[..n], buf, n).is_err() {
+        return 0xFFFF_FFFF_FFFF_FFFF;
+    }
     // Write to disk
-    if !virtio_blk_io(true, lba, len as usize) {
+    if !virtio_blk_io(true, lba, n) {
         return 0xFFFF_FFFF_FFFF_FFFF;
     }
     len
@@ -2565,13 +2528,9 @@ unsafe fn virtio_net_send(frame: &[u8]) -> bool {
 #[allow(dead_code)]
 unsafe fn sys_net_send(buf: u64, len: u64) -> u64 {
     if len == 0 || len > 1514 { return 0xFFFF_FFFF_FFFF_FFFF; }
-    if buf >= 0x0000_8000_0000_0000 { return 0xFFFF_FFFF_FFFF_FFFF; }
-    if buf.checked_add(len).is_none() || buf + len > 0x0000_8000_0000_0000 {
-        return 0xFFFF_FFFF_FFFF_FFFF;
-    }
     let mut kbuf = [0u8; 1514];
     let n = len as usize;
-    core::ptr::copy_nonoverlapping(buf as *const u8, kbuf.as_mut_ptr(), n);
+    if copyin_user(&mut kbuf[..n], buf, n).is_err() { return 0xFFFF_FFFF_FFFF_FFFF; }
     if virtio_net_send(&kbuf[..n]) { len } else { 0xFFFF_FFFF_FFFF_FFFF }
 }
 
@@ -2581,14 +2540,16 @@ unsafe fn sys_net_send(buf: u64, len: u64) -> u64 {
 #[allow(dead_code)]
 unsafe fn sys_net_recv(buf: u64, cap: u64) -> u64 {
     if cap == 0 || cap > 1514 { return 0; }
-    if buf >= 0x0000_8000_0000_0000 { return 0; }
-    if buf.checked_add(cap).is_none() || buf + cap > 0x0000_8000_0000_0000 {
-        return 0;
+    let cap_n = cap as usize;
+    if !user_range_ok(buf, cap_n) || !user_pages_ok(buf, cap_n, USER_PERM_WRITE) {
+        return 0xFFFF_FFFF_FFFF_FFFF;
     }
     let mut kbuf = [0u8; 1514];
-    let n = virtio_net_recv(&mut kbuf[..cap as usize]);
+    let n = virtio_net_recv(&mut kbuf[..cap_n]);
     if n > 0 {
-        core::ptr::copy_nonoverlapping(kbuf.as_ptr(), buf as *mut u8, n);
+        if copyout_user(buf, &kbuf[..n], n).is_err() {
+            return 0xFFFF_FFFF_FFFF_FFFF;
+        }
     }
     n as u64
 }
