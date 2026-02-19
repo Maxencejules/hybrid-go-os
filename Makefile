@@ -17,6 +17,7 @@
        build-shm image-shm \
        build-blk image-blk \
        build-blk-badlen image-blk-badlen \
+       build-blk-badptr image-blk-badptr \
        build-blk-invariants image-blk-invariants \
        build-fs image-fs \
        build-net image-net \
@@ -183,6 +184,12 @@ build-blk-badlen: $(ASM_OBJS) boot/linker.ld
 	cd kernel_rs && cargo build --release --features blk_badlen_test
 	$(LD) $(LDFLAGS) -o $(OUT)/kernel-blk-badlen.elf $(ASM_OBJS) $(KERNEL_LIB)
 
+# --- M5: VirtIO block bad-pointer test kernel ---------------------------------
+
+build-blk-badptr: $(ASM_OBJS) boot/linker.ld
+	cd kernel_rs && cargo build --release --features blk_badptr_test
+	$(LD) $(LDFLAGS) -o $(OUT)/kernel-blk-badptr.elf $(ASM_OBJS) $(KERNEL_LIB)
+
 # --- Image / Run / Test -------------------------------------------------------
 
 image: build
@@ -245,6 +252,9 @@ image-blk: build-blk
 image-blk-badlen: build-blk-badlen
 	KERNEL_ELF=kernel-blk-badlen.elf ISO_NAME=os-blk-badlen.iso bash tools/mkimage.sh
 
+image-blk-badptr: build-blk-badptr
+	KERNEL_ELF=kernel-blk-badptr.elf ISO_NAME=os-blk-badptr.iso bash tools/mkimage.sh
+
 # --- M5: VirtIO block init invariants test kernel -----------------------------
 
 build-blk-invariants: $(ASM_OBJS) boot/linker.ld
@@ -286,7 +296,7 @@ image-go: build-go
 run: image
 	./tools/run_qemu.sh
 
-test-qemu: image image-panic image-pf image-idt image-sched image-user-hello image-syscall image-syscall-invalid image-yield image-user-fault image-ipc image-ipc-badptr-send image-ipc-badptr-recv image-ipc-badptr-svc image-ipc-buffer-full image-ipc-svc-overwrite image-svc-full image-shm image-blk image-blk-badlen image-blk-invariants image-fs image-net image-go
+test-qemu: image image-panic image-pf image-idt image-sched image-user-hello image-syscall image-syscall-invalid image-yield image-user-fault image-ipc image-ipc-badptr-send image-ipc-badptr-recv image-ipc-badptr-svc image-ipc-buffer-full image-ipc-svc-overwrite image-svc-full image-shm image-blk image-blk-badlen image-blk-badptr image-blk-invariants image-fs image-net image-go
 	python3 -m pytest tests/ -v
 
 clean:

@@ -27,6 +27,7 @@ ISO_SVC_FULL_PATH = os.path.join(REPO_ROOT, "out", "os-svc-full.iso")
 ISO_SHM_PATH = os.path.join(REPO_ROOT, "out", "os-shm.iso")
 ISO_BLK_PATH = os.path.join(REPO_ROOT, "out", "os-blk.iso")
 ISO_BLK_BADLEN_PATH = os.path.join(REPO_ROOT, "out", "os-blk-badlen.iso")
+ISO_BLK_BADPTR_PATH = os.path.join(REPO_ROOT, "out", "os-blk-badptr.iso")
 ISO_BLK_INVARIANTS_PATH = os.path.join(REPO_ROOT, "out", "os-blk-invariants.iso")
 BLK_DISK_IMG = os.path.join(REPO_ROOT, "out", "blk-test.img")
 ISO_FS_PATH = os.path.join(REPO_ROOT, "out", "os-fs.iso")
@@ -254,6 +255,14 @@ def qemu_serial_blk_badlen():
     if not os.path.isfile(ISO_BLK_BADLEN_PATH):
         pytest.skip(f"ISO not built: {ISO_BLK_BADLEN_PATH}")
     return _boot_iso_with_disk(ISO_BLK_BADLEN_PATH, BLK_DISK_IMG)
+
+
+@pytest.fixture
+def qemu_serial_blk_badptr():
+    """Boot the VirtIO block bad-pointer test OS image with a raw disk."""
+    if not os.path.isfile(ISO_BLK_BADPTR_PATH):
+        pytest.skip(f"ISO not built: {ISO_BLK_BADPTR_PATH}")
+    return _boot_iso_with_disk(ISO_BLK_BADPTR_PATH, BLK_DISK_IMG)
 
 
 @pytest.fixture
