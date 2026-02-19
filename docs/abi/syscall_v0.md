@@ -38,7 +38,7 @@ indicates an error.
 | 0 | sys_debug_write | rdi=buf, rsi=len | bytes written | Implemented (M3) | Write user buffer to serial (max 256 bytes, validates pointer) |
 | 1 | sys_thread_spawn | rdi=entry | tid or -1 | Stub | Spawn user thread |
 | 2 | sys_thread_exit | -- | -- | Stub | Terminate current thread |
-| 3 | sys_yield | -- | 0 | Stub | Yield CPU to scheduler |
+| 3 | sys_yield | -- | 0 | Implemented (minimal cooperative yield) | Yield CPU to scheduler |
 | 4 | sys_vm_map | rdi=vaddr, rsi=size | 0 or -1 | Stub | Map memory |
 | 5 | sys_vm_unmap | rdi=vaddr, rsi=size | 0 or -1 | Stub | Unmap memory |
 | 6 | sys_shm_create | rdi=size | shm_handle or -1 | **Implemented (R4)** | Create shared memory region (max 4096 bytes) |

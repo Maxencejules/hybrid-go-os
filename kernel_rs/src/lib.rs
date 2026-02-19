@@ -7,7 +7,7 @@ use core::panic::PanicInfo;
 macro_rules! cfg_m3 {
     ($($item:item)*) => {
         $(
-            #[cfg(any(feature = "user_hello_test", feature = "syscall_test", feature = "syscall_invalid_test", feature = "user_fault_test", feature = "blk_test", feature = "fs_test", feature = "go_test"))]
+            #[cfg(any(feature = "user_hello_test", feature = "syscall_test", feature = "syscall_invalid_test", feature = "yield_test", feature = "user_fault_test", feature = "blk_test", feature = "fs_test", feature = "go_test"))]
             $item
         )*
     };
@@ -18,7 +18,7 @@ macro_rules! cfg_user {
     ($($item:item)*) => {
         $(
             #[cfg(any(
-                feature = "user_hello_test", feature = "syscall_test", feature = "syscall_invalid_test", feature = "user_fault_test",
+                feature = "user_hello_test", feature = "syscall_test", feature = "syscall_invalid_test", feature = "yield_test", feature = "user_fault_test",
                 feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "svc_overwrite_test", feature = "blk_test", feature = "fs_test",
                 feature = "go_test",
             ))]
@@ -487,6 +487,7 @@ unsafe fn syscall_dispatch(frame: *mut u64) {
     {
         match nr {
             0  => { *frame.add(14) = sys_debug_write(arg1, arg2); }
+            3  => { *frame.add(14) = sys_yield(); }
             13 => { *frame.add(14) = sys_blk_read(arg1, arg2, arg3); }
             14 => { *frame.add(14) = sys_blk_write(arg1, arg2, arg3); }
             _  => { *frame.add(14) = 0xFFFF_FFFF_FFFF_FFFF; }
@@ -499,6 +500,7 @@ unsafe fn syscall_dispatch(frame: *mut u64) {
     {
         match nr {
             0  => { *frame.add(14) = sys_debug_write(arg1, arg2); }
+            3  => { *frame.add(14) = sys_yield(); }
             6  => { *frame.add(14) = sys_shm_create_r4(arg1); }
             7  => { *frame.add(14) = sys_shm_map_r4(arg1, arg2, arg3); }
             8  => { *frame.add(14) = sys_ipc_send_r4(arg1, arg2, arg3); }
@@ -514,7 +516,7 @@ unsafe fn syscall_dispatch(frame: *mut u64) {
     // M3 dispatch
     #[cfg(not(any(feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "svc_overwrite_test")))]
     {
-        #[cfg(feature = "syscall_invalid_test")]
+        #[cfg(any(feature = "syscall_invalid_test", feature = "yield_test"))]
         {
             if nr == 98 {
                 qemu_exit(arg1 as u8);
@@ -524,6 +526,7 @@ unsafe fn syscall_dispatch(frame: *mut u64) {
 
         let ret: u64 = match nr {
             0  => sys_debug_write(arg1, arg2),
+            3  => sys_yield(),
             10 => sys_time_now(),
             _  => 0xFFFF_FFFF_FFFF_FFFF,
         };
@@ -575,6 +578,16 @@ unsafe fn sys_time_now() -> u64 {
     }
     #[cfg(not(any(feature = "user_hello_test", feature = "syscall_test", feature = "user_fault_test")))]
     { 0 }
+}
+
+unsafe fn sys_yield() -> u64 {
+    #[cfg(feature = "sched_test")]
+    {
+        if NUM_THREADS > 0 {
+            schedule();
+        }
+    }
+    0
 }
 
 // --------------- User pointer validation (page table walk) -------------------
@@ -825,6 +838,28 @@ static USER_SYSCALL_INVALID_BLOB: [u8; 63] = [
     0xF4,
     b'S', b'Y', b'S', b'C', b'A', b'L', b'L', b':', b' ', b'i',
     b'n', b'v', b'a', b'l', b'i', b'd', b' ', b'o', b'k', b'\n',
+];
+
+#[cfg(feature = "yield_test")]
+static USER_YIELD_BLOB: [u8; 53] = [
+    // sys_yield()
+    0xB8, 0x03, 0x00, 0x00, 0x00,
+    0xCD, 0x80,
+    // sys_yield()
+    0xB8, 0x03, 0x00, 0x00, 0x00,
+    0xCD, 0x80,
+    // sys_debug_write("YIELD: ok\n", 10)
+    0x48, 0x8D, 0x3D, 0x16, 0x00, 0x00, 0x00,
+    0xBE, 0x0A, 0x00, 0x00, 0x00,
+    0x31, 0xC0,
+    0xCD, 0x80,
+    // test-only syscall: qemu_exit(0x31)
+    0xBF, 0x31, 0x00, 0x00, 0x00,
+    0xB8, 0x62, 0x00, 0x00, 0x00,
+    0xCD, 0x80,
+    // fallback
+    0xF4,
+    b'Y', b'I', b'E', b'L', b'D', b':', b' ', b'o', b'k', b'\n',
 ];
 
 // --------------- G1: TinyGo user blob ----------------------------------------
@@ -2639,6 +2674,15 @@ pub extern "C" fn kmain() -> ! {
         enter_ring3_at(USER_CODE_VA, USER_STACK_TOP);
     }
 
+    // M3: yield_test
+    #[cfg(feature = "yield_test")]
+    unsafe {
+        let kstack = &stack_top as *const u8 as u64;
+        tss_init(kstack);
+        setup_user_pages(&USER_YIELD_BLOB);
+        enter_ring3_at(USER_CODE_VA, USER_STACK_TOP);
+    }
+
     // M3: user_fault_test
     #[cfg(feature = "user_fault_test")]
     unsafe {
@@ -3021,6 +3065,7 @@ pub extern "C" fn kmain() -> ! {
         feature = "user_hello_test",
         feature = "syscall_test",
         feature = "syscall_invalid_test",
+        feature = "yield_test",
         feature = "user_fault_test",
         feature = "ipc_test",
         feature = "ipc_badptr_send_test",

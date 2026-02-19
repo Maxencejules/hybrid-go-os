@@ -15,6 +15,7 @@ ISO_SCHED_PATH = os.path.join(REPO_ROOT, "out", "os-sched.iso")
 ISO_USER_HELLO_PATH = os.path.join(REPO_ROOT, "out", "os-user-hello.iso")
 ISO_SYSCALL_PATH = os.path.join(REPO_ROOT, "out", "os-syscall.iso")
 ISO_SYSCALL_INVALID_PATH = os.path.join(REPO_ROOT, "out", "os-syscall-invalid.iso")
+ISO_YIELD_PATH = os.path.join(REPO_ROOT, "out", "os-yield.iso")
 ISO_USER_FAULT_PATH = os.path.join(REPO_ROOT, "out", "os-user-fault.iso")
 ISO_IPC_PATH = os.path.join(REPO_ROOT, "out", "os-ipc.iso")
 ISO_IPC_BADPTR_SEND_PATH = os.path.join(REPO_ROOT, "out", "os-ipc-badptr-send.iso")
@@ -119,6 +120,14 @@ def _boot_iso_syscall_invalid():
     if not os.path.isfile(ISO_SYSCALL_INVALID_PATH):
         pytest.skip(f"ISO not built: {ISO_SYSCALL_INVALID_PATH}")
     return _boot_iso(ISO_SYSCALL_INVALID_PATH)
+
+
+@pytest.fixture
+def qemu_serial_yield():
+    """Boot the yield-test OS image and return captured serial output."""
+    if not os.path.isfile(ISO_YIELD_PATH):
+        pytest.skip(f"ISO not built: {ISO_YIELD_PATH}")
+    return _boot_iso(ISO_YIELD_PATH)
 
 
 @pytest.fixture
