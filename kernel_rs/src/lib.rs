@@ -7,7 +7,7 @@ use core::panic::PanicInfo;
 macro_rules! cfg_m3 {
     ($($item:item)*) => {
         $(
-            #[cfg(any(feature = "user_hello_test", feature = "syscall_test", feature = "syscall_invalid_test", feature = "yield_test", feature = "user_fault_test", feature = "blk_test", feature = "fs_test", feature = "go_test"))]
+            #[cfg(any(feature = "user_hello_test", feature = "syscall_test", feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test", feature = "user_fault_test", feature = "blk_test", feature = "fs_test", feature = "go_test"))]
             $item
         )*
     };
@@ -18,7 +18,7 @@ macro_rules! cfg_user {
     ($($item:item)*) => {
         $(
             #[cfg(any(
-                feature = "user_hello_test", feature = "syscall_test", feature = "syscall_invalid_test", feature = "yield_test", feature = "user_fault_test",
+                feature = "user_hello_test", feature = "syscall_test", feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test", feature = "user_fault_test",
                 feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_recv_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "svc_overwrite_test", feature = "svc_full_test", feature = "blk_test", feature = "fs_test",
                 feature = "go_test",
             ))]
@@ -518,7 +518,7 @@ unsafe fn syscall_dispatch(frame: *mut u64) {
     // M3 dispatch
     #[cfg(not(any(feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_recv_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "svc_overwrite_test", feature = "svc_full_test")))]
     {
-        #[cfg(any(feature = "syscall_invalid_test", feature = "yield_test"))]
+        #[cfg(any(feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test"))]
         {
             if nr == 98 {
                 qemu_exit(arg1 as u8);
@@ -549,13 +549,13 @@ unsafe fn sys_debug_write(buf: u64, len: u64) -> u64 {
 }
 
 unsafe fn sys_time_now() -> u64 {
-    #[cfg(any(feature = "user_hello_test", feature = "syscall_test", feature = "user_fault_test"))]
+    #[cfg(any(feature = "user_hello_test", feature = "syscall_test", feature = "stress_syscall_test", feature = "user_fault_test"))]
     {
         let t = MONOTONIC_TICK;
         MONOTONIC_TICK += 1;
         return t;
     }
-    #[cfg(not(any(feature = "user_hello_test", feature = "syscall_test", feature = "user_fault_test")))]
+    #[cfg(not(any(feature = "user_hello_test", feature = "syscall_test", feature = "stress_syscall_test", feature = "user_fault_test")))]
     { 0 }
 }
 
@@ -959,6 +959,56 @@ static USER_SYSCALL_INVALID_BLOB: [u8; 63] = [
     0xF4,
     b'S', b'Y', b'S', b'C', b'A', b'L', b'L', b':', b' ', b'i',
     b'n', b'v', b'a', b'l', b'i', b'd', b' ', b'o', b'k', b'\n',
+];
+
+#[cfg(feature = "stress_syscall_test")]
+static USER_STRESS_SYSCALL_BLOB: [u8; 131] = [
+    // mov r12d, 2000 ; main loop counter
+    0x41, 0xBC, 0xD0, 0x07, 0x00, 0x00,
+    // mov r13d, 200 ; progress cadence
+    0x41, 0xBD, 0xC8, 0x00, 0x00, 0x00,
+    // loop: sys_time_now()
+    0xB8, 0x0A, 0x00, 0x00, 0x00,
+    0xCD, 0x80,
+    // assert rax != -1
+    0x48, 0x83, 0xF8, 0xFF,
+    0x74, 0x4A,
+    // syscall 99 (unknown)
+    0xB8, 0x63, 0x00, 0x00, 0x00,
+    0xCD, 0x80,
+    // assert rax == -1
+    0x48, 0x83, 0xF8, 0xFF,
+    0x75, 0x3D,
+    // dec r13d; every 200 iterations print "."
+    0x41, 0xFF, 0xCD,
+    0x75, 0x16,
+    0x48, 0x8D, 0x3D, 0x3E, 0x00, 0x00, 0x00,
+    0xBE, 0x01, 0x00, 0x00, 0x00,
+    0x31, 0xC0,
+    0xCD, 0x80,
+    0x41, 0xBD, 0xC8, 0x00, 0x00, 0x00,
+    // dec r12d; loop until zero
+    0x41, 0xFF, 0xCC,
+    0x75, 0xC6,
+    // sys_debug_write("STRESS: syscall ok", 18)
+    0x48, 0x8D, 0x3D, 0x24, 0x00, 0x00, 0x00,
+    0xBE, 0x12, 0x00, 0x00, 0x00,
+    0x31, 0xC0,
+    0xCD, 0x80,
+    // qemu_exit(0x31)
+    0xBF, 0x31, 0x00, 0x00, 0x00,
+    0xB8, 0x62, 0x00, 0x00, 0x00,
+    0xCD, 0x80,
+    0xF4,
+    // fail: qemu_exit(0x33)
+    0xBF, 0x33, 0x00, 0x00, 0x00,
+    0xB8, 0x62, 0x00, 0x00, 0x00,
+    0xCD, 0x80,
+    0xF4,
+    // data
+    b'.',
+    b'S', b'T', b'R', b'E', b'S', b'S', b':', b' ', b's', b'y', b's', b'c',
+    b'a', b'l', b'l', b' ', b'o', b'k',
 ];
 
 #[cfg(feature = "yield_test")]
@@ -2127,9 +2177,9 @@ static SVC_OVERWRITE_BLOB: [u8; 122] = [
 
 // SVC full-table blob (single task: 4 unique regs succeed, 5th unique fails with -1)
 #[cfg(feature = "svc_full_test")]
-static SVC_FULL_BLOB: [u8; 202] = [
+static SVC_FULL_BLOB: [u8; 199] = [
     // --- 1: sys_svc_register("a", 1, 0) ---
-    0x48, 0x8D, 0x3D, 0xB1, 0x00, 0x00, 0x00,
+    0x48, 0x8D, 0x3D, 0xAE, 0x00, 0x00, 0x00,
     0xBE, 0x01, 0x00, 0x00, 0x00,
     0x31, 0xD2,
     0xB8, 0x0B, 0x00, 0x00, 0x00,
@@ -2914,6 +2964,15 @@ pub extern "C" fn kmain() -> ! {
         enter_ring3_at(USER_CODE_VA, USER_STACK_TOP);
     }
 
+    // M3: stress_syscall_test
+    #[cfg(feature = "stress_syscall_test")]
+    unsafe {
+        let kstack = &stack_top as *const u8 as u64;
+        tss_init(kstack);
+        setup_user_pages(&USER_STRESS_SYSCALL_BLOB);
+        enter_ring3_at(USER_CODE_VA, USER_STACK_TOP);
+    }
+
     // M3: yield_test
     #[cfg(feature = "yield_test")]
     unsafe {
@@ -3360,6 +3419,7 @@ pub extern "C" fn kmain() -> ! {
         feature = "user_hello_test",
         feature = "syscall_test",
         feature = "syscall_invalid_test",
+        feature = "stress_syscall_test",
         feature = "yield_test",
         feature = "user_fault_test",
         feature = "ipc_test",

@@ -1,4 +1,5 @@
 import os
+import shutil
 import socket
 import subprocess
 import threading
@@ -15,6 +16,7 @@ ISO_SCHED_PATH = os.path.join(REPO_ROOT, "out", "os-sched.iso")
 ISO_USER_HELLO_PATH = os.path.join(REPO_ROOT, "out", "os-user-hello.iso")
 ISO_SYSCALL_PATH = os.path.join(REPO_ROOT, "out", "os-syscall.iso")
 ISO_SYSCALL_INVALID_PATH = os.path.join(REPO_ROOT, "out", "os-syscall-invalid.iso")
+ISO_STRESS_SYSCALL_PATH = os.path.join(REPO_ROOT, "out", "os-stress-syscall.iso")
 ISO_YIELD_PATH = os.path.join(REPO_ROOT, "out", "os-yield.iso")
 ISO_USER_FAULT_PATH = os.path.join(REPO_ROOT, "out", "os-user-fault.iso")
 ISO_IPC_PATH = os.path.join(REPO_ROOT, "out", "os-ipc.iso")
@@ -45,14 +47,43 @@ QEMU_TIMEOUT = 10  # seconds
 NET_TIMEOUT = 15   # longer timeout for networking
 
 
+def _resolve_qemu_bin():
+    """Resolve QEMU binary path across Unix/Windows setups."""
+    candidates = [os.environ.get("QEMU_BIN")]
+
+    qemu_in_path = shutil.which("qemu-system-x86_64")
+    if qemu_in_path:
+        candidates.append(qemu_in_path)
+
+    qemu_exe_in_path = shutil.which("qemu-system-x86_64.exe")
+    if qemu_exe_in_path:
+        candidates.append(qemu_exe_in_path)
+
+    if os.name == "nt":
+        program_files = os.environ.get("ProgramFiles", r"C:\Program Files")
+        candidates.append(
+            os.path.join(program_files, "qemu", "qemu-system-x86_64.exe")
+        )
+
+    for cand in candidates:
+        if cand and os.path.isfile(cand):
+            return cand
+    return None
+
+
+QEMU_BIN = _resolve_qemu_bin()
+
+
 def _boot_iso(iso_path):
     """Boot an ISO in QEMU headless and return the CompletedProcess."""
     assert os.path.isfile(iso_path), f"ISO not found: {iso_path}"
+    if not QEMU_BIN:
+        pytest.skip("qemu-system-x86_64 not found (set QEMU_BIN or install QEMU)")
 
     try:
         result = subprocess.run(
             [
-                "qemu-system-x86_64",
+                QEMU_BIN,
                 "-machine", "q35",
                 "-cpu", "qemu64",
                 "-m", "128",
@@ -131,6 +162,14 @@ def _boot_iso_syscall_invalid():
     if not os.path.isfile(ISO_SYSCALL_INVALID_PATH):
         pytest.skip(f"ISO not built: {ISO_SYSCALL_INVALID_PATH}")
     return _boot_iso(ISO_SYSCALL_INVALID_PATH)
+
+
+@pytest.fixture
+def qemu_serial_stress_syscall():
+    """Boot the stress-syscall-test OS image and return captured serial output."""
+    if not os.path.isfile(ISO_STRESS_SYSCALL_PATH):
+        pytest.skip(f"ISO not built: {ISO_STRESS_SYSCALL_PATH}")
+    return _boot_iso(ISO_STRESS_SYSCALL_PATH)
 
 
 @pytest.fixture
@@ -228,6 +267,8 @@ def qemu_serial_shm():
 def _boot_iso_with_disk(iso_path, disk_path):
     """Boot an ISO in QEMU with a virtio-blk disk attached."""
     assert os.path.isfile(iso_path), f"ISO not found: {iso_path}"
+    if not QEMU_BIN:
+        pytest.skip("qemu-system-x86_64 not found (set QEMU_BIN or install QEMU)")
 
     # Create a 1 MiB raw disk image if it doesn't exist
     if not os.path.isfile(disk_path):
@@ -237,7 +278,7 @@ def _boot_iso_with_disk(iso_path, disk_path):
     try:
         result = subprocess.run(
             [
-                "qemu-system-x86_64",
+                QEMU_BIN,
                 "-machine", "q35",
                 "-cpu", "qemu64",
                 "-m", "128",
@@ -334,12 +375,14 @@ def _find_free_udp_port():
 def _boot_iso_with_net(iso_path):
     """Boot an ISO in QEMU with virtio-net and inject a UDP echo packet."""
     assert os.path.isfile(iso_path), f"ISO not found: {iso_path}"
+    if not QEMU_BIN:
+        pytest.skip("qemu-system-x86_64 not found (set QEMU_BIN or install QEMU)")
 
     udp_port = _find_free_udp_port()
 
     proc = subprocess.Popen(
         [
-            "qemu-system-x86_64",
+            QEMU_BIN,
             "-machine", "q35",
             "-cpu", "qemu64",
             "-m", "128",

@@ -6,8 +6,12 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 OUT="${OUT:-$ROOT/out}"
-ISO_ROOT="$OUT/iso_root"
 VENDOR_LIMINE="$ROOT/vendor/limine"
+CC_BIN="${CC:-cc}"
+ISO_TOOL="${XORRISO:-xorriso}"
+mkdir -p "$OUT"
+ISO_ROOT="$(mktemp -d "$OUT/iso_root.XXXXXX")"
+trap 'rm -rf "$ISO_ROOT"' EXIT
 
 # Callers can override which kernel ELF and output ISO name to use.
 KERNEL_ELF="${KERNEL_ELF:-kernel.elf}"
@@ -19,15 +23,38 @@ fi
 
 # --- Build Limine CLI from vendored source (if needed) ------------------------
 LIMINE_CLI="$OUT/limine-cli"
+if [ -f "$OUT/limine-cli.exe" ]; then
+    LIMINE_CLI="$OUT/limine-cli.exe"
+fi
 if [ ! -f "$LIMINE_CLI" ]; then
+    if ! command -v "$CC_BIN" >/dev/null 2>&1; then
+        if command -v gcc >/dev/null 2>&1; then
+            CC_BIN="gcc"
+        elif command -v gcc.exe >/dev/null 2>&1; then
+            CC_BIN="gcc.exe"
+        elif command -v clang >/dev/null 2>&1; then
+            CC_BIN="clang"
+        elif command -v clang.exe >/dev/null 2>&1; then
+            CC_BIN="clang.exe"
+        elif command -v cc.exe >/dev/null 2>&1; then
+            CC_BIN="cc.exe"
+        else
+            echo "ERROR: no C compiler found (tried '$CC_BIN', gcc/gcc.exe, clang/clang.exe)." >&2
+            exit 1
+        fi
+    fi
     echo "==> Building Limine CLI from vendored source..."
     mkdir -p "$OUT"
-    cc -O2 -pipe -Wall -Wextra -std=c99 \
-        -o "$LIMINE_CLI" "$VENDOR_LIMINE/limine.c"
+    (
+        cd "$ROOT"
+        "$CC_BIN" -O2 -pipe -Wall -Wextra -std=c99 -o "out/limine-cli" "vendor/limine/limine.c"
+    )
+    if [ -f "$OUT/limine-cli.exe" ]; then
+        LIMINE_CLI="$OUT/limine-cli.exe"
+    fi
 fi
 
 # --- Assemble ISO tree --------------------------------------------------------
-rm -rf "$ISO_ROOT"
 mkdir -p "$ISO_ROOT/boot/limine"
 
 cp "$OUT/$KERNEL_ELF"                       "$ISO_ROOT/boot/kernel.elf"
@@ -38,24 +65,47 @@ XORRISO_DATE_ARGS=()
 if [ -n "$SOURCE_DATE_EPOCH" ]; then
     # Normalize all input mtimes for reproducible ISO trees.
     find "$ISO_ROOT" -exec touch -h -d "@$SOURCE_DATE_EPOCH" {} +
-    ISO_MOD_DATE="$(date -u -d "@$SOURCE_DATE_EPOCH" +%Y%m%d%H%M%S00)"
-    XORRISO_DATE_ARGS=(
-        --modification-date="$ISO_MOD_DATE"
-        -volume_date "all_file_dates=$ISO_MOD_DATE"
-    )
+    # Keep mkisofs-compatible args empty: some xorriso builds reject
+    # --modification-date/-volume_date in -as mkisofs mode.
 fi
 
 # --- Create ISO ---------------------------------------------------------------
-xorriso -as mkisofs \
-    -R -r -J \
-    -V "RUGO_OS" -volset "RUGO_OS" -A "RUGO_OS" -p "RUGO" -P "RUGO" \
-    "${XORRISO_DATE_ARGS[@]}" \
-    -b boot/limine/limine-bios-cd.bin \
-    -no-emul-boot -boot-load-size 4 -boot-info-table \
-    -o "$OUT/$ISO_NAME" \
-    "$ISO_ROOT"
+if ! command -v "$ISO_TOOL" >/dev/null 2>&1; then
+    if command -v mkisofs >/dev/null 2>&1; then
+        ISO_TOOL="mkisofs"
+    elif command -v genisoimage >/dev/null 2>&1; then
+        ISO_TOOL="genisoimage"
+    else
+        echo "ERROR: no ISO builder found (tried '$ISO_TOOL', mkisofs, genisoimage)." >&2
+        exit 1
+    fi
+fi
+
+if [ "$ISO_TOOL" = "xorriso" ]; then
+    "$ISO_TOOL" -as mkisofs \
+        -R -r -J \
+        -V "RUGO_OS" -volset "RUGO_OS" -A "RUGO_OS" -p "RUGO" -P "RUGO" \
+        "${XORRISO_DATE_ARGS[@]}" \
+        -b boot/limine/limine-bios-cd.bin \
+        -no-emul-boot -boot-load-size 4 -boot-info-table \
+        -o "$OUT/$ISO_NAME" \
+        "$ISO_ROOT"
+else
+    # xorriso date flags are not supported by mkisofs/genisoimage.
+    "$ISO_TOOL" \
+        -R -r -J \
+        -V "RUGO_OS" -volset "RUGO_OS" -A "RUGO_OS" -p "RUGO" -P "RUGO" \
+        -b boot/limine/limine-bios-cd.bin \
+        -no-emul-boot -boot-load-size 4 -boot-info-table \
+        -o "$OUT/$ISO_NAME" \
+        "$ISO_ROOT"
+fi
 
 # --- Install Limine BIOS boot stages -----------------------------------------
-"$LIMINE_CLI" bios-install "$OUT/$ISO_NAME"
+ISO_FOR_LIMINE="$OUT/$ISO_NAME"
+if [[ "$LIMINE_CLI" == *.exe ]] && command -v wslpath >/dev/null 2>&1; then
+    ISO_FOR_LIMINE="$(wslpath -w "$ISO_FOR_LIMINE")"
+fi
+"$LIMINE_CLI" bios-install "$ISO_FOR_LIMINE"
 
 echo "==> Image ready: $OUT/$ISO_NAME"

@@ -23,6 +23,24 @@ make test-qemu      # full QEMU smoke-test suite
 make repro-check    # deterministic ISO gate (build twice + SHA256 compare)
 ```
 
+## Windows (PowerShell)
+
+If you are using `mingw32-make` from PowerShell, use:
+
+```powershell
+mingw32-make build
+mingw32-make image
+mingw32-make test-qemu
+```
+
+The top-level `Makefile` now forces bash recipe execution and defaults to the
+GNU Rust toolchain (`nightly-x86_64-pc-windows-gnu`) on Windows to avoid MSVC
+linker issues for the kernel ELF.
+
+You still need these tools installed and reachable from bash: `nasm`,
+an ISO builder (`xorriso` or `mkisofs`/`genisoimage`), `qemu-system-x86_64`,
+and a C compiler (`cc`/`gcc`/`clang`) for Limine CLI.
+
 ## Reproducible ISO Check
 
 `make repro-check` performs a deterministic build check by:
