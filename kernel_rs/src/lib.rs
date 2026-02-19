@@ -1531,6 +1531,8 @@ static mut BLK_USED: *const u8 = core::ptr::null();
 static mut BLK_LAST_USED: u16 = 0;
 #[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test"))]
 static mut BLK_KV2P_DELTA: u64 = 0; // kphys - kvirt (wrapping)
+#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test"))]
+const BLK_MAX_QUEUE_SIZE: u16 = 256;
 
 #[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test"))]
 unsafe fn blk_kv2p(va: u64) -> u64 {
@@ -1559,7 +1561,7 @@ unsafe fn virtio_blk_init(iobase: u16) -> bool {
     // Step 5: Select queue 0, read queue size
     outw(iobase + VIRTIO_QUEUE_SEL, 0);
     let qsz = inw(iobase + VIRTIO_QUEUE_SIZE);
-    if qsz == 0 {
+    if qsz == 0 || qsz > BLK_MAX_QUEUE_SIZE {
         outb(iobase + VIRTIO_DEVICE_STATUS, 0x80); // FAILED
         return false;
     }
@@ -1598,6 +1600,7 @@ unsafe fn virtio_blk_init(iobase: u16) -> bool {
     // Step 8: DRIVER_OK
     outb(iobase + VIRTIO_DEVICE_STATUS, 1 | 2 | 4);
 
+    #[cfg(feature = "blk_invariants_test")]
     serial_write(b"BLK: invariants ok\n");
     true
 }
