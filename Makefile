@@ -29,6 +29,9 @@ endif
        build-ipc-svc-overwrite image-ipc-svc-overwrite \
        build-svc-full image-svc-full \
        build-shm image-shm \
+       build-quota-endpoints image-quota-endpoints \
+       build-quota-shm image-quota-shm \
+       build-quota-threads image-quota-threads \
        build-blk image-blk \
        build-blk-badlen image-blk-badlen \
        build-blk-badptr image-blk-badptr \
@@ -233,6 +236,24 @@ build-shm: $(ASM_OBJS) boot/linker.ld
 	cd kernel_rs && $(CARGO) build --release --features shm_test
 	$(LD) $(LDFLAGS) -o $(OUT)/kernel-shm.elf $(ASM_OBJS) $(KERNEL_LIB)
 
+# --- R4: Quota endpoint test kernel ------------------------------------------
+
+build-quota-endpoints: $(ASM_OBJS) boot/linker.ld
+	cd kernel_rs && $(CARGO) build --release --features quota_endpoints_test
+	$(LD) $(LDFLAGS) -o $(OUT)/kernel-quota-endpoints.elf $(ASM_OBJS) $(KERNEL_LIB)
+
+# --- R4: Quota SHM test kernel ------------------------------------------------
+
+build-quota-shm: $(ASM_OBJS) boot/linker.ld
+	cd kernel_rs && $(CARGO) build --release --features quota_shm_test
+	$(LD) $(LDFLAGS) -o $(OUT)/kernel-quota-shm.elf $(ASM_OBJS) $(KERNEL_LIB)
+
+# --- R4: Quota thread test kernel ---------------------------------------------
+
+build-quota-threads: $(ASM_OBJS) boot/linker.ld
+	cd kernel_rs && $(CARGO) build --release --features quota_threads_test
+	$(LD) $(LDFLAGS) -o $(OUT)/kernel-quota-threads.elf $(ASM_OBJS) $(KERNEL_LIB)
+
 # --- M5: VirtIO block test kernel ---------------------------------------------
 
 build-blk: $(ASM_OBJS) boot/linker.ld
@@ -300,6 +321,15 @@ image-ipc: build-ipc
 
 image-shm: build-shm
 	PATH="$(WSL_PATH)" CC="$(CC)" XORRISO="$(XORRISO)" KERNEL_ELF=kernel-shm.elf ISO_NAME=os-shm.iso bash tools/mkimage.sh
+
+image-quota-endpoints: build-quota-endpoints
+	PATH="$(WSL_PATH)" CC="$(CC)" XORRISO="$(XORRISO)" KERNEL_ELF=kernel-quota-endpoints.elf ISO_NAME=os-quota-endpoints.iso bash tools/mkimage.sh
+
+image-quota-shm: build-quota-shm
+	PATH="$(WSL_PATH)" CC="$(CC)" XORRISO="$(XORRISO)" KERNEL_ELF=kernel-quota-shm.elf ISO_NAME=os-quota-shm.iso bash tools/mkimage.sh
+
+image-quota-threads: build-quota-threads
+	PATH="$(WSL_PATH)" CC="$(CC)" XORRISO="$(XORRISO)" KERNEL_ELF=kernel-quota-threads.elf ISO_NAME=os-quota-threads.iso bash tools/mkimage.sh
 
 image-ipc-badptr-send: build-ipc-badptr-send
 	PATH="$(WSL_PATH)" CC="$(CC)" XORRISO="$(XORRISO)" KERNEL_ELF=kernel-ipc-badptr-send.elf ISO_NAME=os-ipc-badptr-send.iso bash tools/mkimage.sh
@@ -389,7 +419,7 @@ image-go: build-go
 run: image
 	./tools/run_qemu.sh
 
-test-qemu: image image-panic image-pf image-idt image-sched image-user-hello image-syscall image-syscall-invalid image-stress-syscall image-stress-ipc image-stress-blk image-pressure-shm image-yield image-user-fault image-ipc image-ipc-badptr-send image-ipc-badptr-recv image-svc-badptr image-ipc-buffer-full image-ipc-svc-overwrite image-svc-full image-shm image-blk image-blk-badlen image-blk-badptr image-blk-invariants image-fs image-fs-badmagic image-pkg-hash image-net image-go
+test-qemu: image image-panic image-pf image-idt image-sched image-user-hello image-syscall image-syscall-invalid image-stress-syscall image-stress-ipc image-stress-blk image-pressure-shm image-yield image-user-fault image-ipc image-ipc-badptr-send image-ipc-badptr-recv image-svc-badptr image-ipc-buffer-full image-ipc-svc-overwrite image-svc-full image-shm image-quota-endpoints image-quota-shm image-quota-threads image-blk image-blk-badlen image-blk-badptr image-blk-invariants image-fs image-fs-badmagic image-pkg-hash image-net image-go
 	$(PYTHON) -m pytest tests/ -v
 
 repro-check:

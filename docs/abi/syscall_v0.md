@@ -36,7 +36,7 @@ indicates an error.
 | # | Name | Args | Returns | Status (R4) | Description |
 |---|------|------|---------|-------------|-------------|
 | 0 | sys_debug_write | rdi=buf, rsi=len | bytes written | Implemented (M3) | Write user buffer to serial (max 256 bytes, validates pointer) |
-| 1 | sys_thread_spawn | rdi=entry | tid or -1 | Stub | Spawn user thread |
+| 1 | sys_thread_spawn | rdi=entry | tid or -1 | Stub (quota variant implemented) | Spawn user thread |
 | 2 | sys_thread_exit | -- | -- | Stub | Terminate current thread |
 | 3 | sys_yield | -- | 0 | Implemented (minimal cooperative yield) | Yield CPU to scheduler |
 | 4 | sys_vm_map | rdi=vaddr, rsi=size | 0 or -1 | Stub | Map memory |
@@ -52,6 +52,7 @@ indicates an error.
 | 14 | sys_blk_write | rdi=lba, rsi=buf, rdx=len | bytes_written or -1 | **Implemented (M5)** | Write sectors to VirtIO block device |
 | 15 | sys_net_send | rdi=buf, rsi=len | bytes_sent or -1 | **Implemented (M7)** | Send raw Ethernet frame via VirtIO net |
 | 16 | sys_net_recv | rdi=buf, rsi=cap | bytes_received or 0 | **Implemented (M7)** | Receive raw Ethernet frame (non-blocking) |
+| 17 | sys_ipc_endpoint_create | -- | endpoint or -1 | **Implemented (`quota_endpoints_test`)** | Create IPC endpoint for current task |
 
 Stubs return -1 (0xFFFFFFFFFFFFFFFF) and will be implemented in later milestones.
 
@@ -59,7 +60,7 @@ Stubs return -1 (0xFFFFFFFFFFFFFFFF) and will be implemented in later milestones
 
 ### Endpoints
 
-- IPC endpoints are identified by small integer IDs (0–3).
+- IPC endpoints are identified by small integer IDs (0-15).
 - Each endpoint has a single-slot message buffer (max 256 bytes per message).
 - Only one message can be buffered per endpoint at a time.
 
@@ -92,8 +93,10 @@ contents. Sender and receiver agree on format by convention.
 
 ### Create
 
+- Quota hardening variants allow a larger handle space than the baseline shm_test image.
+
 - `sys_shm_create(size)` allocates a kernel-backed page (up to 4096 bytes).
-- Returns a handle (small integer 0–1).
+- Returns a small integer handle.
 - The kernel zero-initializes the backing page.
 
 ### Map
@@ -107,7 +110,9 @@ contents. Sender and receiver agree on format by convention.
 
 ### Constraints
 
-- Maximum 2 SHM regions.
+- `pressure_shm_test` / `quota_shm_test`: maximum 64 SHM regions.
+
+- Maximum 2 SHM regions in baseline `shm_test` image.
 - Each region is exactly one 4K page.
 - `flags` is reserved (must be 0).
 
@@ -120,6 +125,21 @@ contents. Sender and receiver agree on format by convention.
   the existing entry and return 0. No additional slot is consumed.
 - If the name is new and all 4 slots are occupied, returns -1.
 - Acceptance variants: `svc_overwrite_test` and `svc_full_test`.
+
+## Quota limits (R4 hardening)
+
+- `MAX_ENDPOINTS_PER_PROC = 16` (per-task): `sys_ipc_endpoint_create` returns -1 when exceeded.
+- `R4_MAX_ENDPOINTS = 16` (global endpoint table): `sys_ipc_endpoint_create` returns -1 when full.
+- `MAX_SHM_PER_PROC = 32` (per-task): `sys_shm_create` returns -1 when exceeded.
+- `R4_MAX_SHM` (global SHM table): `sys_shm_create` returns -1 when full.
+- `MAX_THREADS_PER_PROC = 16` (per-task): `sys_thread_spawn` returns -1 when exceeded in `quota_threads_test`.
+- `MAX_THREADS_GLOBAL = 64` (global spawned-thread counter): `sys_thread_spawn` returns -1 when exceeded in `quota_threads_test`.
+- `R4_MAX_SERVICES = 4` (global service table): `sys_svc_register` returns -1 when full.
+
+Quota accounting is monotonic for this milestone:
+- Endpoints: no endpoint-destroy syscall yet.
+- SHM objects: `sys_shm_unmap` unmaps VA only; no SHM-destroy syscall yet.
+- Threads: no implemented release path for spawned quota-test threads.
 
 ## User pointer safety (M3+)
 

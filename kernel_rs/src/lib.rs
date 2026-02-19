@@ -19,7 +19,7 @@ macro_rules! cfg_user {
         $(
             #[cfg(any(
                 feature = "user_hello_test", feature = "syscall_test", feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test", feature = "user_fault_test",
-                feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_recv_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "svc_overwrite_test", feature = "svc_full_test", feature = "stress_ipc_test", feature = "blk_test", feature = "fs_test",
+                feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_recv_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "svc_overwrite_test", feature = "svc_full_test", feature = "stress_ipc_test", feature = "quota_endpoints_test", feature = "quota_shm_test", feature = "quota_threads_test", feature = "blk_test", feature = "fs_test",
                 feature = "go_test",
             ))]
             $item
@@ -31,7 +31,7 @@ macro_rules! cfg_user {
 macro_rules! cfg_r4 {
     ($($item:item)*) => {
         $(
-            #[cfg(any(feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_recv_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "svc_overwrite_test", feature = "svc_full_test", feature = "stress_ipc_test"))]
+            #[cfg(any(feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_recv_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "svc_overwrite_test", feature = "svc_full_test", feature = "stress_ipc_test", feature = "quota_endpoints_test", feature = "quota_shm_test", feature = "quota_threads_test"))]
             $item
         )*
     };
@@ -447,14 +447,14 @@ extern "C" { static stack_top: u8; }
 
 unsafe fn handle_user_fault(frame: *mut u64) {
     // R4: kill current task and switch to next
-    #[cfg(any(feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_recv_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "svc_overwrite_test", feature = "svc_full_test", feature = "stress_ipc_test"))]
+    #[cfg(any(feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_recv_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "svc_overwrite_test", feature = "svc_full_test", feature = "stress_ipc_test", feature = "quota_endpoints_test", feature = "quota_shm_test", feature = "quota_threads_test"))]
     {
         r4_kill_and_switch(frame);
         return;
     }
 
     // M3: kill user task and return to kernel
-    #[cfg(not(any(feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_recv_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "svc_overwrite_test", feature = "svc_full_test", feature = "stress_ipc_test")))]
+    #[cfg(not(any(feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_recv_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "svc_overwrite_test", feature = "svc_full_test", feature = "stress_ipc_test", feature = "quota_endpoints_test", feature = "quota_shm_test", feature = "quota_threads_test")))]
     {
         serial_write(b"USER: killed\n");
         let kstack = &stack_top as *const u8 as u64;
@@ -498,7 +498,7 @@ unsafe fn syscall_dispatch(frame: *mut u64) {
     }
 
     // R4 dispatch
-    #[cfg(any(feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_recv_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "svc_overwrite_test", feature = "svc_full_test", feature = "stress_ipc_test"))]
+    #[cfg(any(feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_recv_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "svc_overwrite_test", feature = "svc_full_test", feature = "stress_ipc_test", feature = "quota_endpoints_test", feature = "quota_shm_test", feature = "quota_threads_test"))]
     {
         if nr == 98 {
             qemu_exit(arg1 as u8);
@@ -506,7 +506,9 @@ unsafe fn syscall_dispatch(frame: *mut u64) {
         }
         match nr {
             0  => { *frame.add(14) = sys_debug_write(arg1, arg2); }
+            1  => { *frame.add(14) = sys_thread_spawn_r4(arg1); }
             3  => { r4_yield_and_switch(frame); }
+            17 => { *frame.add(14) = sys_ipc_endpoint_create_r4(); }
             6  => { *frame.add(14) = sys_shm_create_r4(arg1); }
             7  => { *frame.add(14) = sys_shm_map_r4(arg1, arg2, arg3); }
             15 => { *frame.add(14) = sys_shm_unmap_r4(arg1); }
@@ -521,7 +523,7 @@ unsafe fn syscall_dispatch(frame: *mut u64) {
     }
 
     // M3 dispatch
-    #[cfg(not(any(feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_recv_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "svc_overwrite_test", feature = "svc_full_test", feature = "stress_ipc_test")))]
+    #[cfg(not(any(feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_recv_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "svc_overwrite_test", feature = "svc_full_test", feature = "stress_ipc_test", feature = "quota_endpoints_test", feature = "quota_shm_test", feature = "quota_threads_test")))]
     {
         #[cfg(any(feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test"))]
         {
@@ -1079,25 +1081,33 @@ cfg_r4! {
 #[cfg(feature = "pressure_shm_test")]
 const R4_MAX_SHM: usize = 64;
 
-#[cfg(all(feature = "shm_test", not(feature = "pressure_shm_test")))]
+#[cfg(all(feature = "quota_shm_test", not(feature = "pressure_shm_test")))]
+const R4_MAX_SHM: usize = 64;
+
+#[cfg(all(feature = "shm_test", not(feature = "pressure_shm_test"), not(feature = "quota_shm_test")))]
 const R4_MAX_SHM: usize = 2;
 
-#[cfg(feature = "shm_test")]
+#[cfg(any(feature = "shm_test", feature = "quota_shm_test"))]
 #[derive(Clone, Copy)]
 struct ShmObject {
     active: bool,
     size: usize,
 }
 
-#[cfg(feature = "shm_test")]
+#[cfg(any(feature = "shm_test", feature = "quota_shm_test"))]
 static mut R4_SHM_PAGES: [Page; R4_MAX_SHM] = [Page([0; 4096]); R4_MAX_SHM];
 
-#[cfg(feature = "shm_test")]
+#[cfg(any(feature = "shm_test", feature = "quota_shm_test"))]
 static mut R4_SHM_OBJECTS: [ShmObject; R4_MAX_SHM] = [ShmObject { active: false, size: 0 }; R4_MAX_SHM];
 
 // --------------- R4: Task model ----------------------------------------------
 
 cfg_r4! {
+    const MAX_ENDPOINTS_PER_PROC: usize = 16;
+    const MAX_SHM_PER_PROC: usize = 32;
+    const MAX_THREADS_PER_PROC: usize = 16;
+    const MAX_THREADS_GLOBAL: usize = 64;
+
     #[cfg(feature = "stress_ipc_test")]
     const R4_MAX_TASKS: usize = 4;
     #[cfg(not(feature = "stress_ipc_test"))]
@@ -1113,6 +1123,9 @@ cfg_r4! {
         recv_ep: u64,
         recv_buf: u64,
         recv_cap: u64,
+        endpoint_count: usize,
+        shm_count: usize,
+        thread_count: usize,
     }
 
     impl R4Task {
@@ -1120,12 +1133,16 @@ cfg_r4! {
             saved_frame: [0u64; 22],
             state: R4State::Dead,
             recv_ep: 0, recv_buf: 0, recv_cap: 0,
+            endpoint_count: 0,
+            shm_count: 0,
+            thread_count: 0,
         };
     }
 
     static mut R4_TASKS: [R4Task; R4_MAX_TASKS] = [R4Task::EMPTY; R4_MAX_TASKS];
     static mut R4_CURRENT: usize = 0;
     static mut R4_NUM_TASKS: usize = 0;
+    static mut R4_THREADS_CREATED: usize = 0;
 
     unsafe fn r4_init_task(tid: usize, code_va: u64, stk_top: u64) {
         R4_TASKS[tid].saved_frame = [0u64; 22];
@@ -1134,6 +1151,12 @@ cfg_r4! {
         R4_TASKS[tid].saved_frame[19] = 0x02;     // RFLAGS
         R4_TASKS[tid].saved_frame[20] = stk_top;  // RSP
         R4_TASKS[tid].saved_frame[21] = 0x1B;     // SS (user data RPL=3)
+        R4_TASKS[tid].recv_ep = 0;
+        R4_TASKS[tid].recv_buf = 0;
+        R4_TASKS[tid].recv_cap = 0;
+        R4_TASKS[tid].endpoint_count = 0;
+        R4_TASKS[tid].shm_count = 0;
+        R4_TASKS[tid].thread_count = 0;
         R4_TASKS[tid].state = R4State::Ready;
     }
 
@@ -1197,14 +1220,37 @@ cfg_r4! {
         qemu_exit(0x31);
         loop { unsafe { core::arch::asm!("cli; hlt", options(nomem, nostack)); } }
     }
+
+    unsafe fn sys_thread_spawn_r4(entry: u64) -> u64 {
+        #[cfg(feature = "quota_threads_test")]
+        {
+            if entry >= 0x0000_8000_0000_0000 { return 0xFFFF_FFFF_FFFF_FFFF; }
+            if R4_TASKS[R4_CURRENT].thread_count >= MAX_THREADS_PER_PROC {
+                return 0xFFFF_FFFF_FFFF_FFFF;
+            }
+            if R4_THREADS_CREATED >= MAX_THREADS_GLOBAL {
+                return 0xFFFF_FFFF_FFFF_FFFF;
+            }
+            let tid = R4_TASKS[R4_CURRENT].thread_count as u64;
+            R4_TASKS[R4_CURRENT].thread_count += 1;
+            R4_THREADS_CREATED += 1;
+            return tid;
+        }
+        #[cfg(not(feature = "quota_threads_test"))]
+        {
+            let _ = entry;
+            0xFFFF_FFFF_FFFF_FFFF
+        }
+    }
 }
 
 // --------------- R4: IPC endpoints -------------------------------------------
 
 cfg_r4! {
-    const R4_MAX_ENDPOINTS: usize = 4;
+    const R4_MAX_ENDPOINTS: usize = 16;
     const R4_MAX_MSG_LEN: usize = 256;
 
+    #[derive(Clone, Copy)]
     struct IpcEndpoint {
         active: bool,
         has_msg: bool,
@@ -1222,7 +1268,31 @@ cfg_r4! {
     }
 
     static mut R4_ENDPOINTS: [IpcEndpoint; R4_MAX_ENDPOINTS] =
-        [IpcEndpoint::EMPTY, IpcEndpoint::EMPTY, IpcEndpoint::EMPTY, IpcEndpoint::EMPTY];
+        [IpcEndpoint::EMPTY; R4_MAX_ENDPOINTS];
+
+    unsafe fn sys_ipc_endpoint_create_r4() -> u64 {
+        #[cfg(feature = "quota_endpoints_test")]
+        {
+            if R4_TASKS[R4_CURRENT].endpoint_count >= MAX_ENDPOINTS_PER_PROC {
+                return 0xFFFF_FFFF_FFFF_FFFF;
+            }
+            for i in 0..R4_MAX_ENDPOINTS {
+                if !R4_ENDPOINTS[i].active {
+                    R4_ENDPOINTS[i].active = true;
+                    R4_ENDPOINTS[i].has_msg = false;
+                    R4_ENDPOINTS[i].msg_len = 0;
+                    R4_ENDPOINTS[i].waiter = -1;
+                    R4_TASKS[R4_CURRENT].endpoint_count += 1;
+                    return i as u64;
+                }
+            }
+            return 0xFFFF_FFFF_FFFF_FFFF;
+        }
+        #[cfg(not(feature = "quota_endpoints_test"))]
+        {
+            0xFFFF_FFFF_FFFF_FFFF
+        }
+    }
 
     unsafe fn sys_ipc_send_r4(endpoint: u64, buf: u64, len: u64) -> u64 {
         let ep = endpoint as usize;
@@ -1387,25 +1457,29 @@ cfg_r4! {
 
 cfg_r4! {
     unsafe fn sys_shm_create_r4(size: u64) -> u64 {
-        #[cfg(feature = "shm_test")]
+        #[cfg(any(feature = "shm_test", feature = "quota_shm_test"))]
         {
             if size == 0 || size > 4096 { return 0xFFFF_FFFF_FFFF_FFFF; }
+            if R4_TASKS[R4_CURRENT].shm_count >= MAX_SHM_PER_PROC {
+                return 0xFFFF_FFFF_FFFF_FFFF;
+            }
             for i in 0..R4_MAX_SHM {
                 if !R4_SHM_OBJECTS[i].active {
                     R4_SHM_OBJECTS[i].active = true;
                     R4_SHM_OBJECTS[i].size = 4096;
                     core::ptr::write_bytes(R4_SHM_PAGES[i].0.as_mut_ptr(), 0, 4096);
+                    R4_TASKS[R4_CURRENT].shm_count += 1;
                     return i as u64;
                 }
             }
             return 0xFFFF_FFFF_FFFF_FFFF;
         }
-        #[cfg(not(feature = "shm_test"))]
+        #[cfg(not(any(feature = "shm_test", feature = "quota_shm_test")))]
         { let _ = size; 0xFFFF_FFFF_FFFF_FFFF }
     }
 
     unsafe fn sys_shm_map_r4(handle: u64, addr_hint: u64, _flags: u64) -> u64 {
-        #[cfg(feature = "shm_test")]
+        #[cfg(any(feature = "shm_test", feature = "quota_shm_test"))]
         {
             let h = handle as usize;
             if h >= R4_MAX_SHM || !R4_SHM_OBJECTS[h].active { return 0xFFFF_FFFF_FFFF_FFFF; }
@@ -1441,12 +1515,12 @@ cfg_r4! {
             core::arch::asm!("invlpg [{}]", in(reg) addr_hint, options(nostack));
             return addr_hint;
         }
-        #[cfg(not(feature = "shm_test"))]
+        #[cfg(not(any(feature = "shm_test", feature = "quota_shm_test")))]
         { let _ = (handle, addr_hint, _flags); 0xFFFF_FFFF_FFFF_FFFF }
     }
 
     unsafe fn sys_shm_unmap_r4(addr: u64) -> u64 {
-        #[cfg(feature = "shm_test")]
+        #[cfg(any(feature = "shm_test", feature = "quota_shm_test"))]
         {
             if addr & 0xFFF != 0 { return 0xFFFF_FFFF_FFFF_FFFF; }
             if addr >= 0x0000_8000_0000_0000 { return 0xFFFF_FFFF_FFFF_FFFF; }
@@ -1474,7 +1548,7 @@ cfg_r4! {
             core::arch::asm!("invlpg [{}]", in(reg) addr, options(nostack));
             0
         }
-        #[cfg(not(feature = "shm_test"))]
+        #[cfg(not(any(feature = "shm_test", feature = "quota_shm_test")))]
         { let _ = addr; 0xFFFF_FFFF_FFFF_FFFF }
     }
 }
@@ -2550,6 +2624,100 @@ static SVC_FULL_BLOB: [u8; 199] = [
     b'S', b'V', b'C', b':', b' ', b'f', b'u', b'l', b'l', b' ', b'o', b'k', b'\n',
 ];
 
+#[cfg(feature = "quota_endpoints_test")]
+static QUOTA_ENDPOINTS_BLOB: [u8; 74] = [
+    // r12d = remaining successful creates (16)
+    0x41, 0xBC, 0x10, 0x00, 0x00, 0x00,
+    // loop: sys_endpoint_create() (nr=17)
+    0xB8, 0x11, 0x00, 0x00, 0x00,
+    0xCD, 0x80,
+    // if rax == -1 before limit, fail
+    0x48, 0x83, 0xF8, 0xFF,
+    0x74, 0x23,
+    // dec remaining; if not zero, keep creating
+    0x41, 0xFF, 0xCC,
+    0x75, 0xEE,
+    // one extra create must fail exactly at limit
+    0xB8, 0x11, 0x00, 0x00, 0x00,
+    0xCD, 0x80,
+    0x48, 0x83, 0xF8, 0xFF,
+    0x75, 0x11,
+    // success: sys_debug_write("QUOTA: endpoints ok", 19)
+    0x48, 0x8D, 0x3D, 0x0B, 0x00, 0x00, 0x00,
+    0xBE, 0x13, 0x00, 0x00, 0x00,
+    0x31, 0xC0,
+    0xCD, 0x80,
+    0xF4,
+    // fail
+    0xF4,
+    b'Q', b'U', b'O', b'T', b'A', b':', b' ', b'e', b'n', b'd',
+    b'p', b'o', b'i', b'n', b't', b's', b' ', b'o', b'k',
+];
+
+#[cfg(feature = "quota_shm_test")]
+static QUOTA_SHM_BLOB: [u8; 78] = [
+    // r12d = remaining successful creates (32)
+    0x41, 0xBC, 0x20, 0x00, 0x00, 0x00,
+    // loop: sys_shm_create(4096)
+    0xBF, 0x00, 0x10, 0x00, 0x00,
+    0xB8, 0x06, 0x00, 0x00, 0x00,
+    0xCD, 0x80,
+    // if rax == -1 before limit, fail
+    0x48, 0x83, 0xF8, 0xFF,
+    0x74, 0x28,
+    // dec remaining; if not zero, keep creating
+    0x41, 0xFF, 0xCC,
+    0x75, 0xE9,
+    // one extra create must fail exactly at limit
+    0xBF, 0x00, 0x10, 0x00, 0x00,
+    0xB8, 0x06, 0x00, 0x00, 0x00,
+    0xCD, 0x80,
+    0x48, 0x83, 0xF8, 0xFF,
+    0x75, 0x11,
+    // success: sys_debug_write("QUOTA: shm ok", 13)
+    0x48, 0x8D, 0x3D, 0x0B, 0x00, 0x00, 0x00,
+    0xBE, 0x0D, 0x00, 0x00, 0x00,
+    0x31, 0xC0,
+    0xCD, 0x80,
+    0xF4,
+    // fail
+    0xF4,
+    b'Q', b'U', b'O', b'T', b'A', b':', b' ', b's', b'h', b'm', b' ', b'o', b'k',
+];
+
+#[cfg(feature = "quota_threads_test")]
+static QUOTA_THREADS_BLOB: [u8; 87] = [
+    // r12d = remaining successful spawns (16)
+    0x41, 0xBC, 0x10, 0x00, 0x00, 0x00,
+    // loop: sys_thread_spawn(entry)
+    0x48, 0x8D, 0x3D, 0x38, 0x00, 0x00, 0x00,
+    0xB8, 0x01, 0x00, 0x00, 0x00,
+    0xCD, 0x80,
+    // if rax == -1 before limit, fail
+    0x48, 0x83, 0xF8, 0xFF,
+    0x74, 0x2A,
+    // dec remaining; if not zero, keep spawning
+    0x41, 0xFF, 0xCC,
+    0x75, 0xE7,
+    // one extra spawn must fail exactly at limit
+    0x48, 0x8D, 0x3D, 0x1F, 0x00, 0x00, 0x00,
+    0xB8, 0x01, 0x00, 0x00, 0x00,
+    0xCD, 0x80,
+    0x48, 0x83, 0xF8, 0xFF,
+    0x75, 0x11,
+    // success: sys_debug_write("QUOTA: threads ok", 17)
+    0x48, 0x8D, 0x3D, 0x0C, 0x00, 0x00, 0x00,
+    0xBE, 0x11, 0x00, 0x00, 0x00,
+    0x31, 0xC0,
+    0xCD, 0x80,
+    0xF4,
+    // fail
+    0xF4,
+    // dummy entry target for sys_thread_spawn
+    0xF4,
+    b'Q', b'U', b'O', b'T', b'A', b':', b' ', b't', b'h', b'r', b'e', b'a', b'd', b's', b' ', b'o', b'k',
+];
+
 // SHM blobs
 #[cfg(feature = "shm_test")]
 static SHM_WRITER_BLOB: [u8; 69] = [
@@ -3582,6 +3750,51 @@ pub extern "C" fn kmain() -> ! {
         enter_ring3_at(USER_CODE_VA, USER_STACK_TOP);
     }
 
+    // R4: quota_endpoints_test - endpoint create returns -1 at per-task limit
+    #[cfg(feature = "quota_endpoints_test")]
+    unsafe {
+        let kstack = &stack_top as *const u8 as u64;
+        tss_init(kstack);
+        setup_r4_pages(&QUOTA_ENDPOINTS_BLOB, &QUOTA_ENDPOINTS_BLOB);
+
+        R4_NUM_TASKS = 1;
+        r4_init_task(0, USER_CODE_VA, USER_STACK_TOP);
+        R4_TASKS[0].state = R4State::Running;
+        R4_CURRENT = 0;
+
+        enter_ring3_at(USER_CODE_VA, USER_STACK_TOP);
+    }
+
+    // R4: quota_shm_test - shm_create returns -1 at per-task limit
+    #[cfg(feature = "quota_shm_test")]
+    unsafe {
+        let kstack = &stack_top as *const u8 as u64;
+        tss_init(kstack);
+        setup_r4_pages(&QUOTA_SHM_BLOB, &QUOTA_SHM_BLOB);
+
+        R4_NUM_TASKS = 1;
+        r4_init_task(0, USER_CODE_VA, USER_STACK_TOP);
+        R4_TASKS[0].state = R4State::Running;
+        R4_CURRENT = 0;
+
+        enter_ring3_at(USER_CODE_VA, USER_STACK_TOP);
+    }
+
+    // R4: quota_threads_test - thread_spawn returns -1 at per-task limit
+    #[cfg(feature = "quota_threads_test")]
+    unsafe {
+        let kstack = &stack_top as *const u8 as u64;
+        tss_init(kstack);
+        setup_r4_pages(&QUOTA_THREADS_BLOB, &QUOTA_THREADS_BLOB);
+
+        R4_NUM_TASKS = 1;
+        r4_init_task(0, USER_CODE_VA, USER_STACK_TOP);
+        R4_TASKS[0].state = R4State::Running;
+        R4_CURRENT = 0;
+
+        enter_ring3_at(USER_CODE_VA, USER_STACK_TOP);
+    }
+
     // M5: blk_test — VirtIO block driver + syscalls
     #[cfg(feature = "blk_test")]
     unsafe {
@@ -3875,6 +4088,9 @@ pub extern "C" fn kmain() -> ! {
         feature = "stress_ipc_test",
         feature = "svc_full_test",
         feature = "shm_test",
+        feature = "quota_endpoints_test",
+        feature = "quota_shm_test",
+        feature = "quota_threads_test",
         feature = "blk_test",
         feature = "blk_invariants_test",
         feature = "fs_test",
