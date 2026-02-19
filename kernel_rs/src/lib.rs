@@ -509,6 +509,7 @@ unsafe fn syscall_dispatch(frame: *mut u64) {
             3  => { r4_yield_and_switch(frame); }
             6  => { *frame.add(14) = sys_shm_create_r4(arg1); }
             7  => { *frame.add(14) = sys_shm_map_r4(arg1, arg2, arg3); }
+            15 => { *frame.add(14) = sys_shm_unmap_r4(arg1); }
             8  => { *frame.add(14) = sys_ipc_send_r4(arg1, arg2, arg3); }
             9  => { sys_ipc_recv_r4(frame, arg1, arg2, arg3); } // may swap frame
             10 => { *frame.add(14) = sys_time_now(); }
@@ -837,6 +838,7 @@ cfg_user! {
     const USER_CODE_VA: u64   = 0x40_0000;
     const USER_STACK_TOP: u64 = 0x80_0000;
 
+    #[derive(Clone, Copy)]
     #[repr(C, align(4096))]
     struct Page([u8; 4096]);
 
@@ -1074,23 +1076,24 @@ cfg_r4! {
 
 // --------------- R4: SHM backing pages ---------------------------------------
 
-#[cfg(feature = "shm_test")]
+#[cfg(feature = "pressure_shm_test")]
+const R4_MAX_SHM: usize = 64;
+
+#[cfg(all(feature = "shm_test", not(feature = "pressure_shm_test")))]
 const R4_MAX_SHM: usize = 2;
 
 #[cfg(feature = "shm_test")]
+#[derive(Clone, Copy)]
 struct ShmObject {
     active: bool,
     size: usize,
 }
 
 #[cfg(feature = "shm_test")]
-static mut R4_SHM_PAGES: [Page; 2] = [Page([0; 4096]), Page([0; 4096])];
+static mut R4_SHM_PAGES: [Page; R4_MAX_SHM] = [Page([0; 4096]); R4_MAX_SHM];
 
 #[cfg(feature = "shm_test")]
-static mut R4_SHM_OBJECTS: [ShmObject; 2] = [
-    ShmObject { active: false, size: 0 },
-    ShmObject { active: false, size: 0 },
-];
+static mut R4_SHM_OBJECTS: [ShmObject; R4_MAX_SHM] = [ShmObject { active: false, size: 0 }; R4_MAX_SHM];
 
 // --------------- R4: Task model ----------------------------------------------
 
@@ -1440,6 +1443,39 @@ cfg_r4! {
         }
         #[cfg(not(feature = "shm_test"))]
         { let _ = (handle, addr_hint, _flags); 0xFFFF_FFFF_FFFF_FFFF }
+    }
+
+    unsafe fn sys_shm_unmap_r4(addr: u64) -> u64 {
+        #[cfg(feature = "shm_test")]
+        {
+            if addr & 0xFFF != 0 { return 0xFFFF_FFFF_FFFF_FFFF; }
+            if addr >= 0x0000_8000_0000_0000 { return 0xFFFF_FFFF_FFFF_FFFF; }
+
+            let hhdm_resp_ptr = core::ptr::read_volatile(
+                core::ptr::addr_of!(HHDM_REQUEST.response));
+            let hhdm = (*hhdm_resp_ptr).offset;
+
+            let cr3: u64;
+            core::arch::asm!("mov {}, cr3", out(reg) cr3, options(nomem, nostack));
+            let pml4_phys = cr3 & 0x000F_FFFF_FFFF_F000;
+            let pml4 = (pml4_phys + hhdm) as *const u64;
+            let pml4e = *pml4.add(((addr >> 39) & 0x1FF) as usize);
+            if pml4e & 1 == 0 { return 0xFFFF_FFFF_FFFF_FFFF; }
+            let pdpt = ((pml4e & 0x000F_FFFF_FFFF_F000) + hhdm) as *const u64;
+            let pdpte = *pdpt.add(((addr >> 30) & 0x1FF) as usize);
+            if pdpte & 1 == 0 { return 0xFFFF_FFFF_FFFF_FFFF; }
+            let pd = ((pdpte & 0x000F_FFFF_FFFF_F000) + hhdm) as *const u64;
+            let pde = *pd.add(((addr >> 21) & 0x1FF) as usize);
+            if pde & 1 == 0 { return 0xFFFF_FFFF_FFFF_FFFF; }
+            let pt = ((pde & 0x000F_FFFF_FFFF_F000) + hhdm) as *mut u64;
+            let pt_idx = ((addr >> 12) & 0x1FF) as usize;
+            if *pt.add(pt_idx) & 1 == 0 { return 0xFFFF_FFFF_FFFF_FFFF; }
+            *pt.add(pt_idx) = 0;
+            core::arch::asm!("invlpg [{}]", in(reg) addr, options(nostack));
+            0
+        }
+        #[cfg(not(feature = "shm_test"))]
+        { let _ = addr; 0xFFFF_FFFF_FFFF_FFFF }
     }
 }
 
@@ -2588,6 +2624,89 @@ static SHM_READER_BLOB: [u8; 105] = [
     b'c', b'k', b's', b'u', b'm', b' ', b'o', b'k', b'\n',
 ];
 
+#[cfg(feature = "pressure_shm_test")]
+static SHM_PRESSURE_BLOB: [u8; 264] = [
+    // reserve handle table on stack, count in r12d
+    0x48, 0x81, 0xEC, 0x00, 0x02, 0x00, 0x00,
+    0x48, 0x89, 0xE3,
+    0x45, 0x31, 0xE4,
+    // create_loop: sys_shm_create(4096) until -1
+    0xBF, 0x00, 0x10, 0x00, 0x00,
+    0xB8, 0x06, 0x00, 0x00, 0x00,
+    0xCD, 0x80,
+    0x48, 0x83, 0xF8, 0xFF,
+    0x74, 0x15,
+    0x4A, 0x89, 0x04, 0xE3,
+    0x41, 0xFF, 0xC4,
+    0x41, 0x81, 0xFC, 0x00, 0x01, 0x00, 0x00,
+    0x72, 0xDE,
+    0xE9, 0xB7, 0x00, 0x00, 0x00,
+    // require count >= 1
+    0x41, 0x83, 0xFC, 0x01,
+    0x0F, 0x82, 0xAD, 0x00, 0x00, 0x00,
+    // one more create after failure must still fail
+    0xBF, 0x00, 0x10, 0x00, 0x00,
+    0xB8, 0x06, 0x00, 0x00, 0x00,
+    0xCD, 0x80,
+    0x48, 0x83, 0xF8, 0xFF,
+    0x0F, 0x85, 0x97, 0x00, 0x00, 0x00,
+    // k = min(count, 32)
+    0x45, 0x89, 0xE5,
+    0x41, 0x83, 0xFD, 0x20,
+    0x76, 0x06,
+    0x41, 0xBD, 0x20, 0x00, 0x00, 0x00,
+    0x45, 0x31, 0xF6,
+    // loop i in [0, k): map/write/verify/unmap
+    0x45, 0x39, 0xEE,
+    0x73, 0x63,
+    0x4A, 0x8B, 0x3C, 0xF3,
+    0xBE, 0x00, 0x00, 0x50, 0x00,
+    0x45, 0x89, 0xF7,
+    0x41, 0xC1, 0xE7, 0x0C,
+    0x44, 0x01, 0xFE,
+    0x31, 0xD2,
+    0xB8, 0x07, 0x00, 0x00, 0x00,
+    0xCD, 0x80,
+    0x48, 0x83, 0xF8, 0xFF,
+    0x74, 0x5E,
+    0x49, 0x89, 0xC7,
+    0x45, 0x88, 0x37,
+    0x41, 0xC6, 0x47, 0x01, 0xA5,
+    0x41, 0xC6, 0x47, 0x02, 0x5A,
+    0x45, 0x88, 0x77, 0x03,
+    0x45, 0x38, 0x37,
+    0x75, 0x45,
+    0x41, 0x80, 0x7F, 0x01, 0xA5,
+    0x75, 0x3E,
+    0x41, 0x80, 0x7F, 0x02, 0x5A,
+    0x75, 0x37,
+    0x45, 0x38, 0x77, 0x03,
+    0x75, 0x31,
+    0x4C, 0x89, 0xFF,
+    0xB8, 0x0F, 0x00, 0x00, 0x00,
+    0xCD, 0x80,
+    0x48, 0x85, 0xC0,
+    0x75, 0x22,
+    0x41, 0xFF, 0xC6,
+    0xEB, 0x98,
+    // success: sys_debug_write("PRESSURE: shm ok", 16), qemu_exit(0x31)
+    0x48, 0x8D, 0x3D, 0x23, 0x00, 0x00, 0x00,
+    0xBE, 0x10, 0x00, 0x00, 0x00,
+    0x31, 0xC0,
+    0xCD, 0x80,
+    0xBF, 0x31, 0x00, 0x00, 0x00,
+    0xB8, 0x62, 0x00, 0x00, 0x00,
+    0xCD, 0x80,
+    0xF4,
+    // fail: qemu_exit(0x33)
+    0xBF, 0x33, 0x00, 0x00, 0x00,
+    0xB8, 0x62, 0x00, 0x00, 0x00,
+    0xCD, 0x80,
+    0xF4,
+    // "PRESSURE: shm ok"
+    0x50, 0x52, 0x45, 0x53, 0x53, 0x55, 0x52, 0x45, 0x3A, 0x20, 0x73, 0x68, 0x6D, 0x20, 0x6F, 0x6B,
+];
+
 // =============================================================================
 // M7: VirtIO net driver + net syscalls + UDP echo
 // =============================================================================
@@ -3329,19 +3448,33 @@ pub extern "C" fn kmain() -> ! {
     unsafe {
         let kstack = &stack_top as *const u8 as u64;
         tss_init(kstack);
-        setup_r4_pages(&SHM_WRITER_BLOB, &SHM_READER_BLOB);
 
-        // Pre-create endpoint 0
-        R4_ENDPOINTS[0].active = true;
+        #[cfg(feature = "pressure_shm_test")]
+        {
+            setup_r4_pages(&SHM_PRESSURE_BLOB, &SHM_PRESSURE_BLOB);
+            R4_NUM_TASKS = 1;
+            r4_init_task(0, USER_CODE_VA, USER_STACK_TOP);
+            R4_TASKS[0].state = R4State::Running;
+            R4_CURRENT = 0;
+            enter_ring3_at(USER_CODE_VA, USER_STACK_TOP);
+        }
 
-        // Init tasks: task 0 = writer, task 1 = reade
-        R4_NUM_TASKS = 2;
-        r4_init_task(0, USER_CODE_VA, USER_STACK_TOP);
-        r4_init_task(1, USER_CODE2_VA, USER_STACK2_TOP);
-        R4_TASKS[0].state = R4State::Running;
-        R4_CURRENT = 0;
+        #[cfg(not(feature = "pressure_shm_test"))]
+        {
+            setup_r4_pages(&SHM_WRITER_BLOB, &SHM_READER_BLOB);
 
-        enter_ring3_at(USER_CODE_VA, USER_STACK_TOP);
+            // Pre-create endpoint 0
+            R4_ENDPOINTS[0].active = true;
+
+            // Init tasks: task 0 = writer, task 1 = reader
+            R4_NUM_TASKS = 2;
+            r4_init_task(0, USER_CODE_VA, USER_STACK_TOP);
+            r4_init_task(1, USER_CODE2_VA, USER_STACK2_TOP);
+            R4_TASKS[0].state = R4State::Running;
+            R4_CURRENT = 0;
+
+            enter_ring3_at(USER_CODE_VA, USER_STACK_TOP);
+        }
     }
 
     // R4: ipc_badptr_send_test — single task sends to endpoint 0 with bad pointer

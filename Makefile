@@ -18,6 +18,7 @@ endif
        build-stress-syscall image-stress-syscall \
        build-stress-ipc image-stress-ipc \
        build-stress-blk image-stress-blk \
+       build-pressure-shm image-pressure-shm \
        build-yield image-yield \
        build-user-fault image-user-fault \
        build-ipc image-ipc build-ipc-badptr-send image-ipc-badptr-send \
@@ -163,6 +164,12 @@ build-stress-blk: $(ASM_OBJS) boot/linker.ld
 	cd kernel_rs && $(CARGO) build --release --features stress_blk_test
 	$(LD) $(LDFLAGS) -o $(OUT)/kernel-stress-blk.elf $(ASM_OBJS) $(KERNEL_LIB)
 
+# --- R4: Pressure-SHM-test kernel --------------------------------------------
+
+build-pressure-shm: $(ASM_OBJS) boot/linker.ld
+	cd kernel_rs && $(CARGO) build --release --features pressure_shm_test
+	$(LD) $(LDFLAGS) -o $(OUT)/kernel-pressure-shm.elf $(ASM_OBJS) $(KERNEL_LIB)
+
 # --- M3: Yield-test kernel ----------------------------------------------------
 
 build-yield: $(ASM_OBJS) boot/linker.ld
@@ -279,6 +286,9 @@ image-stress-ipc: build-stress-ipc
 image-stress-blk: build-stress-blk
 	PATH="$(WSL_PATH)" CC="$(CC)" XORRISO="$(XORRISO)" KERNEL_ELF=kernel-stress-blk.elf ISO_NAME=os-stress-blk.iso bash tools/mkimage.sh
 
+image-pressure-shm: build-pressure-shm
+	PATH="$(WSL_PATH)" CC="$(CC)" XORRISO="$(XORRISO)" KERNEL_ELF=kernel-pressure-shm.elf ISO_NAME=os-pressure-shm.iso bash tools/mkimage.sh
+
 image-yield: build-yield
 	PATH="$(WSL_PATH)" CC="$(CC)" XORRISO="$(XORRISO)" KERNEL_ELF=kernel-yield.elf ISO_NAME=os-yield.iso bash tools/mkimage.sh
 
@@ -379,7 +389,7 @@ image-go: build-go
 run: image
 	./tools/run_qemu.sh
 
-test-qemu: image image-panic image-pf image-idt image-sched image-user-hello image-syscall image-syscall-invalid image-stress-syscall image-stress-ipc image-stress-blk image-yield image-user-fault image-ipc image-ipc-badptr-send image-ipc-badptr-recv image-svc-badptr image-ipc-buffer-full image-ipc-svc-overwrite image-svc-full image-shm image-blk image-blk-badlen image-blk-badptr image-blk-invariants image-fs image-fs-badmagic image-pkg-hash image-net image-go
+test-qemu: image image-panic image-pf image-idt image-sched image-user-hello image-syscall image-syscall-invalid image-stress-syscall image-stress-ipc image-stress-blk image-pressure-shm image-yield image-user-fault image-ipc image-ipc-badptr-send image-ipc-badptr-recv image-svc-badptr image-ipc-buffer-full image-ipc-svc-overwrite image-svc-full image-shm image-blk image-blk-badlen image-blk-badptr image-blk-invariants image-fs image-fs-badmagic image-pkg-hash image-net image-go
 	$(PYTHON) -m pytest tests/ -v
 
 repro-check:

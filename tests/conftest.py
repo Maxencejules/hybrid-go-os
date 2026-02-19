@@ -32,6 +32,7 @@ ISO_SVC_OVERWRITE_PATH = os.path.join(REPO_ROOT, "out", "os-svc-overwrite.iso")
 ISO_IPC_SVC_OVERWRITE_PATH = ISO_SVC_OVERWRITE_PATH
 ISO_SVC_FULL_PATH = os.path.join(REPO_ROOT, "out", "os-svc-full.iso")
 ISO_SHM_PATH = os.path.join(REPO_ROOT, "out", "os-shm.iso")
+ISO_PRESSURE_SHM_PATH = os.path.join(REPO_ROOT, "out", "os-pressure-shm.iso")
 ISO_BLK_PATH = os.path.join(REPO_ROOT, "out", "os-blk.iso")
 ISO_STRESS_BLK_PATH = os.path.join(REPO_ROOT, "out", "os-stress-blk.iso")
 ISO_BLK_BADLEN_PATH = os.path.join(REPO_ROOT, "out", "os-blk-badlen.iso")
@@ -272,6 +273,14 @@ def qemu_serial_shm():
     if not os.path.isfile(ISO_SHM_PATH):
         pytest.skip(f"ISO not built: {ISO_SHM_PATH}")
     return _boot_iso(ISO_SHM_PATH)
+
+
+@pytest.fixture
+def qemu_serial_pressure_shm():
+    """Boot the SHM pressure test OS image and return captured serial output."""
+    if not os.path.isfile(ISO_PRESSURE_SHM_PATH):
+        pytest.skip(f"ISO not built: {ISO_PRESSURE_SHM_PATH}")
+    return _boot_iso(ISO_PRESSURE_SHM_PATH)
 
 
 def _boot_iso_with_disk(iso_path, disk_path):
