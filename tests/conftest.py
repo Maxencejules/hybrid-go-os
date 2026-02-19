@@ -19,6 +19,7 @@ ISO_YIELD_PATH = os.path.join(REPO_ROOT, "out", "os-yield.iso")
 ISO_USER_FAULT_PATH = os.path.join(REPO_ROOT, "out", "os-user-fault.iso")
 ISO_IPC_PATH = os.path.join(REPO_ROOT, "out", "os-ipc.iso")
 ISO_IPC_BADPTR_SEND_PATH = os.path.join(REPO_ROOT, "out", "os-ipc-badptr-send.iso")
+ISO_IPC_BADPTR_RECV_PATH = os.path.join(REPO_ROOT, "out", "os-ipc-badptr-recv.iso")
 ISO_IPC_BADPTR_SVC_PATH = os.path.join(REPO_ROOT, "out", "os-ipc-badptr-svc.iso")
 ISO_IPC_BUFFER_FULL_PATH = os.path.join(REPO_ROOT, "out", "os-ipc-buffer-full.iso")
 ISO_IPC_SVC_OVERWRITE_PATH = os.path.join(REPO_ROOT, "out", "os-ipc-svc-overwrite.iso")
@@ -152,6 +153,14 @@ def qemu_serial_ipc_badptr_send():
     if not os.path.isfile(ISO_IPC_BADPTR_SEND_PATH):
         pytest.skip(f"ISO not built: {ISO_IPC_BADPTR_SEND_PATH}")
     return _boot_iso(ISO_IPC_BADPTR_SEND_PATH)
+
+
+@pytest.fixture
+def qemu_serial_ipc_badptr_recv():
+    """Boot the IPC bad-pointer recv test OS image and return captured serial output."""
+    if not os.path.isfile(ISO_IPC_BADPTR_RECV_PATH):
+        pytest.skip(f"ISO not built: {ISO_IPC_BADPTR_RECV_PATH}")
+    return _boot_iso(ISO_IPC_BADPTR_RECV_PATH)
 
 
 @pytest.fixture

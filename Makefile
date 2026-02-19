@@ -9,6 +9,7 @@
        build-yield image-yield \
        build-user-fault image-user-fault \
        build-ipc image-ipc build-ipc-badptr-send image-ipc-badptr-send \
+       build-ipc-badptr-recv image-ipc-badptr-recv \
        build-ipc-badptr-svc image-ipc-badptr-svc \
        build-ipc-buffer-full image-ipc-buffer-full \
        build-ipc-svc-overwrite image-ipc-svc-overwrite \
@@ -132,6 +133,12 @@ build-ipc-badptr-send: $(ASM_OBJS) boot/linker.ld
 	cd kernel_rs && cargo build --release --features ipc_badptr_send_test
 	$(LD) $(LDFLAGS) -o $(OUT)/kernel-ipc-badptr-send.elf $(ASM_OBJS) $(KERNEL_LIB)
 
+# --- R4: IPC bad-pointer recv test kernel ------------------------------------
+
+build-ipc-badptr-recv: $(ASM_OBJS) boot/linker.ld
+	cd kernel_rs && cargo build --release --features ipc_badptr_recv_test
+	$(LD) $(LDFLAGS) -o $(OUT)/kernel-ipc-badptr-recv.elf $(ASM_OBJS) $(KERNEL_LIB)
+
 # --- R4: IPC bad-pointer service registry test kernel ------------------------
 
 build-ipc-badptr-svc: $(ASM_OBJS) boot/linker.ld
@@ -203,6 +210,9 @@ image-shm: build-shm
 image-ipc-badptr-send: build-ipc-badptr-send
 	KERNEL_ELF=kernel-ipc-badptr-send.elf ISO_NAME=os-ipc-badptr-send.iso bash tools/mkimage.sh
 
+image-ipc-badptr-recv: build-ipc-badptr-recv
+	KERNEL_ELF=kernel-ipc-badptr-recv.elf ISO_NAME=os-ipc-badptr-recv.iso bash tools/mkimage.sh
+
 image-ipc-badptr-svc: build-ipc-badptr-svc
 	KERNEL_ELF=kernel-ipc-badptr-svc.elf ISO_NAME=os-ipc-badptr-svc.iso bash tools/mkimage.sh
 
@@ -256,7 +266,7 @@ image-go: build-go
 run: image
 	./tools/run_qemu.sh
 
-test-qemu: image image-panic image-pf image-idt image-sched image-user-hello image-syscall image-syscall-invalid image-yield image-user-fault image-ipc image-ipc-badptr-send image-ipc-badptr-svc image-ipc-buffer-full image-ipc-svc-overwrite image-shm image-blk image-blk-invariants image-fs image-net image-go
+test-qemu: image image-panic image-pf image-idt image-sched image-user-hello image-syscall image-syscall-invalid image-yield image-user-fault image-ipc image-ipc-badptr-send image-ipc-badptr-recv image-ipc-badptr-svc image-ipc-buffer-full image-ipc-svc-overwrite image-shm image-blk image-blk-invariants image-fs image-net image-go
 	python3 -m pytest tests/ -v
 
 clean:

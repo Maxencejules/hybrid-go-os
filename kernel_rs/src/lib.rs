@@ -19,7 +19,7 @@ macro_rules! cfg_user {
         $(
             #[cfg(any(
                 feature = "user_hello_test", feature = "syscall_test", feature = "syscall_invalid_test", feature = "yield_test", feature = "user_fault_test",
-                feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "svc_overwrite_test", feature = "blk_test", feature = "fs_test",
+                feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_recv_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "svc_overwrite_test", feature = "blk_test", feature = "fs_test",
                 feature = "go_test",
             ))]
             $item
@@ -31,7 +31,7 @@ macro_rules! cfg_user {
 macro_rules! cfg_r4 {
     ($($item:item)*) => {
         $(
-            #[cfg(any(feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "svc_overwrite_test"))]
+            #[cfg(any(feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_recv_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "svc_overwrite_test"))]
             $item
         )*
     };
@@ -447,14 +447,14 @@ extern "C" { static stack_top: u8; }
 
 unsafe fn handle_user_fault(frame: *mut u64) {
     // R4: kill current task and switch to next
-    #[cfg(any(feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "svc_overwrite_test"))]
+    #[cfg(any(feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_recv_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "svc_overwrite_test"))]
     {
         r4_kill_and_switch(frame);
         return;
     }
 
     // M3: kill user task and return to kernel
-    #[cfg(not(any(feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "svc_overwrite_test")))]
+    #[cfg(not(any(feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_recv_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "svc_overwrite_test")))]
     {
         serial_write(b"USER: killed\n");
         let kstack = &stack_top as *const u8 as u64;
@@ -496,7 +496,7 @@ unsafe fn syscall_dispatch(frame: *mut u64) {
     }
 
     // R4 dispatch
-    #[cfg(any(feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "svc_overwrite_test"))]
+    #[cfg(any(feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_recv_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "svc_overwrite_test"))]
     {
         match nr {
             0  => { *frame.add(14) = sys_debug_write(arg1, arg2); }
@@ -514,7 +514,7 @@ unsafe fn syscall_dispatch(frame: *mut u64) {
     }
 
     // M3 dispatch
-    #[cfg(not(any(feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "svc_overwrite_test")))]
+    #[cfg(not(any(feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_recv_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "svc_overwrite_test")))]
     {
         #[cfg(any(feature = "syscall_invalid_test", feature = "yield_test"))]
         {
@@ -545,7 +545,7 @@ unsafe fn sys_debug_write(buf: u64, len: u64) -> u64 {
 
     #[cfg(any(
         feature = "user_hello_test", feature = "syscall_test", feature = "user_fault_test",
-        feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "svc_overwrite_test", feature = "blk_test", feature = "fs_test",
+        feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_recv_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "svc_overwrite_test", feature = "blk_test", feature = "fs_test",
         feature = "go_test",
     ))]
     {
@@ -594,7 +594,7 @@ unsafe fn sys_yield() -> u64 {
 
 #[cfg(any(
     feature = "user_hello_test", feature = "syscall_test", feature = "user_fault_test",
-    feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "svc_overwrite_test", feature = "blk_test", feature = "fs_test",
+    feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_recv_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "svc_overwrite_test", feature = "blk_test", feature = "fs_test",
     feature = "go_test",
 ))]
 unsafe fn check_page_user_accessible(va: u64, hhdm: u64) -> bool {
@@ -622,7 +622,7 @@ unsafe fn check_page_user_accessible(va: u64, hhdm: u64) -> bool {
 
 #[cfg(any(
     feature = "user_hello_test", feature = "syscall_test", feature = "user_fault_test",
-    feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "svc_overwrite_test", feature = "blk_test", feature = "fs_test",
+    feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_recv_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "svc_overwrite_test", feature = "blk_test", feature = "fs_test",
     feature = "go_test",
 ))]
 #[allow(dead_code)]
@@ -636,7 +636,7 @@ fn user_range_ok(ptr: u64, len: usize) -> bool {
 
 #[cfg(any(
     feature = "user_hello_test", feature = "syscall_test", feature = "user_fault_test",
-    feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "svc_overwrite_test", feature = "blk_test", feature = "fs_test",
+    feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_recv_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "svc_overwrite_test", feature = "blk_test", feature = "fs_test",
     feature = "go_test",
 ))]
 #[allow(dead_code)]
@@ -658,7 +658,7 @@ unsafe fn user_pages_ok(ptr: u64, len: usize) -> bool {
 
 #[cfg(any(
     feature = "user_hello_test", feature = "syscall_test", feature = "user_fault_test",
-    feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "svc_overwrite_test", feature = "blk_test", feature = "fs_test",
+    feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_recv_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "svc_overwrite_test", feature = "blk_test", feature = "fs_test",
     feature = "go_test",
 ))]
 #[allow(dead_code)]
@@ -674,7 +674,7 @@ unsafe fn copyin_user(dst: &mut [u8], user_ptr: u64) -> Result<(), ()> {
 
 #[cfg(any(
     feature = "user_hello_test", feature = "syscall_test", feature = "user_fault_test",
-    feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "svc_overwrite_test", feature = "blk_test", feature = "fs_test",
+    feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_recv_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "svc_overwrite_test", feature = "blk_test", feature = "fs_test",
     feature = "go_test",
 ))]
 #[allow(dead_code)]
@@ -690,7 +690,7 @@ unsafe fn copyout_user(user_ptr: u64, src: &[u8]) -> Result<(), ()> {
 
 #[cfg(any(
     feature = "user_hello_test", feature = "syscall_test", feature = "user_fault_test",
-    feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "svc_overwrite_test", feature = "blk_test", feature = "fs_test",
+    feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_recv_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "svc_overwrite_test", feature = "blk_test", feature = "fs_test",
     feature = "go_test",
 ))]
 #[allow(dead_code)]
@@ -1818,6 +1818,31 @@ static IPC_BADPTR_SEND_BLOB: [u8; 63] = [
     b'r', b' ', b's', b'e', b'n', b'd', b' ', b'o', b'k', b'\n',
 ];
 
+// IPC bad-pointer recv blob (single task: recv with unmapped buf → expect -1)
+#[cfg(feature = "ipc_badptr_recv_test")]
+static IPC_BADPTR_RECV_BLOB: [u8; 63] = [
+    // sys_ipc_recv(endpoint=0, buf=0xDEADBEEF, cap=16)
+    0x31, 0xFF,                                   // xor edi, edi
+    0xBE, 0xEF, 0xBE, 0xAD, 0xDE,               // mov esi, 0xDEADBEEF
+    0xBA, 0x10, 0x00, 0x00, 0x00,               // mov edx, 16
+    0xB8, 0x09, 0x00, 0x00, 0x00,               // mov eax, 9
+    0xCD, 0x80,                                   // int 0x80
+    // cmp rax, -1; jne fail
+    0x48, 0x83, 0xF8, 0xFF,                       // cmp rax, -1
+    0x75, 0x11,                                   // jne +17 (fail@42)
+    // sys_debug_write("IPC: badptr recv ok\n", 20)
+    0x48, 0x8D, 0x3D, 0x0B, 0x00, 0x00, 0x00,   // lea rdi, [rip+0x0B] -> msg@43
+    0xBE, 0x14, 0x00, 0x00, 0x00,               // mov esi, 20
+    0x31, 0xC0,                                   // xor eax, eax
+    0xCD, 0x80,                                   // int 0x80
+    0xF4,                                         // hlt
+    // fail:
+    0xF4,                                         // hlt
+    // Data @43: "IPC: badptr recv ok\n"
+    b'I', b'P', b'C', b':', b' ', b'b', b'a', b'd', b'p', b't',
+    b'r', b' ', b'r', b'e', b'c', b'v', b' ', b'o', b'k', b'\n',
+];
+
 // Service registry bad-pointer blob (single task: register with unmapped name → expect -1)
 #[cfg(feature = "ipc_badptr_svc_test")]
 static SVC_BADPTR_BLOB: [u8; 58] = [
@@ -2753,6 +2778,25 @@ pub extern "C" fn kmain() -> ! {
         enter_ring3_at(USER_CODE_VA, USER_STACK_TOP);
     }
 
+    // R4: ipc_badptr_recv_test — single task receives with bad pointer
+    #[cfg(feature = "ipc_badptr_recv_test")]
+    unsafe {
+        let kstack = &stack_top as *const u8 as u64;
+        tss_init(kstack);
+        setup_r4_pages(&IPC_BADPTR_RECV_BLOB, &IPC_BADPTR_RECV_BLOB);
+
+        // Pre-create endpoint 0 so recv reaches the pointer check
+        R4_ENDPOINTS[0].active = true;
+
+        // Single task
+        R4_NUM_TASKS = 1;
+        r4_init_task(0, USER_CODE_VA, USER_STACK_TOP);
+        R4_TASKS[0].state = R4State::Running;
+        R4_CURRENT = 0;
+
+        enter_ring3_at(USER_CODE_VA, USER_STACK_TOP);
+    }
+
     // R4: ipc_badptr_svc_test — single task calls svc_register with bad name pointer
     #[cfg(feature = "ipc_badptr_svc_test")]
     unsafe {
@@ -3069,6 +3113,7 @@ pub extern "C" fn kmain() -> ! {
         feature = "user_fault_test",
         feature = "ipc_test",
         feature = "ipc_badptr_send_test",
+        feature = "ipc_badptr_recv_test",
         feature = "ipc_badptr_svc_test",
         feature = "shm_test",
         feature = "blk_test",
