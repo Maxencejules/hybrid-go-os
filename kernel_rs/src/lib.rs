@@ -3084,14 +3084,19 @@ pub extern "C" fn kmain() -> ! {
             qemu_exit(0x31);
             loop { core::arch::asm!("cli; hlt", options(nomem, nostack)); }
         }
-        let sb_ptr = BLK_DATA_PAGE.0.as_ptr();
-        let sb_magic = core::ptr::read(sb_ptr as *const u32);
+        let sb_magic = u32::from_le_bytes([
+            BLK_DATA_PAGE.0[0], BLK_DATA_PAGE.0[1],
+            BLK_DATA_PAGE.0[2], BLK_DATA_PAGE.0[3],
+        ]);
         if sb_magic != 0x5346_5331u32 { // "SFS1"
             serial_write(b"FSD: bad magic\n");
             qemu_exit(0x31);
             loop { core::arch::asm!("cli; hlt", options(nomem, nostack)); }
         }
-        let file_count = core::ptr::read(sb_ptr.add(4) as *const u32);
+        let file_count = u32::from_le_bytes([
+            BLK_DATA_PAGE.0[4], BLK_DATA_PAGE.0[5],
+            BLK_DATA_PAGE.0[6], BLK_DATA_PAGE.0[7],
+        ]);
         serial_write(b"FSD: mount ok\n");
 
         // --- fsd: read file table from sector 1 ---

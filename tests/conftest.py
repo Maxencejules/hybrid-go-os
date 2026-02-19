@@ -32,6 +32,8 @@ ISO_BLK_INVARIANTS_PATH = os.path.join(REPO_ROOT, "out", "os-blk-invariants.iso"
 BLK_DISK_IMG = os.path.join(REPO_ROOT, "out", "blk-test.img")
 ISO_FS_PATH = os.path.join(REPO_ROOT, "out", "os-fs.iso")
 FS_DISK_IMG = os.path.join(REPO_ROOT, "out", "fs-test.img")
+ISO_FS_BADMAGIC_PATH = os.path.join(REPO_ROOT, "out", "os-fs-badmagic.iso")
+FS_BADMAGIC_DISK_IMG = os.path.join(REPO_ROOT, "out", "fs-badmagic.img")
 ISO_NET_PATH = os.path.join(REPO_ROOT, "out", "os-net.iso")
 ISO_GO_PATH = os.path.join(REPO_ROOT, "out", "os-go.iso")
 QEMU_TIMEOUT = 10  # seconds
@@ -281,6 +283,16 @@ def qemu_serial_fs():
     if not os.path.isfile(FS_DISK_IMG):
         pytest.skip(f"Disk image not built: {FS_DISK_IMG}")
     return _boot_iso_with_disk(ISO_FS_PATH, FS_DISK_IMG)
+
+
+@pytest.fixture
+def qemu_serial_fs_badmagic():
+    """Boot the FS bad-magic test OS image with a corrupted superblock disk."""
+    if not os.path.isfile(ISO_FS_BADMAGIC_PATH):
+        pytest.skip(f"ISO not built: {ISO_FS_BADMAGIC_PATH}")
+    if not os.path.isfile(FS_BADMAGIC_DISK_IMG):
+        pytest.skip(f"Disk image not built: {FS_BADMAGIC_DISK_IMG}")
+    return _boot_iso_with_disk(ISO_FS_BADMAGIC_PATH, FS_BADMAGIC_DISK_IMG)
 
 
 def _find_free_udp_port():

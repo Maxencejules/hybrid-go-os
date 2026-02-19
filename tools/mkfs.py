@@ -55,7 +55,7 @@ def build_pkg(name, binary):
     return header + binary
 
 
-def build_disk_image(output_path):
+def build_disk_image(output_path, corrupt_superblock_magic=False):
     """Create a 1 MiB SimpleFS v0 disk image."""
     disk_size = 1024 * 1024  # 1 MiB
     disk = bytearray(disk_size)
@@ -70,7 +70,8 @@ def build_disk_image(output_path):
     next_free = data_start + pkg_sectors
 
     # Superblock -> sector 0
-    sb = struct.pack('<IIII', SFS_MAGIC, file_count, data_start, next_free)
+    sb_magic = 0 if corrupt_superblock_magic else SFS_MAGIC
+    sb = struct.pack('<IIII', sb_magic, file_count, data_start, next_free)
     disk[0:len(sb)] = sb
 
     # File table -> sector 1
@@ -96,5 +97,15 @@ def build_disk_image(output_path):
 
 
 if __name__ == '__main__':
-    output = sys.argv[1] if len(sys.argv) > 1 else 'out/fs-test.img'
-    build_disk_image(output)
+    output = 'out/fs-test.img'
+    corrupt_superblock_magic = False
+    for arg in sys.argv[1:]:
+        if arg == '--corrupt-superblock-magic':
+            corrupt_superblock_magic = True
+        elif output == 'out/fs-test.img':
+            output = arg
+        else:
+            raise SystemExit(
+                'Usage: mkfs.py [output_path] [--corrupt-superblock-magic]'
+            )
+    build_disk_image(output, corrupt_superblock_magic=corrupt_superblock_magic)

@@ -20,6 +20,7 @@
        build-blk-badptr image-blk-badptr \
        build-blk-invariants image-blk-invariants \
        build-fs image-fs \
+       build-fs-badmagic image-fs-badmagic \
        build-net image-net \
        build-go image-go \
        run test-qemu clean legacy docker-all docker-legacy
@@ -274,6 +275,14 @@ image-fs: build-fs
 	python3 tools/mkfs.py $(OUT)/fs-test.img
 	KERNEL_ELF=kernel-fs.elf ISO_NAME=os-fs.iso bash tools/mkimage.sh
 
+build-fs-badmagic: $(ASM_OBJS) boot/linker.ld
+	cd kernel_rs && cargo build --release --features fs_badmagic_test
+	$(LD) $(LDFLAGS) -o $(OUT)/kernel-fs-badmagic.elf $(ASM_OBJS) $(KERNEL_LIB)
+
+image-fs-badmagic: build-fs-badmagic
+	python3 tools/mkfs.py $(OUT)/fs-badmagic.img --corrupt-superblock-magic
+	KERNEL_ELF=kernel-fs-badmagic.elf ISO_NAME=os-fs-badmagic.iso bash tools/mkimage.sh
+
 # --- M7: VirtIO net test kernel -----------------------------------------------
 
 build-net: $(ASM_OBJS) boot/linker.ld
@@ -296,7 +305,7 @@ image-go: build-go
 run: image
 	./tools/run_qemu.sh
 
-test-qemu: image image-panic image-pf image-idt image-sched image-user-hello image-syscall image-syscall-invalid image-yield image-user-fault image-ipc image-ipc-badptr-send image-ipc-badptr-recv image-ipc-badptr-svc image-ipc-buffer-full image-ipc-svc-overwrite image-svc-full image-shm image-blk image-blk-badlen image-blk-badptr image-blk-invariants image-fs image-net image-go
+test-qemu: image image-panic image-pf image-idt image-sched image-user-hello image-syscall image-syscall-invalid image-yield image-user-fault image-ipc image-ipc-badptr-send image-ipc-badptr-recv image-ipc-badptr-svc image-ipc-buffer-full image-ipc-svc-overwrite image-svc-full image-shm image-blk image-blk-badlen image-blk-badptr image-blk-invariants image-fs image-fs-badmagic image-net image-go
 	python3 -m pytest tests/ -v
 
 clean:
