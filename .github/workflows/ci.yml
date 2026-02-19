@@ -54,5 +54,8 @@ jobs:
         env:
           GIT_TERMINAL_PROMPT: "0"
 
+      - name: Reproducible ISO check
+        run: make repro-check
+
       - name: QEMU smoke tests
         run: make test-qemu

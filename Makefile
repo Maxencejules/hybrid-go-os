@@ -24,7 +24,7 @@
        build-pkg-hash image-pkg-hash \
        build-net image-net \
        build-go image-go \
-       run test-qemu clean legacy docker-all docker-legacy
+       run test-qemu repro-check clean legacy docker-all docker-legacy
 
 # Tools
 NASM    ?= nasm
@@ -316,6 +316,16 @@ run: image
 
 test-qemu: image image-panic image-pf image-idt image-sched image-user-hello image-syscall image-syscall-invalid image-yield image-user-fault image-ipc image-ipc-badptr-send image-ipc-badptr-recv image-ipc-badptr-svc image-ipc-buffer-full image-ipc-svc-overwrite image-svc-full image-shm image-blk image-blk-badlen image-blk-badptr image-blk-invariants image-fs image-fs-badmagic image-pkg-hash image-net image-go
 	python3 -m pytest tests/ -v
+
+repro-check: build
+	@set -e; \
+	ISO_NAME=os-repro-1.iso bash tools/mkimage.sh; \
+	ISO_NAME=os-repro-2.iso bash tools/mkimage.sh; \
+	SHA1=$$(sha256sum $(OUT)/os-repro-1.iso | awk '{print $$1}'); \
+	SHA2=$$(sha256sum $(OUT)/os-repro-2.iso | awk '{print $$1}'); \
+	echo "repro-check: $$SHA1"; \
+	echo "repro-check: $$SHA2"; \
+	test "$$SHA1" = "$$SHA2"
 
 clean:
 	rm -rf $(OUT)
