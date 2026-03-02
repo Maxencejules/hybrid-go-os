@@ -38,6 +38,7 @@ endif
        build-blk-badlen image-blk-badlen \
        build-blk-badptr image-blk-badptr \
        build-blk-invariants image-blk-invariants \
+       build-blk-init-fail image-blk-init-fail \
        build-fs image-fs \
        build-fs-badmagic image-fs-badmagic \
        build-pkg-hash image-pkg-hash \
@@ -391,6 +392,13 @@ build-blk-invariants: $(ASM_OBJS) boot/linker.ld
 image-blk-invariants: build-blk-invariants
 	PATH="$(WSL_PATH)" CC="$(CC)" XORRISO="$(XORRISO)" KERNEL_ELF=kernel-blk-invariants.elf ISO_NAME=os-blk-invariants.iso bash tools/mkimage.sh
 
+build-blk-init-fail: $(ASM_OBJS) boot/linker.ld
+	cd kernel_rs && $(CARGO) build --release --features blk_init_fail_test
+	$(LD) $(LDFLAGS) -o $(OUT)/kernel-blk-init-fail.elf $(ASM_OBJS) $(KERNEL_LIB)
+
+image-blk-init-fail: build-blk-init-fail
+	PATH="$(WSL_PATH)" CC="$(CC)" XORRISO="$(XORRISO)" KERNEL_ELF=kernel-blk-init-fail.elf ISO_NAME=os-blk-init-fail.iso bash tools/mkimage.sh
+
 # --- M6: Filesystem test kernel + disk image ---------------------------------
 
 build-fs: $(ASM_OBJS) boot/linker.ld
@@ -439,7 +447,7 @@ image-go: build-go
 run: image
 	./tools/run_qemu.sh
 
-test-qemu: image image-panic image-pf image-idt image-sched image-user-hello image-syscall image-syscall-invalid image-stress-syscall image-stress-ipc image-stress-blk image-pressure-shm image-yield image-user-fault image-ipc image-ipc-badptr-send image-ipc-badptr-recv image-svc-badptr image-ipc-buffer-full image-ipc-waiter-busy image-ipc-svc-overwrite image-svc-full image-svc-bad-endpoint image-shm image-quota-endpoints image-quota-shm image-quota-threads image-blk image-blk-badlen image-blk-badptr image-blk-invariants image-fs image-fs-badmagic image-pkg-hash image-net image-go
+test-qemu: image image-panic image-pf image-idt image-sched image-user-hello image-syscall image-syscall-invalid image-stress-syscall image-stress-ipc image-stress-blk image-pressure-shm image-yield image-user-fault image-ipc image-ipc-badptr-send image-ipc-badptr-recv image-svc-badptr image-ipc-buffer-full image-ipc-waiter-busy image-ipc-svc-overwrite image-svc-full image-svc-bad-endpoint image-shm image-quota-endpoints image-quota-shm image-quota-threads image-blk image-blk-badlen image-blk-badptr image-blk-invariants image-blk-init-fail image-fs image-fs-badmagic image-pkg-hash image-net image-go
 	$(PYTHON) -m pytest tests/ -v
 
 repro-check:

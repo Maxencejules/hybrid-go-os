@@ -6,6 +6,6 @@
 
 - [x] **P3 - Service registry endpoint-validity semantics are defined (resolved 2026-03-02)**: `sys_svc_register_r4` now rejects inactive/out-of-range endpoint IDs with `-1` and only stores mappings to active IPC endpoints. Coverage includes overwrite/full behavior (`tests/ipc/test_svc_overwrite.py`, `tests/ipc/test_svc_full.py`) and invalid-endpoint rejection (`tests/ipc/test_svc_bad_endpoint.py`).
 
-- [ ] **P4 - VirtIO blk invariant failure paths are not tested**: init hardening checks exist and `BLK: invariants ok` is tested (`tests/drivers/test_virtio_blk_init_invariants.py`), but failure-path validation for `BLK: init failed` is still missing.
+- [x] **P4 - VirtIO blk invariant failure paths are tested (resolved 2026-03-02)**: init hardening success remains covered by `tests/drivers/test_virtio_blk_init_invariants.py` (`BLK: invariants ok`), and failure-path behavior is now covered by `tests/drivers/test_virtio_blk_init_failure.py` (`BLK: init failed`) via the `blk_init_fail_test` image variant.
 
 - [x] **P5 - TinyGo dependency contract for full test entrypoint clarified (resolved 2026-03-02)**: `docs/BUILD.md` now states that Go/TinyGo are required for local `make image-go` and full `make test-qemu`, while remaining optional for `make build`/`make image`.

@@ -299,6 +299,8 @@ Track B: Full Go port (long-term)
 |------|---------|
 | `test_virtio_blk_identify` | `BLK: found virtio-blk` |
 | `test_virtio_blk_rw` | `BLK: rw ok` |
+| `test_virtio_blk_init_invariants` | `BLK: invariants ok` |
+| `test_virtio_blk_init_failure` | `BLK: init failed` |
 
 ### Legacy evidence
 
@@ -308,6 +310,7 @@ Track B: Full Go port (long-term)
 ### Rugo evidence
 
 - `tests/drivers/test_virtio_blk_identify.py`, `tests/drivers/test_virtio_blk_rw.py`
+- `tests/drivers/test_virtio_blk_init_invariants.py`, `tests/drivers/test_virtio_blk_init_failure.py`
 - `kernel_rs/src/lib.rs` (VirtIO block init + `sys_blk_read`/`sys_blk_write`)
 - `docs/abi/syscall_v0.md` (`sys_blk_read` and `sys_blk_write`)
 

@@ -4035,9 +4035,21 @@ pub extern "C" fn kmain() -> ! {
                 loop { core::arch::asm!("cli; hlt", options(nomem, nostack)); }
             }
             Some(iobase) => {
-                if !virtio_blk_init(iobase) {
+                // For blk_init_fail_test, intentionally probe a bad iobase to
+                // deterministically exercise the init-failure path.
+                let init_iobase = if cfg!(feature = "blk_init_fail_test") {
+                    iobase.wrapping_add(0x100)
+                } else {
+                    iobase
+                };
+                if !virtio_blk_init(init_iobase) {
                     serial_write(b"BLK: init failed\n");
                     qemu_exit(0x31);
+                    loop { core::arch::asm!("cli; hlt", options(nomem, nostack)); }
+                }
+                if cfg!(feature = "blk_init_fail_test") {
+                    serial_write(b"BLK: unexpected init success\n");
+                    qemu_exit(0x33);
                     loop { core::arch::asm!("cli; hlt", options(nomem, nostack)); }
                 }
                 serial_write(b"BLK: found virtio-blk\n");

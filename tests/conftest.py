@@ -43,6 +43,7 @@ ISO_STRESS_BLK_PATH = os.path.join(REPO_ROOT, "out", "os-stress-blk.iso")
 ISO_BLK_BADLEN_PATH = os.path.join(REPO_ROOT, "out", "os-blk-badlen.iso")
 ISO_BLK_BADPTR_PATH = os.path.join(REPO_ROOT, "out", "os-blk-badptr.iso")
 ISO_BLK_INVARIANTS_PATH = os.path.join(REPO_ROOT, "out", "os-blk-invariants.iso")
+ISO_BLK_INIT_FAIL_PATH = os.path.join(REPO_ROOT, "out", "os-blk-init-fail.iso")
 BLK_DISK_IMG = os.path.join(REPO_ROOT, "out", "blk-test.img")
 ISO_FS_PATH = os.path.join(REPO_ROOT, "out", "os-fs.iso")
 FS_DISK_IMG = os.path.join(REPO_ROOT, "out", "fs-test.img")
@@ -403,6 +404,14 @@ def qemu_serial_blk_invariants():
     if not os.path.isfile(ISO_BLK_INVARIANTS_PATH):
         pytest.skip(f"ISO not built: {ISO_BLK_INVARIANTS_PATH}")
     return _boot_iso_with_disk(ISO_BLK_INVARIANTS_PATH, BLK_DISK_IMG)
+
+
+@pytest.fixture
+def qemu_serial_blk_init_fail():
+    """Boot the VirtIO block init-failure test OS image with a raw disk."""
+    if not os.path.isfile(ISO_BLK_INIT_FAIL_PATH):
+        pytest.skip(f"ISO not built: {ISO_BLK_INIT_FAIL_PATH}")
+    return _boot_iso_with_disk(ISO_BLK_INIT_FAIL_PATH, BLK_DISK_IMG)
 
 
 @pytest.fixture
