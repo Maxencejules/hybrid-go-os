@@ -34,13 +34,13 @@ Rugo-only (TinyGo services and full Go port).
 make build        # Compile Rust kernel → out/kernel.elf
 make image        # Build bootable ISO → out/os.iso
 make image-panic  # Build panic-test ISO → out/os-panic.iso
-make test-qemu    # Build both images, run pytest (2 tests)
+make test-qemu    # Build all Rugo test images, run pytest tests/
 
 # Docker (cross-platform, no host toolchain needed)
 make docker-all
 ```
 
-Tests: `tests/boot/test_boot_banner.py`, `tests/boot/test_panic_path.py`
+Tests: `tests/` (boot, trap, sched, user, ipc, drivers, fs, pkg, net, go, stress, quota, pressure)
 
 ### Legacy
 
@@ -183,7 +183,9 @@ Track B: Full Go port (long-term)
 
 ### Rugo evidence
 
-- Not started.
+- `tests/boot/test_paging_enabled.py`, `tests/trap/test_page_fault_report.py`, `tests/trap/test_idt_smoke.py`
+- `kernel_rs/src/lib.rs` (paging enable marker, IDT install, fault/trap handlers)
+- `arch/x86_64/isr.asm` (ISR stubs)
 
 ---
 
@@ -209,7 +211,9 @@ Track B: Full Go port (long-term)
 
 ### Rugo evidence
 
-- Not started.
+- `tests/sched/test_timer_ticks.py`, `tests/sched/test_two_threads.py`
+- `kernel_rs/src/lib.rs` (timer tick path and scheduler test flow)
+- `arch/x86_64/context.asm` (context switch assembly)
 
 ---
 
@@ -245,7 +249,9 @@ Track B: Full Go port (long-term)
 
 ### Rugo evidence
 
-- Not started.
+- `tests/user/test_enter_user_mode.py`, `tests/user/test_syscall_roundtrip.py`, `tests/user/test_user_fault.py`
+- `docs/abi/syscall_v0.md` (ABI contract)
+- `kernel_rs/src/lib.rs` (ring 3 entry, syscall dispatch, user-fault containment)
 
 ---
 
@@ -272,7 +278,9 @@ Track B: Full Go port (long-term)
 
 ### Rugo evidence
 
-- Not started.
+- `tests/ipc/test_ping_pong.py`, `tests/ipc/test_shm_bulk.py`
+- `tests/ipc/test_svc_overwrite.py`, `tests/ipc/test_svc_full.py`
+- `kernel_rs/src/lib.rs` (IPC, SHM, and service-registry syscall paths)
 
 ---
 
@@ -298,7 +306,9 @@ Track B: Full Go port (long-term)
 
 ### Rugo evidence
 
-- Not started.
+- `tests/drivers/test_virtio_blk_identify.py`, `tests/drivers/test_virtio_blk_rw.py`
+- `kernel_rs/src/lib.rs` (VirtIO block init + `sys_blk_read`/`sys_blk_write`)
+- `docs/abi/syscall_v0.md` (`sys_blk_read` and `sys_blk_write`)
 
 ---
 

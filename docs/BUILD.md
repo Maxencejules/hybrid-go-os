@@ -113,12 +113,14 @@ The Limine bootloader binaries and CLI source are **vendored** in
 Pinned via `rust-toolchain.toml` (nightly channel with `rust-src`).
 Rustup manages installation automatically.
 
-### Go / TinyGo (CI & Docker only)
+### Go / TinyGo version pins
 
 | Tool | Version | Pinned in |
 |------|---------|-----------|
 | Go | 1.25.3 | `.github/workflows/ci.yml`, `Dockerfile` |
 | TinyGo | 0.40.1 | `.github/workflows/ci.yml`, `Dockerfile` |
 
-These are host toolchain installs, not build-artifact dependencies.
+These are host toolchain installs used in CI and Docker, and also required locally for `make image-go` and the full `make test-qemu` target.
+If you only run `make build` or `make image`, Go/TinyGo are not required.
 Update the version numbers in CI and Dockerfile together when upgrading.
+
