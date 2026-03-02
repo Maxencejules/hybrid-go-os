@@ -1,0 +1,6 @@
+flowchart TB
+    build["make build\n(Makefile -> arch/x86_64/*.asm + kernel_rs/)"] --> image["make image\n(tools/mkimage.sh -> out/os.iso)"]
+    image --> run["make run\n(tools/run_qemu.sh -> qemu-system-x86_64)"]
+    image --> test["make test-qemu\n(Makefile builds variant ISOs + runs pytest)"]
+    test --> harness["tests/conftest.py boots QEMU\nand tests/* assert serial markers"]
+    image --> limine_boot["boot/limine.conf + vendor/limine/* copied into ISO"]

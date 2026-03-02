@@ -1,0 +1,20 @@
+flowchart LR
+    source["MILESTONES.md"]
+
+    subgraph legacy_lane["Legacy lane (legacy/)"]
+        l1["M0-M7: done"]
+        l2["G0: done"]
+    end
+
+    subgraph rugo_lane["Rugo lane (repo root)"]
+        r1["M0-M7: done"]
+        r2["G1: done"]
+        r3["G2: not started"]
+    end
+
+    source --> l1
+    source --> l2
+    source --> r1
+    source --> r2
+    source --> r3
+    source -. "TODO/UNKNOWN: M1-M5 sections still say 'Rugo evidence: Not started'" .-> todo["Reconcile status text in MILESTONES.md"]

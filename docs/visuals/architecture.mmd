@@ -1,0 +1,7 @@
+flowchart LR
+    limine["vendor/limine/ + boot/limine.conf"] --> entry["arch/x86_64/entry.asm"]
+    entry --> kernel["kernel_rs/src/lib.rs (Rust no_std kernel)"]
+    kernel --> abi["docs/abi/syscall_v0.md (syscall boundary)"]
+    abi --> go["services/go/start.asm + services/go/main.go"]
+    kernel --> tests["tests/ (QEMU marker tests)"]
+    legacy["legacy/ (reference lane)"] -. baseline comparison .-> tests

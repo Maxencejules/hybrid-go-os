@@ -1,0 +1,15 @@
+flowchart LR
+    user["User space callers\n(example: services/go/main.go)"] --> gate["int 0x80\nrax = syscall number"]
+
+    gate --> debug["0: sys_debug_write"]
+    gate --> task["1: sys_thread_spawn\n2: sys_thread_exit\n3: sys_yield"]
+    gate --> vm["4: sys_vm_map\n5: sys_vm_unmap"]
+    gate --> shm["6: sys_shm_create\n7: sys_shm_map"]
+    gate --> ipc["8: sys_ipc_send\n9: sys_ipc_recv\n17: sys_ipc_endpoint_create"]
+    gate --> time["10: sys_time_now"]
+    gate --> svc["11: sys_svc_register\n12: sys_svc_lookup"]
+    gate --> blk["13: sys_blk_read\n14: sys_blk_write"]
+    gate --> net["15: sys_net_send\n16: sys_net_recv"]
+
+    abi["Source: docs/abi/syscall_v0.md"] -. defines .-> gate
+    kernel["Kernel implementation: kernel_rs/src/lib.rs"] -. handles .-> gate

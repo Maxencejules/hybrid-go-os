@@ -1,48 +1,117 @@
 # Rugo
 
-A hybrid operating system: **Rust kernel** (low-level, no_std) + **Go services** (high-level, user space).
+Rugo is a QEMU-first x86-64 hybrid OS: a `no_std` Rust kernel with Go user-space services.
 
-Target: x86-64, QEMU-first, Limine boot protocol.
+- Boots through Limine and runs marker-based acceptance tests in QEMU.
+- Keeps kernel mechanisms in Rust and user-space policy/services in Go (TinyGo-first).
+- Preserves a full legacy C lane in `legacy/` as a working baseline.
+
+## Quick demo
+
+Placeholders (real captures only):
+
+- `TODO`: add `docs/visuals/screenshots/boot-qemu.png` (QEMU boot screenshot)
+- `TODO`: add `docs/visuals/screenshots/make-run-demo.gif` (10-20s capture of `make run` or `make test-qemu`)
+
+Exact capture steps:
+
+1. Build an image: `make image`
+2. Record boot output: `make run`
+3. Record test flow (optional GIF source): `make test-qemu`
+4. Follow the strict media recipe in `docs/visuals/screenshots/README.md`
 
 ## Architecture
 
-- **Kernel (Rust):** Memory management, traps, scheduling, IPC, drivers — correctness-critical code in `no_std` Rust.
-- **User space (Go):** Service manager, filesystem, package manager, network stack, shell — policy and ecosystem in Go (TinyGo short-term, full Go port long-term).
+### High-level architecture
 
-## Status
+```mermaid
+flowchart LR
+    limine["vendor/limine/ + boot/limine.conf"] --> entry["arch/x86_64/entry.asm"]
+    entry --> kernel["kernel_rs/src/lib.rs (Rust no_std kernel)"]
+    kernel --> abi["docs/abi/syscall_v0.md (syscall boundary)"]
+    abi --> go["services/go/start.asm + services/go/main.go"]
+    kernel --> tests["tests/ (QEMU marker tests)"]
+    legacy["legacy/ (reference lane)"] -. baseline comparison .-> tests
+```
 
-See [MILESTONES.md](MILESTONES.md) for the full roadmap.
+### Lane comparison (from `MILESTONES.md`)
 
-A legacy C kernel implementation (M0-M7 complete, 16 tests passing) is preserved under `legacy/` for reference and fallback.
+```mermaid
+flowchart LR
+    source["MILESTONES.md"]
 
-## Building
+    subgraph legacy_lane["Legacy lane (legacy/)"]
+        l1["M0-M7: done"]
+        l2["G0: done"]
+    end
 
-Prerequisites: Rust nightly toolchain, NASM, GNU ld, xorriso, QEMU, Python 3 + pytest.
+    subgraph rugo_lane["Rugo lane (repo root)"]
+        r1["M0-M7: done"]
+        r2["G1: done"]
+        r3["G2: not started"]
+    end
+
+    source --> l1
+    source --> l2
+    source --> r1
+    source --> r2
+    source --> r3
+    source -. "TODO/UNKNOWN: M1-M5 sections still say 'Rugo evidence: Not started'" .-> todo["Reconcile status text in MILESTONES.md"]
+```
+
+### Boot and test flow
+
+```mermaid
+flowchart TB
+    build["make build\n(Makefile -> arch/x86_64/*.asm + kernel_rs/)"] --> image["make image\n(tools/mkimage.sh -> out/os.iso)"]
+    image --> run["make run\n(tools/run_qemu.sh -> qemu-system-x86_64)"]
+    image --> test["make test-qemu\n(Makefile builds variant ISOs + runs pytest)"]
+    test --> harness["tests/conftest.py boots QEMU\nand tests/* assert serial markers"]
+    image --> limine_boot["boot/limine.conf + vendor/limine/* copied into ISO"]
+```
+
+Diagram sources: `docs/visuals/architecture.mmd`, `docs/visuals/lanes.mmd`, `docs/visuals/boot-flow.mmd`, `docs/visuals/syscall-boundary.mmd`.
+
+## Milestone status
+
+Source of truth: [MILESTONES.md](MILESTONES.md)
+
+| Lane | Kernel milestones | Go milestones |
+|------|-------------------|---------------|
+| Legacy (`legacy/`) | M0-M7: done | G0: done |
+| Rugo (repo root) | M0-M7: done | G1: done, G2: not started |
+
+Tiny visual summary:
+
+```text
+Legacy: [M0 M1 M2 M3 M4 M5 M6 M7] [G0] complete
+Rugo:   [M0 M1 M2 M3 M4 M5 M6 M7] [G1] complete  [G2] not started
+```
+
+`TODO/UNKNOWN`: `MILESTONES.md` is internally inconsistent. Its "Milestone status matrix" marks Rugo M1-M5 as done, while milestone sections M1-M5 still contain `Rugo evidence: Not started`. Clarify and reconcile in `MILESTONES.md`.
+
+## Repo layout
+
+| Path | Responsibility |
+|------|----------------|
+| `boot/` | Limine boot config and linker script (`limine.conf`, `linker.ld`) |
+| `arch/x86_64/` | Assembly entry, ISR stubs, context switch |
+| `kernel_rs/` | Rust `no_std` kernel crate |
+| `services/` | Go user-space service artifacts (`services/go/`) |
+| `legacy/` | Legacy C + gccgo reference lane |
+| `tools/` | Build/image/run helpers (`mkimage.sh`, `run_qemu.sh`, `mkfs.py`) |
+| `tests/` | Pytest-based QEMU acceptance tests |
+| `vendor/limine/` | Vendored Limine binaries + `limine.c` used by image build |
+| `docs/` | Build, ABI, networking, storage, and status docs |
+
+## Build and test
+
+Prerequisites: [docs/BUILD.md](docs/BUILD.md)
 
 ```bash
-make build    # compile kernel
-make image    # build bootable ISO
-make run      # boot in QEMU
-make test-qemu # run acceptance tests
+make build
+make image
+make run
+make test-qemu
 ```
 
-### Docker (cross-platform)
-
-```bash
-make docker-all
-```
-
-## Project layout
-
-```
-boot/           Limine config and linker script
-kernel_rs/      Rust kernel crate (no_std, staticlib)
-arch/x86_64/    Assembly: CPU entry, ISR stubs, context switch
-legacy/         Legacy C kernel (M0-M7), preserved as reference
-tools/          Image builders, QEMU runner, disk tools
-tests/          Acceptance tests (pytest, marker-based)
-```
-
-## License
-
-See individual files for licensing information.
