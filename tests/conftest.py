@@ -27,6 +27,7 @@ ISO_SVC_BADPTR_PATH = os.path.join(REPO_ROOT, "out", "os-svc-badptr.iso")
 # Backward-compatible alias
 ISO_IPC_BADPTR_SVC_PATH = ISO_SVC_BADPTR_PATH
 ISO_IPC_BUFFER_FULL_PATH = os.path.join(REPO_ROOT, "out", "os-ipc-buffer-full.iso")
+ISO_IPC_WAITER_BUSY_PATH = os.path.join(REPO_ROOT, "out", "os-ipc-waiter-busy.iso")
 ISO_SVC_OVERWRITE_PATH = os.path.join(REPO_ROOT, "out", "os-svc-overwrite.iso")
 # Backward-compatible alias
 ISO_IPC_SVC_OVERWRITE_PATH = ISO_SVC_OVERWRITE_PATH
@@ -246,6 +247,14 @@ def qemu_serial_ipc_buffer_full():
     if not os.path.isfile(ISO_IPC_BUFFER_FULL_PATH):
         pytest.skip(f"ISO not built: {ISO_IPC_BUFFER_FULL_PATH}")
     return _boot_iso(ISO_IPC_BUFFER_FULL_PATH)
+
+
+@pytest.fixture
+def qemu_serial_ipc_waiter_busy():
+    """Boot the IPC waiter-busy semantics test OS image."""
+    if not os.path.isfile(ISO_IPC_WAITER_BUSY_PATH):
+        pytest.skip(f"ISO not built: {ISO_IPC_WAITER_BUSY_PATH}")
+    return _boot_iso(ISO_IPC_WAITER_BUSY_PATH)
 
 
 @pytest.fixture

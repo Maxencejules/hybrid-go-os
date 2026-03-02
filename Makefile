@@ -26,6 +26,7 @@ endif
        build-svc-badptr image-svc-badptr \
        build-ipc-badptr-svc image-ipc-badptr-svc \
        build-ipc-buffer-full image-ipc-buffer-full \
+       build-ipc-waiter-busy image-ipc-waiter-busy \
        build-ipc-svc-overwrite image-ipc-svc-overwrite \
        build-svc-full image-svc-full \
        build-shm image-shm \
@@ -218,6 +219,12 @@ build-ipc-buffer-full: $(ASM_OBJS) boot/linker.ld
 	cd kernel_rs && $(CARGO) build --release --features ipc_buffer_full_test
 	$(LD) $(LDFLAGS) -o $(OUT)/kernel-ipc-buffer-full.elf $(ASM_OBJS) $(KERNEL_LIB)
 
+# --- R4: IPC waiter-busy semantics test kernel --------------------------------
+
+build-ipc-waiter-busy: $(ASM_OBJS) boot/linker.ld
+	cd kernel_rs && $(CARGO) build --release --features ipc_waiter_busy_test
+	$(LD) $(LDFLAGS) -o $(OUT)/kernel-ipc-waiter-busy.elf $(ASM_OBJS) $(KERNEL_LIB)
+
 # --- R4: SVC overwrite test kernel -------------------------------------------
 
 build-ipc-svc-overwrite: $(ASM_OBJS) boot/linker.ld
@@ -347,6 +354,9 @@ image-ipc-badptr-svc: build-svc-badptr
 image-ipc-buffer-full: build-ipc-buffer-full
 	PATH="$(WSL_PATH)" CC="$(CC)" XORRISO="$(XORRISO)" KERNEL_ELF=kernel-ipc-buffer-full.elf ISO_NAME=os-ipc-buffer-full.iso bash tools/mkimage.sh
 
+image-ipc-waiter-busy: build-ipc-waiter-busy
+	PATH="$(WSL_PATH)" CC="$(CC)" XORRISO="$(XORRISO)" KERNEL_ELF=kernel-ipc-waiter-busy.elf ISO_NAME=os-ipc-waiter-busy.iso bash tools/mkimage.sh
+
 image-ipc-svc-overwrite: build-ipc-svc-overwrite
 	PATH="$(WSL_PATH)" CC="$(CC)" XORRISO="$(XORRISO)" KERNEL_ELF=kernel-ipc-svc-overwrite.elf ISO_NAME=os-svc-overwrite.iso bash tools/mkimage.sh
 
@@ -419,7 +429,7 @@ image-go: build-go
 run: image
 	./tools/run_qemu.sh
 
-test-qemu: image image-panic image-pf image-idt image-sched image-user-hello image-syscall image-syscall-invalid image-stress-syscall image-stress-ipc image-stress-blk image-pressure-shm image-yield image-user-fault image-ipc image-ipc-badptr-send image-ipc-badptr-recv image-svc-badptr image-ipc-buffer-full image-ipc-svc-overwrite image-svc-full image-shm image-quota-endpoints image-quota-shm image-quota-threads image-blk image-blk-badlen image-blk-badptr image-blk-invariants image-fs image-fs-badmagic image-pkg-hash image-net image-go
+test-qemu: image image-panic image-pf image-idt image-sched image-user-hello image-syscall image-syscall-invalid image-stress-syscall image-stress-ipc image-stress-blk image-pressure-shm image-yield image-user-fault image-ipc image-ipc-badptr-send image-ipc-badptr-recv image-svc-badptr image-ipc-buffer-full image-ipc-waiter-busy image-ipc-svc-overwrite image-svc-full image-shm image-quota-endpoints image-quota-shm image-quota-threads image-blk image-blk-badlen image-blk-badptr image-blk-invariants image-fs image-fs-badmagic image-pkg-hash image-net image-go
 	$(PYTHON) -m pytest tests/ -v
 
 repro-check:

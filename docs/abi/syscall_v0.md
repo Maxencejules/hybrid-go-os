@@ -43,8 +43,8 @@ indicates an error.
 | 5 | sys_vm_unmap | rdi=vaddr, rsi=size | 0 or -1 | Stub | Unmap memory |
 | 6 | sys_shm_create | rdi=size | shm_handle or -1 | **Implemented (R4)** | Create shared memory region (max 4096 bytes) |
 | 7 | sys_shm_map | rdi=shm_handle, rsi=addr_hint, rdx=flags | mapped_addr or -1 | **Implemented (R4)** | Map shared memory into caller's address space |
-| 8 | sys_ipc_send | rdi=endpoint, rsi=buf, rdx=len | 0 or -1 | **Implemented (R4)** | Send message to IPC endpoint (max 256 bytes) |
-| 9 | sys_ipc_recv | rdi=endpoint, rsi=buf, rdx=cap | bytes_received or -1 | **Implemented (R4)** | Receive from IPC endpoint (blocks if empty) |
+| 8 | sys_ipc_send | rdi=endpoint, rsi=buf, rdx=len | 0 or -1 | **Implemented (R4)** | Send message to IPC endpoint (`len` must be 1..256; no truncation) |
+| 9 | sys_ipc_recv | rdi=endpoint, rsi=buf, rdx=cap | bytes_received or -1 | **Implemented (R4)** | Receive from IPC endpoint (blocks if empty; second waiter is rejected) |
 | 10 | sys_time_now | -- | tick count | Implemented (M3) | Current monotonic tick count |
 | 11 | sys_svc_register | rdi=name_ptr, rsi=name_len, rdx=endpoint | 0 or -1 | **Implemented (R4)** | Register service name → endpoint mapping |
 | 12 | sys_svc_lookup | rdi=name_ptr, rsi=name_len | endpoint or -1 | **Implemented (R4)** | Lookup service endpoint by name |
@@ -73,6 +73,11 @@ the call returns -1 and the existing message is **not** overwritten.
 This makes send behavior deterministic: callers can detect back-pressure
 without silent data loss.
 
+Payloads are never silently truncated:
+- `sys_ipc_send` returns -1 if `len == 0` or `len > 256`.
+- If a buffered message exists and `sys_ipc_recv` is called with `cap < msg_len`,
+  the call returns -1 and the message remains buffered.
+
 ### Blocking semantics
 
 - `sys_ipc_recv` blocks if no message is available. The kernel saves the
@@ -83,6 +88,10 @@ without silent data loss.
 - If no waiter exists **and** the endpoint's slot is empty, the message
   is stored in the endpoint's buffer. If the slot is occupied, -1 is
   returned.
+- At most one blocked waiter is allowed per endpoint. A second
+  `sys_ipc_recv` waiter on the same endpoint returns -1 (no waiter overwrite).
+- If a waiter exists but its receive capacity is smaller than the send
+  payload length, `sys_ipc_send` returns -1 and does not partially deliver.
 
 ### Message format
 

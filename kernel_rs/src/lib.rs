@@ -19,7 +19,7 @@ macro_rules! cfg_user {
         $(
             #[cfg(any(
                 feature = "user_hello_test", feature = "syscall_test", feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test", feature = "user_fault_test",
-                feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_recv_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "svc_overwrite_test", feature = "svc_full_test", feature = "stress_ipc_test", feature = "quota_endpoints_test", feature = "quota_shm_test", feature = "quota_threads_test", feature = "blk_test", feature = "fs_test",
+                feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_recv_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "ipc_waiter_busy_test", feature = "svc_overwrite_test", feature = "svc_full_test", feature = "stress_ipc_test", feature = "quota_endpoints_test", feature = "quota_shm_test", feature = "quota_threads_test", feature = "blk_test", feature = "fs_test",
                 feature = "go_test",
             ))]
             $item
@@ -31,7 +31,7 @@ macro_rules! cfg_user {
 macro_rules! cfg_r4 {
     ($($item:item)*) => {
         $(
-            #[cfg(any(feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_recv_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "svc_overwrite_test", feature = "svc_full_test", feature = "stress_ipc_test", feature = "quota_endpoints_test", feature = "quota_shm_test", feature = "quota_threads_test"))]
+            #[cfg(any(feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_recv_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "ipc_waiter_busy_test", feature = "svc_overwrite_test", feature = "svc_full_test", feature = "stress_ipc_test", feature = "quota_endpoints_test", feature = "quota_shm_test", feature = "quota_threads_test"))]
             $item
         )*
     };
@@ -447,14 +447,14 @@ extern "C" { static stack_top: u8; }
 
 unsafe fn handle_user_fault(frame: *mut u64) {
     // R4: kill current task and switch to next
-    #[cfg(any(feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_recv_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "svc_overwrite_test", feature = "svc_full_test", feature = "stress_ipc_test", feature = "quota_endpoints_test", feature = "quota_shm_test", feature = "quota_threads_test"))]
+    #[cfg(any(feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_recv_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "ipc_waiter_busy_test", feature = "svc_overwrite_test", feature = "svc_full_test", feature = "stress_ipc_test", feature = "quota_endpoints_test", feature = "quota_shm_test", feature = "quota_threads_test"))]
     {
         r4_kill_and_switch(frame);
         return;
     }
 
     // M3: kill user task and return to kernel
-    #[cfg(not(any(feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_recv_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "svc_overwrite_test", feature = "svc_full_test", feature = "stress_ipc_test", feature = "quota_endpoints_test", feature = "quota_shm_test", feature = "quota_threads_test")))]
+    #[cfg(not(any(feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_recv_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "ipc_waiter_busy_test", feature = "svc_overwrite_test", feature = "svc_full_test", feature = "stress_ipc_test", feature = "quota_endpoints_test", feature = "quota_shm_test", feature = "quota_threads_test")))]
     {
         serial_write(b"USER: killed\n");
         let kstack = &stack_top as *const u8 as u64;
@@ -498,7 +498,7 @@ unsafe fn syscall_dispatch(frame: *mut u64) {
     }
 
     // R4 dispatch
-    #[cfg(any(feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_recv_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "svc_overwrite_test", feature = "svc_full_test", feature = "stress_ipc_test", feature = "quota_endpoints_test", feature = "quota_shm_test", feature = "quota_threads_test"))]
+    #[cfg(any(feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_recv_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "ipc_waiter_busy_test", feature = "svc_overwrite_test", feature = "svc_full_test", feature = "stress_ipc_test", feature = "quota_endpoints_test", feature = "quota_shm_test", feature = "quota_threads_test"))]
     {
         if nr == 98 {
             qemu_exit(arg1 as u8);
@@ -523,7 +523,7 @@ unsafe fn syscall_dispatch(frame: *mut u64) {
     }
 
     // M3 dispatch
-    #[cfg(not(any(feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_recv_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "svc_overwrite_test", feature = "svc_full_test", feature = "stress_ipc_test", feature = "quota_endpoints_test", feature = "quota_shm_test", feature = "quota_threads_test")))]
+    #[cfg(not(any(feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_recv_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "ipc_waiter_busy_test", feature = "svc_overwrite_test", feature = "svc_full_test", feature = "stress_ipc_test", feature = "quota_endpoints_test", feature = "quota_shm_test", feature = "quota_threads_test")))]
     {
         #[cfg(any(feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test"))]
         {
@@ -1304,7 +1304,10 @@ cfg_r4! {
             return 0xFFFF_FFFF_FFFF_FFFF;
         }
 
-        let n = if len > R4_MAX_MSG_LEN as u64 { R4_MAX_MSG_LEN } else { len as usize };
+        if len == 0 || len > R4_MAX_MSG_LEN as u64 {
+            return 0xFFFF_FFFF_FFFF_FFFF;
+        }
+        let n = len as usize;
 
         // Copy from user to kernel buffer (validates range + page tables)
         let mut kbuf = [0u8; R4_MAX_MSG_LEN];
@@ -1316,13 +1319,23 @@ cfg_r4! {
         let waiter = R4_ENDPOINTS[ep].waiter;
         if waiter >= 0 {
             let wt = waiter as usize;
-            let wn = if n < R4_TASKS[wt].recv_cap as usize { n } else { R4_TASKS[wt].recv_cap as usize };
-            if wn > 0 {
-                if copyout_user(R4_TASKS[wt].recv_buf, &kbuf[..wn], wn).is_err() {
-                    return 0xFFFF_FFFF_FFFF_FFFF;
-                }
+            if wt >= R4_MAX_TASKS {
+                R4_ENDPOINTS[ep].waiter = -1;
+                return 0xFFFF_FFFF_FFFF_FFFF;
             }
-            R4_TASKS[wt].saved_frame[14] = wn as u64; // return value for recv
+            // Stale waiter can happen if bookkeeping got out of sync.
+            if R4_TASKS[wt].state != R4State::Blocked || R4_TASKS[wt].recv_ep != endpoint {
+                R4_ENDPOINTS[ep].waiter = -1;
+                return 0xFFFF_FFFF_FFFF_FFFF;
+            }
+            // Never silently truncate delivery to a blocked receiver.
+            if (R4_TASKS[wt].recv_cap as usize) < n {
+                return 0xFFFF_FFFF_FFFF_FFFF;
+            }
+            if copyout_user(R4_TASKS[wt].recv_buf, &kbuf[..n], n).is_err() {
+                return 0xFFFF_FFFF_FFFF_FFFF;
+            }
+            R4_TASKS[wt].saved_frame[14] = n as u64; // return value for recv
             R4_TASKS[wt].state = R4State::Ready;
             R4_ENDPOINTS[ep].waiter = -1;
             return 0;
@@ -1341,6 +1354,10 @@ cfg_r4! {
             *frame.add(14) = 0xFFFF_FFFF_FFFF_FFFF;
             return;
         }
+        if cap == 0 {
+            *frame.add(14) = 0xFFFF_FFFF_FFFF_FFFF;
+            return;
+        }
         let cap_n = if cap > R4_MAX_MSG_LEN as u64 { R4_MAX_MSG_LEN } else { cap as usize };
         if !user_range_ok(buf, cap_n) || !user_pages_ok(buf, cap_n, USER_PERM_WRITE) {
             *frame.add(14) = 0xFFFF_FFFF_FFFF_FFFF;
@@ -1349,26 +1366,31 @@ cfg_r4! {
 
         // If message available, deliver immediately
         if R4_ENDPOINTS[ep].has_msg {
-            let n = if R4_ENDPOINTS[ep].msg_len < cap as usize {
-                R4_ENDPOINTS[ep].msg_len
-            } else {
-                cap as usize
-            };
-            if n > 0 {
-                if copyout_user(buf, &R4_ENDPOINTS[ep].msg_data[..n], n).is_err() {
-                    *frame.add(14) = 0xFFFF_FFFF_FFFF_FFFF;
-                    return;
-                }
+            let n = R4_ENDPOINTS[ep].msg_len;
+            // Never silently truncate a queued message on recv.
+            if cap_n < n {
+                *frame.add(14) = 0xFFFF_FFFF_FFFF_FFFF;
+                return;
+            }
+            if copyout_user(buf, &R4_ENDPOINTS[ep].msg_data[..n], n).is_err() {
+                *frame.add(14) = 0xFFFF_FFFF_FFFF_FFFF;
+                return;
             }
             R4_ENDPOINTS[ep].has_msg = false;
             *frame.add(14) = n as u64;
             return;
         }
 
+        // A second waiter on the same endpoint is rejected explicitly.
+        if R4_ENDPOINTS[ep].waiter >= 0 && R4_ENDPOINTS[ep].waiter != R4_CURRENT as i32 {
+            *frame.add(14) = 0xFFFF_FFFF_FFFF_FFFF;
+            return;
+        }
+
         // No message — block current task and switch
         R4_TASKS[R4_CURRENT].recv_ep = endpoint;
         R4_TASKS[R4_CURRENT].recv_buf = buf;
-        R4_TASKS[R4_CURRENT].recv_cap = cap;
+        R4_TASKS[R4_CURRENT].recv_cap = cap_n as u64;
         r4_save_frame(frame, R4_CURRENT);
         R4_TASKS[R4_CURRENT].state = R4State::Blocked;
         R4_ENDPOINTS[ep].waiter = R4_CURRENT as i32;
@@ -2522,6 +2544,82 @@ static IPC_BUFFER_FULL_BLOB: [u8; 137] = [
     b'B', b'B', b'B', b'B',
     // Data @0x7C: "IPC: full ok\n"
     b'I', b'P', b'C', b':', b' ', b'f', b'u', b'l', b'l', b' ', b'o', b'k', b'\n',
+];
+
+// IPC waiter policy test:
+// - task0 blocks in recv(ep0, cap=4)
+// - task1 recv on same ep must return -1 (second waiter rejected)
+// - task1 send len=8 to blocked waiter cap=4 must return -1 (no truncation)
+// - task1 send len=300 must return -1 (oversize rejected)
+// - task1 prints success marker
+#[cfg(feature = "ipc_waiter_busy_test")]
+static IPC_WAITER_BLOCK_BLOB: [u8; 37] = [
+    // sys_ipc_recv(endpoint=0, rsp-256, cap=4)
+    0x31, 0xFF,                                   // xor edi, edi
+    0x48, 0x89, 0xE6,                             // mov rsi, rsp
+    0x48, 0x81, 0xEE, 0x00, 0x01, 0x00, 0x00,   // sub rsi, 0x100
+    0xBA, 0x04, 0x00, 0x00, 0x00,               // mov edx, 4
+    0xB8, 0x09, 0x00, 0x00, 0x00,               // mov eax, 9
+    0xCD, 0x80,                                   // int 0x80
+    // unexpected return -> exit(0x33)
+    0xBF, 0x33, 0x00, 0x00, 0x00,               // mov edi, 0x33
+    0xB8, 0x62, 0x00, 0x00, 0x00,               // mov eax, 98
+    0xCD, 0x80,                                   // int 0x80
+    0xF4,                                         // hlt
+];
+
+#[cfg(feature = "ipc_waiter_busy_test")]
+static IPC_WAITER_CONTENDER_BLOB: [u8; 154] = [
+    // 1) recv on same endpoint -> must return -1 (waiter already present)
+    0x31, 0xFF,                                   // xor edi, edi
+    0x48, 0x89, 0xE6,                             // mov rsi, rsp
+    0x48, 0x81, 0xEE, 0x00, 0x01, 0x00, 0x00,   // sub rsi, 0x100
+    0xBA, 0x04, 0x00, 0x00, 0x00,               // mov edx, 4
+    0xB8, 0x09, 0x00, 0x00, 0x00,               // mov eax, 9
+    0xCD, 0x80,                                   // int 0x80
+    0x48, 0x83, 0xF8, 0xFF,                       // cmp rax, -1
+    0x75, 0x59,                                   // jne fail
+
+    // 2) send len=8 to blocked waiter(cap=4) -> must return -1 (no truncation)
+    0x31, 0xFF,                                   // xor edi, edi
+    0x48, 0x89, 0xE6,                             // mov rsi, rsp
+    0x48, 0x81, 0xEE, 0x00, 0x01, 0x00, 0x00,   // sub rsi, 0x100
+    0xBA, 0x08, 0x00, 0x00, 0x00,               // mov edx, 8
+    0xB8, 0x08, 0x00, 0x00, 0x00,               // mov eax, 8
+    0xCD, 0x80,                                   // int 0x80
+    0x48, 0x83, 0xF8, 0xFF,                       // cmp rax, -1
+    0x75, 0x3B,                                   // jne fail
+
+    // 3) send len=300 -> must return -1 (oversize reject)
+    0x31, 0xFF,                                   // xor edi, edi
+    0x48, 0x89, 0xE6,                             // mov rsi, rsp
+    0x48, 0x81, 0xEE, 0x00, 0x01, 0x00, 0x00,   // sub rsi, 0x100
+    0xBA, 0x2C, 0x01, 0x00, 0x00,               // mov edx, 300
+    0xB8, 0x08, 0x00, 0x00, 0x00,               // mov eax, 8
+    0xCD, 0x80,                                   // int 0x80
+    0x48, 0x83, 0xF8, 0xFF,                       // cmp rax, -1
+    0x75, 0x1D,                                   // jne fail
+
+    // pass: sys_debug_write("IPC: waiter strict ok\n", 22) then exit(0x31)
+    0x48, 0x8D, 0x3D, 0x23, 0x00, 0x00, 0x00,   // lea rdi, [rip+0x23] -> msg
+    0xBE, 0x16, 0x00, 0x00, 0x00,               // mov esi, 22
+    0x31, 0xC0,                                   // xor eax, eax
+    0xCD, 0x80,                                   // int 0x80
+    0xBF, 0x31, 0x00, 0x00, 0x00,               // mov edi, 0x31
+    0xB8, 0x62, 0x00, 0x00, 0x00,               // mov eax, 98
+    0xCD, 0x80,                                   // int 0x80
+    0xF4,                                         // hlt
+
+    // fail: exit(0x33)
+    0xBF, 0x33, 0x00, 0x00, 0x00,               // mov edi, 0x33
+    0xB8, 0x62, 0x00, 0x00, 0x00,               // mov eax, 98
+    0xCD, 0x80,                                   // int 0x80
+    0xF4,                                         // hlt
+
+    // Data: "IPC: waiter strict ok\n"
+    b'I', b'P', b'C', b':', b' ', b'w', b'a', b'i', b't', b'e',
+    b'r', b' ', b's', b't', b'r', b'i', b'c', b't', b' ', b'o',
+    b'k', b'\n',
 ];
 
 // SVC overwrite blob (single task: register "foo"→1, register "foo"→2, lookup must return 2)
@@ -3712,6 +3810,26 @@ pub extern "C" fn kmain() -> ! {
         // Single task
         R4_NUM_TASKS = 1;
         r4_init_task(0, USER_CODE_VA, USER_STACK_TOP);
+        R4_TASKS[0].state = R4State::Running;
+        R4_CURRENT = 0;
+
+        enter_ring3_at(USER_CODE_VA, USER_STACK_TOP);
+    }
+
+    // R4: ipc_waiter_busy_test — second waiter and truncation cases return -1
+    #[cfg(feature = "ipc_waiter_busy_test")]
+    unsafe {
+        let kstack = &stack_top as *const u8 as u64;
+        tss_init(kstack);
+        setup_r4_pages(&IPC_WAITER_BLOCK_BLOB, &IPC_WAITER_CONTENDER_BLOB);
+
+        // Pre-create endpoint 0 shared by both tasks
+        R4_ENDPOINTS[0].active = true;
+
+        // task 0 blocks first, task 1 verifies deterministic -1 behavior
+        R4_NUM_TASKS = 2;
+        r4_init_task(0, USER_CODE_VA, USER_STACK_TOP);
+        r4_init_task(1, USER_CODE2_VA, USER_STACK2_TOP);
         R4_TASKS[0].state = R4State::Running;
         R4_CURRENT = 0;
 
