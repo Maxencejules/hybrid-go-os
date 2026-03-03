@@ -567,13 +567,25 @@ unsafe fn sys_debug_write(buf: u64, len: u64) -> u64 {
 }
 
 unsafe fn sys_time_now() -> u64 {
-    #[cfg(any(feature = "user_hello_test", feature = "syscall_test", feature = "stress_syscall_test", feature = "user_fault_test"))]
+    #[cfg(any(
+        feature = "user_hello_test",
+        feature = "syscall_test",
+        feature = "stress_syscall_test",
+        feature = "user_fault_test",
+        feature = "go_std_test"
+    ))]
     {
         let t = MONOTONIC_TICK;
         MONOTONIC_TICK += 1;
         return t;
     }
-    #[cfg(not(any(feature = "user_hello_test", feature = "syscall_test", feature = "stress_syscall_test", feature = "user_fault_test")))]
+    #[cfg(not(any(
+        feature = "user_hello_test",
+        feature = "syscall_test",
+        feature = "stress_syscall_test",
+        feature = "user_fault_test",
+        feature = "go_std_test"
+    )))]
     { 0 }
 }
 

@@ -6,7 +6,7 @@ Define a concrete G2 spike lane that:
 - establishes the target contract (`GOOS=rugo`, `GOARCH=amd64`),
 - documents runtime hook and syscall bridge requirements,
 - produces a minimal user binary artifact that can feed
-  `test_std_go_binary` (`GOSTD: ok` marker path).
+  `test_std_go_binary` (deterministic marker path).
 
 ## Target contract
 
@@ -34,17 +34,24 @@ Current spike compiler bridge:
 - Flat binary output: `out/gostd.bin`
 - Kernel feature: `go_std_test`
 - ISO target: `os-go-std.iso`
-- Acceptance path: `tests/go/test_std_go_binary.py` (`GOSTD: ok`)
+- Acceptance path: `tests/go/test_std_go_binary.py` (marker set: `GOSTD: ok`,
+  `GOSTD: time ok`, `GOSTD: yield ok`, `THREAD_EXIT: ok`)
 
 ## Runtime hooks and glue points
 
 ### Implemented in spike lane
 
-Entry and syscall glue (`services/go_std/start.asm`):
-- `_start` -> calls `main`, then halts.
+Entry and syscall glue:
+- `services/go_std/rt0.asm`: `_start` -> calls `main`, then halts.
+- `services/go_std/syscalls.asm`: syscall wrappers.
+- `services/go_std/start.asm`: thin aggregator including the split assembly files.
 - `main.sysDebugWrite` -> syscall `0` (`sys_debug_write`) via `int 0x80`.
+- `main.sysThreadExit` -> syscall `2` (`sys_thread_exit`) via `int 0x80`.
+- `main.sysYield` -> syscall `3` (`sys_yield`) via `int 0x80`.
+- `main.sysTimeNow` -> syscall `10` (`sys_time_now`) via `int 0x80`.
 
 Runtime/libc stubs used by TinyGo subset:
+`services/go_std/runtime_stubs.asm`
 - `runtime.alloc` (simple bump allocator)
 - `getrandom`
 - `tinygo_register_fatal_signals`
@@ -66,11 +73,11 @@ Runtime hook categories to replace spike stubs with real OS integration:
 |------------------|------------|------------|-------------------|
 | debug write | `main.sysDebugWrite` | `0` | `sys_debug_write` |
 | thread spawn (planned) | `main.sysThreadSpawn` | `1` | `sys_thread_spawn` |
-| thread exit (planned) | `main.sysThreadExit` | `2` | `sys_thread_exit` |
-| yield (planned) | `main.sysYield` | `3` | `sys_yield` |
+| thread exit | `main.sysThreadExit` | `2` | `sys_thread_exit` |
+| yield | `main.sysYield` | `3` | `sys_yield` |
 | vm map (planned) | `main.sysVmMap` | `4` | `sys_vm_map` |
 | vm unmap (planned) | `main.sysVmUnmap` | `5` | `sys_vm_unmap` |
-| time now (planned) | `main.sysTimeNow` | `10` | `sys_time_now` |
+| time now | `main.sysTimeNow` | `10` | `sys_time_now` |
 | blk read (planned) | `main.sysBlkRead` | `13` | `sys_blk_read` |
 | blk write (planned) | `main.sysBlkWrite` | `14` | `sys_blk_write` |
 | net send (planned) | `main.sysNetSend` | `15` | `sys_net_send` |
@@ -86,5 +93,6 @@ G1 (`go_test`) remains the stable TinyGo bringup lane.
 
 This spike lane (`go_std_test`) is intended to evolve until it can replace the
 G1 binary path for the standard-go acceptance target:
-- current marker: `GOSTD: ok`
+- current marker set: `GOSTD: ok`, `GOSTD: time ok`, `GOSTD: yield ok`,
+  `THREAD_EXIT: ok`
 - eventual target: stock Go toolchain output for `GOOS=rugo`, `GOARCH=amd64`.
