@@ -15,6 +15,7 @@ ISO_IDT_PATH = os.path.join(REPO_ROOT, "out", "os-idt.iso")
 ISO_SCHED_PATH = os.path.join(REPO_ROOT, "out", "os-sched.iso")
 ISO_USER_HELLO_PATH = os.path.join(REPO_ROOT, "out", "os-user-hello.iso")
 ISO_SYSCALL_PATH = os.path.join(REPO_ROOT, "out", "os-syscall.iso")
+ISO_THREAD_EXIT_PATH = os.path.join(REPO_ROOT, "out", "os-thread-exit.iso")
 ISO_SYSCALL_INVALID_PATH = os.path.join(REPO_ROOT, "out", "os-syscall-invalid.iso")
 ISO_STRESS_SYSCALL_PATH = os.path.join(REPO_ROOT, "out", "os-stress-syscall.iso")
 ISO_STRESS_IPC_PATH = os.path.join(REPO_ROOT, "out", "os-stress-ipc.iso")
@@ -164,6 +165,14 @@ def qemu_serial_syscall():
     if not os.path.isfile(ISO_SYSCALL_PATH):
         pytest.skip(f"ISO not built: {ISO_SYSCALL_PATH}")
     return _boot_iso(ISO_SYSCALL_PATH)
+
+
+@pytest.fixture
+def qemu_serial_thread_exit():
+    """Boot the thread-exit-test OS image and return captured serial output."""
+    if not os.path.isfile(ISO_THREAD_EXIT_PATH):
+        pytest.skip(f"ISO not built: {ISO_THREAD_EXIT_PATH}")
+    return _boot_iso(ISO_THREAD_EXIT_PATH)
 
 
 @pytest.fixture

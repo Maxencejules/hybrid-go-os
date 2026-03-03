@@ -65,7 +65,7 @@ Tests: `legacy/tests/` (boot, trap, sched, user, ipc, drivers, fs, pkg, net)
 | M0 | Boot + serial | ✅ | ✅ | Legacy: `legacy/tests/boot/test_boot_banner.py` (KERNEL markers). Rugo: `tests/boot/test_boot_banner.py` + `tests/boot/test_panic_path.py` (RUGO markers). |
 | M1 | Paging + traps | ✅ | ✅ | Legacy: `legacy/tests/boot/test_paging_enabled.py`, `legacy/tests/trap/test_page_fault_report.py`. Rugo: `tests/boot/test_paging_enabled.py`, `tests/trap/test_page_fault_report.py`, `tests/trap/test_idt_smoke.py`. |
 | M2 | Scheduler + threads | ✅ | ✅ | Legacy: `legacy/tests/sched/test_timer_ticks.py`, `legacy/tests/sched/test_two_threads.py`. Rugo: `tests/sched/test_timer_ticks.py`, `tests/sched/test_two_threads.py`. |
-| M3 | User mode + syscalls | ✅ | ✅ | Legacy: `legacy/tests/user/test_enter_user_mode.py`, `test_syscall_roundtrip.py`, `test_user_fault.py`. Rugo: `tests/user/test_enter_user_mode.py`, `tests/user/test_syscall_roundtrip.py`, `tests/user/test_user_fault.py`. |
+| M3 | User mode + syscalls | ✅ | ✅ | Legacy: `legacy/tests/user/test_enter_user_mode.py`, `test_syscall_roundtrip.py`, `test_user_fault.py`. Rugo: `tests/user/test_enter_user_mode.py`, `tests/user/test_syscall_roundtrip.py`, `tests/user/test_thread_exit.py`, `tests/user/test_user_fault.py`. |
 | M4 | IPC + shared memory | ✅ | ✅ | Legacy: `legacy/tests/ipc/test_ping_pong.py`, `legacy/tests/ipc/test_shm_bulk.py`. Rugo: `tests/ipc/test_ping_pong.py`, `tests/ipc/test_shm_bulk.py`. |
 | M5 | VirtIO block + syscalls | ✅ | ✅ | Legacy: `legacy/tests/drivers/test_virtio_blk_identify.py`, `test_virtio_blk_rw.py`. Rugo: `tests/drivers/test_virtio_blk_identify.py`, `tests/drivers/test_virtio_blk_rw.py`. |
 | M6 | Filesystem + pkg + shell | ✅ | ✅ | Legacy: `legacy/tests/fs/test_fsd_smoke.py`, `legacy/tests/pkg/test_pkg_install_run.py`. Rugo: `tests/fs/test_fsd_smoke.py`, `tests/pkg/test_pkg_install_run.py`. |
@@ -240,6 +240,7 @@ Track B: Full Go port (long-term)
 |------|---------|
 | `test_enter_user_mode` | `USER: hello` |
 | `test_syscall_roundtrip` | `SYSCALL: ok` |
+| `test_thread_exit` | `THREAD_EXIT: ok` and clean halt |
 | `test_user_fault` | `USER: killed` and kernel continues |
 
 ### Legacy evidence
@@ -249,7 +250,7 @@ Track B: Full Go port (long-term)
 
 ### Rugo evidence
 
-- `tests/user/test_enter_user_mode.py`, `tests/user/test_syscall_roundtrip.py`, `tests/user/test_user_fault.py`
+- `tests/user/test_enter_user_mode.py`, `tests/user/test_syscall_roundtrip.py`, `tests/user/test_thread_exit.py`, `tests/user/test_user_fault.py`
 - `docs/abi/syscall_v0.md` (ABI contract)
 - `kernel_rs/src/lib.rs` (ring 3 entry, syscall dispatch, user-fault containment)
 

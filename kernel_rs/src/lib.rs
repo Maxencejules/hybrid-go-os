@@ -7,7 +7,7 @@ use core::panic::PanicInfo;
 macro_rules! cfg_m3 {
     ($($item:item)*) => {
         $(
-            #[cfg(any(feature = "user_hello_test", feature = "syscall_test", feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test", feature = "user_fault_test", feature = "blk_test", feature = "fs_test", feature = "go_test"))]
+            #[cfg(any(feature = "user_hello_test", feature = "syscall_test", feature = "thread_exit_test", feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test", feature = "user_fault_test", feature = "blk_test", feature = "fs_test", feature = "go_test"))]
             $item
         )*
     };
@@ -18,7 +18,7 @@ macro_rules! cfg_user {
     ($($item:item)*) => {
         $(
             #[cfg(any(
-                feature = "user_hello_test", feature = "syscall_test", feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test", feature = "user_fault_test",
+                feature = "user_hello_test", feature = "syscall_test", feature = "thread_exit_test", feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test", feature = "user_fault_test",
                 feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_recv_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "ipc_waiter_busy_test", feature = "svc_overwrite_test", feature = "svc_full_test", feature = "svc_bad_endpoint_test", feature = "stress_ipc_test", feature = "quota_endpoints_test", feature = "quota_shm_test", feature = "quota_threads_test", feature = "blk_test", feature = "fs_test",
                 feature = "go_test",
             ))]
@@ -445,6 +445,16 @@ extern "C" fn user_fault_return() -> ! {
 
 extern "C" { static stack_top: u8; }
 
+#[cfg(not(any(feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_recv_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "ipc_waiter_busy_test", feature = "svc_overwrite_test", feature = "svc_full_test", feature = "svc_bad_endpoint_test", feature = "stress_ipc_test", feature = "quota_endpoints_test", feature = "quota_shm_test", feature = "quota_threads_test")))]
+unsafe fn m3_return_to_kernel_halt(frame: *mut u64) {
+    let kstack = &stack_top as *const u8 as u64;
+    *frame.add(17) = user_fault_return as *const () as u64;
+    *frame.add(18) = 0x08;
+    *frame.add(19) = 0x02;
+    *frame.add(20) = kstack;
+    *frame.add(21) = 0x10;
+}
+
 unsafe fn handle_user_fault(frame: *mut u64) {
     // R4: kill current task and switch to next
     #[cfg(any(feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_recv_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "ipc_waiter_busy_test", feature = "svc_overwrite_test", feature = "svc_full_test", feature = "svc_bad_endpoint_test", feature = "stress_ipc_test", feature = "quota_endpoints_test", feature = "quota_shm_test", feature = "quota_threads_test"))]
@@ -457,12 +467,7 @@ unsafe fn handle_user_fault(frame: *mut u64) {
     #[cfg(not(any(feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_recv_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "ipc_waiter_busy_test", feature = "svc_overwrite_test", feature = "svc_full_test", feature = "svc_bad_endpoint_test", feature = "stress_ipc_test", feature = "quota_endpoints_test", feature = "quota_shm_test", feature = "quota_threads_test")))]
     {
         serial_write(b"USER: killed\n");
-        let kstack = &stack_top as *const u8 as u64;
-        *frame.add(17) = user_fault_return as *const () as u64;
-        *frame.add(18) = 0x08;
-        *frame.add(19) = 0x02;
-        *frame.add(20) = kstack;
-        *frame.add(21) = 0x10;
+        m3_return_to_kernel_halt(frame);
     }
 }
 
@@ -507,6 +512,7 @@ unsafe fn syscall_dispatch(frame: *mut u64) {
         match nr {
             0  => { *frame.add(14) = sys_debug_write(arg1, arg2); }
             1  => { *frame.add(14) = sys_thread_spawn_r4(arg1); }
+            2  => { r4_kill_and_switch(frame); }
             3  => { r4_yield_and_switch(frame); }
             17 => { *frame.add(14) = sys_ipc_endpoint_create_r4(); }
             6  => { *frame.add(14) = sys_shm_create_r4(arg1); }
@@ -525,6 +531,11 @@ unsafe fn syscall_dispatch(frame: *mut u64) {
     // M3 dispatch
     #[cfg(not(any(feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_recv_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "ipc_waiter_busy_test", feature = "svc_overwrite_test", feature = "svc_full_test", feature = "svc_bad_endpoint_test", feature = "stress_ipc_test", feature = "quota_endpoints_test", feature = "quota_shm_test", feature = "quota_threads_test")))]
     {
+        if nr == 2 {
+            sys_thread_exit_m3(frame);
+            return;
+        }
+
         #[cfg(any(feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test"))]
         {
             if nr == 98 {
@@ -574,6 +585,12 @@ unsafe fn sys_yield() -> u64 {
         }
     }
     0
+}
+
+#[cfg(not(any(feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_recv_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "ipc_waiter_busy_test", feature = "svc_overwrite_test", feature = "svc_full_test", feature = "svc_bad_endpoint_test", feature = "stress_ipc_test", feature = "quota_endpoints_test", feature = "quota_shm_test", feature = "quota_threads_test")))]
+unsafe fn sys_thread_exit_m3(frame: *mut u64) {
+    serial_write(b"THREAD_EXIT: ok\n");
+    m3_return_to_kernel_halt(frame);
 }
 
 #[cfg(feature = "fs_test")]
@@ -934,6 +951,13 @@ cfg_m3! {
         0xf4, 0x00, 0x00, 0x00,
         b'S', b'Y', b'S', b'C', b'A', b'L', b'L',
         b':', b' ', b'o', b'k', b'\n',
+    ];
+
+    #[cfg(feature = "thread_exit_test")]
+    static USER_THREAD_EXIT_BLOB: [u8; 8] = [
+        0xB8, 0x02, 0x00, 0x00, 0x00,
+        0xCD, 0x80,
+        0xF4,
     ];
 
     static USER_FAULT_BLOB: [u8; 9] = [
@@ -3657,6 +3681,15 @@ pub extern "C" fn kmain() -> ! {
         enter_ring3_at(USER_CODE_VA, USER_STACK_TOP);
     }
 
+    // M3: thread_exit_test
+    #[cfg(feature = "thread_exit_test")]
+    unsafe {
+        let kstack = &stack_top as *const u8 as u64;
+        tss_init(kstack);
+        setup_user_pages(&USER_THREAD_EXIT_BLOB);
+        enter_ring3_at(USER_CODE_VA, USER_STACK_TOP);
+    }
+
     // M3: syscall_invalid_test
     #[cfg(feature = "syscall_invalid_test")]
     unsafe {
@@ -4268,6 +4301,7 @@ pub extern "C" fn kmain() -> ! {
         feature = "sched_test",
         feature = "user_hello_test",
         feature = "syscall_test",
+        feature = "thread_exit_test",
         feature = "syscall_invalid_test",
         feature = "stress_syscall_test",
         feature = "yield_test",
