@@ -45,6 +45,7 @@ endif
        build-pkg-hash image-pkg-hash \
        build-net image-net \
        build-go image-go \
+       build-go-std image-go-std \
        run test-qemu repro-check clean legacy docker-all docker-legacy
 
 # Tools
@@ -454,10 +455,20 @@ build-go: $(ASM_OBJS) boot/linker.ld
 image-go: build-go
 	PATH="$(WSL_PATH)" CC="$(CC)" XORRISO="$(XORRISO)" KERNEL_ELF=kernel-go.elf ISO_NAME=os-go.iso bash tools/mkimage.sh
 
+# --- G2 spike: Go std-port candidate kernel -----------------------------------
+
+build-go-std: $(ASM_OBJS) boot/linker.ld
+	bash tools/build_go_std_spike.sh
+	cd kernel_rs && $(CARGO) build --release --features go_std_test
+	$(LD) $(LDFLAGS) -o $(OUT)/kernel-go-std.elf $(ASM_OBJS) $(KERNEL_LIB)
+
+image-go-std: build-go-std
+	PATH="$(WSL_PATH)" CC="$(CC)" XORRISO="$(XORRISO)" KERNEL_ELF=kernel-go-std.elf ISO_NAME=os-go-std.iso bash tools/mkimage.sh
+
 run: image
 	./tools/run_qemu.sh
 
-test-qemu: image image-panic image-pf image-idt image-sched image-user-hello image-syscall image-thread-exit image-syscall-invalid image-stress-syscall image-stress-ipc image-stress-blk image-pressure-shm image-yield image-user-fault image-ipc image-ipc-badptr-send image-ipc-badptr-recv image-svc-badptr image-ipc-buffer-full image-ipc-waiter-busy image-ipc-svc-overwrite image-svc-full image-svc-bad-endpoint image-shm image-quota-endpoints image-quota-shm image-quota-threads image-blk image-blk-badlen image-blk-badptr image-blk-invariants image-blk-init-fail image-fs image-fs-badmagic image-pkg-hash image-net image-go
+test-qemu: image image-panic image-pf image-idt image-sched image-user-hello image-syscall image-thread-exit image-syscall-invalid image-stress-syscall image-stress-ipc image-stress-blk image-pressure-shm image-yield image-user-fault image-ipc image-ipc-badptr-send image-ipc-badptr-recv image-svc-badptr image-ipc-buffer-full image-ipc-waiter-busy image-ipc-svc-overwrite image-svc-full image-svc-bad-endpoint image-shm image-quota-endpoints image-quota-shm image-quota-threads image-blk image-blk-badlen image-blk-badptr image-blk-invariants image-blk-init-fail image-fs image-fs-badmagic image-pkg-hash image-net image-go image-go-std
 	$(PYTHON) -m pytest tests/ -v
 
 repro-check:

@@ -446,11 +446,16 @@ stops churning.
 
 ### Rugo evidence
 
-- Prep in progress: `tests/go/test_std_go_binary.py` scaffold added (`GOSTD: ok` marker).
+- Prep in progress: `tests/go/test_std_go_binary.py` plus `go_std_test`
+  spike lane target (`GOSTD: ok` marker).
 - Contract freeze active (2026-03-03 to 2026-03-17 or 2 releases):
   `docs/abi/syscall_v0.md` locks syscall semantics and marks FS/NET syscall
   contracts no-breaking-change during freeze.
 - Process/thread model documented for freeze: `docs/abi/process_thread_model_v0.md`.
+- Go-port spike contract and bridge map: `docs/abi/go_port_spike_v0.md`
+  (`GOOS=rugo`, `GOARCH=amd64` contract).
+- Minimal spike binary target wired: `tools/build_go_std_spike.sh`,
+  `make image-go-std`, and kernel `go_std_test` feature (embeds `out/gostd.bin`).
 - Full runtime/toolchain porting remains blocked on M3+ ABI/process-model stability.
 
 ---

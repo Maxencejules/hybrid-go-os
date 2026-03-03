@@ -3,24 +3,24 @@
 
 use core::panic::PanicInfo;
 
-// Shorthand for "any M3 user-mode test feature is active (includes M5 blk_test, M6 fs_test, G1 go_test)"
+// Shorthand for "any M3 user-mode test feature is active (includes M5 blk_test, M6 fs_test, G1 go_test, G2 spike go_std_test)"
 macro_rules! cfg_m3 {
     ($($item:item)*) => {
         $(
-            #[cfg(any(feature = "user_hello_test", feature = "syscall_test", feature = "thread_exit_test", feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test", feature = "user_fault_test", feature = "blk_test", feature = "fs_test", feature = "go_test"))]
+            #[cfg(any(feature = "user_hello_test", feature = "syscall_test", feature = "thread_exit_test", feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test", feature = "user_fault_test", feature = "blk_test", feature = "fs_test", feature = "go_test", feature = "go_std_test"))]
             $item
         )*
     };
 }
 
-// Shorthand for "any user-mode feature (M3 or R4 or M5 or M6 or G1)"
+// Shorthand for "any user-mode feature (M3 or R4 or M5 or M6 or G1 or G2 spike)"
 macro_rules! cfg_user {
     ($($item:item)*) => {
         $(
             #[cfg(any(
                 feature = "user_hello_test", feature = "syscall_test", feature = "thread_exit_test", feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test", feature = "user_fault_test",
                 feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_recv_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "ipc_waiter_busy_test", feature = "svc_overwrite_test", feature = "svc_full_test", feature = "svc_bad_endpoint_test", feature = "stress_ipc_test", feature = "quota_endpoints_test", feature = "quota_shm_test", feature = "quota_threads_test", feature = "blk_test", feature = "fs_test",
-                feature = "go_test",
+                feature = "go_test", feature = "go_std_test",
             ))]
             $item
         )*
@@ -1069,6 +1069,11 @@ static USER_YIELD_BLOB: [u8; 53] = [
 
 #[cfg(feature = "go_test")]
 static GO_USER_BIN: &[u8] = include_bytes!("../../out/gousr.bin");
+
+// --------------- G2 spike: std-port candidate blob ----------------------------
+
+#[cfg(feature = "go_std_test")]
+static GO_STD_BIN: &[u8] = include_bytes!("../../out/gostd.bin");
 
 // =============================================================================
 // R4: IPC + shared memory + service registry
@@ -4247,6 +4252,15 @@ pub extern "C" fn kmain() -> ! {
         enter_ring3_at(USER_CODE_VA, USER_STACK_TOP);
     }
 
+    // G2 spike: go_std_test — std-port candidate user program
+    #[cfg(feature = "go_std_test")]
+    unsafe {
+        let kstack = &stack_top as *const u8 as u64;
+        tss_init(kstack);
+        setup_user_pages(GO_STD_BIN);
+        enter_ring3_at(USER_CODE_VA, USER_STACK_TOP);
+    }
+
     // M7: net_test — VirtIO net + UDP echo
     #[cfg(feature = "net_test")]
     unsafe {
@@ -4322,6 +4336,7 @@ pub extern "C" fn kmain() -> ! {
         feature = "fs_test",
         feature = "net_test",
         feature = "go_test",
+        feature = "go_std_test",
     )))]
     {
         serial_write(b"RUGO: halt ok\n");

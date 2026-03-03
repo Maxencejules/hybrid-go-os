@@ -38,7 +38,7 @@ make docker-legacy       # Legacy only (requires gccgo in Docker image)
 | **M7** VirtIO net + UDP | ✅ | ✅ | Rugo: `tests/net/test_udp_echo.py` (`NET: udp echo`). Legacy: `legacy/tests/net/test_udp_echo.py` |
 | **G0** Go kernel entry | ✅ | n/a | `legacy/tests/boot/test_go_entry.py` (`GO: kmain ok`). Legacy-only. Re-verified 2026-02-18 via Docker. |
 | **G1** Go services (TinyGo) | n/a | ✅ | Rugo: `tests/go/test_go_user_service.py` (`GOUSR: ok`). TinyGo bare-metal x86_64. |
-| **G2** Full Go port | n/a | ◐ | Rugo-only. In progress (prep): `tests/go/test_std_go_binary.py` scaffold for `GOSTD: ok`. Long-term. |
+| **G2** Full Go port | n/a | ◐ | Rugo-only. In progress (prep): `tests/go/test_std_go_binary.py` on `go_std_test` spike path (`os-go-std.iso`, `GOSTD: ok`). Long-term. |
 
 ✅ done &ensp; ◐ in progress (prep) &ensp; ⬜ not started &ensp; n/a not applicable
 
@@ -94,5 +94,9 @@ G2 prep freeze is active from 2026-03-03 through 2026-03-17 (or 2 releases):
 - FS/NET syscall contracts are marked no-breaking-change during freeze.
 - `docs/abi/process_thread_model_v0.md` defines task lifecycle, spawn/exit,
   and scheduler guarantees.
+- `docs/abi/go_port_spike_v0.md` defines GOOS/GOARCH contract plus runtime
+  and syscall bridge points for the std-port candidate lane.
+- `make image-go-std` builds the minimal spike artifact path used by
+  `tests/go/test_std_go_binary.py`.
 
 

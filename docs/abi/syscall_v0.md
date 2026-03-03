@@ -23,6 +23,10 @@ Freeze rules:
 
 Canonical model: `docs/abi/process_thread_model_v0.md`.
 
+## Go-port spike contract
+
+Canonical spike contract/runtime bridge map: `docs/abi/go_port_spike_v0.md`.
+
 ## Invocation
 
 Use `int 0x80` (IDT vector 128, gate DPL=3 so user mode can invoke it).

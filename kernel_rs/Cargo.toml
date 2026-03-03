@@ -45,6 +45,7 @@ fs_badmagic_test = ["fs_test"]
 pkg_hash_test = ["fs_test"]
 net_test = []
 go_test = []
+go_std_test = []
 
 [profile.dev]
 panic = "abort"

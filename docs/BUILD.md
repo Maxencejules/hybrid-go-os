@@ -19,6 +19,7 @@
 ```bash
 make build          # compile kernel ELF
 make image          # build bootable ISO (no network required)
+make image-go-std   # build G2 spike ISO (os-go-std.iso)
 make test-qemu      # full QEMU smoke-test suite
 make repro-check    # deterministic ISO gate (build twice + SHA256 compare)
 ```
@@ -120,7 +121,7 @@ Rustup manages installation automatically.
 | Go | 1.25.3 | `.github/workflows/ci.yml`, `Dockerfile` |
 | TinyGo | 0.40.1 | `.github/workflows/ci.yml`, `Dockerfile` |
 
-These are host toolchain installs used in CI and Docker, and also required locally for `make image-go` and the full `make test-qemu` target.
+These are host toolchain installs used in CI and Docker, and also required locally for `make image-go`, `make image-go-std`, and the full `make test-qemu` target.
 If you only run `make build` or `make image`, Go/TinyGo are not required.
 Update the version numbers in CI and Dockerfile together when upgrading.
 

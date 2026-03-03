@@ -1,7 +1,7 @@
-"""G2 prep scaffold: standard Go binary acceptance marker.
+"""G2 spike acceptance test: std-port candidate marker.
 
-This test is intentionally scaffold-only for now. It becomes active once the
-standard Go toolchain path produces `out/os-go-std.iso`.
+The current spike uses a TinyGo compatibility bridge while preserving the
+GOOS/GOARCH contract (`rugo`/`amd64`) in docs and build metadata.
 """
 
 
