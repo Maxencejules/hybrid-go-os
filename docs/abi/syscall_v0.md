@@ -4,6 +4,25 @@
 
 Rugo (Rust no_std kernel). This ABI applies to the Rugo lane only.
 
+## G2 prep freeze window (active)
+
+Freeze start: **2026-03-03**.
+
+Freeze end: whichever comes first:
+- **2026-03-17** (2 weeks from freeze start), or
+- the second Rugo release cut after 2026-03-03.
+
+Freeze rules:
+- Syscall numbers `0..17` are locked (no renumbering).
+- Existing argument registers and return-value semantics are locked.
+- Error signaling remains `(u64)-1` for all existing error cases.
+- Filesystem and networking syscall contracts in this document are
+  **no-breaking-change** during the freeze window.
+
+## Process/thread model
+
+Canonical model: `docs/abi/process_thread_model_v0.md`.
+
 ## Invocation
 
 Use `int 0x80` (IDT vector 128, gate DPL=3 so user mode can invoke it).
@@ -199,6 +218,8 @@ If a page fault or GPF occurs while CS indicates ring 3 (user mode):
 - `lba` is a sector number (512-byte units).
 - User pointer is validated via page table walk before DMA.
 - Data is copied through a kernel DMA buffer (copyin/copyout).
+- Freeze contract (active 2026-03-03 to 2026-03-17 or two releases):
+  no breaking changes to `sys_blk_read`/`sys_blk_write` ABI or semantics.
 
 ## Filesystem model (M6)
 
@@ -248,6 +269,8 @@ hello app runs in user mode. No VFS is added to the kernel.
 - `sys_net_recv` returns 0 if no frame is available (non-blocking).
 - Frames are raw Ethernet II (14-byte header + payload).
 - No socket abstraction; the caller handles protocol parsing.
+- Freeze contract (active 2026-03-03 to 2026-03-17 or two releases):
+  no breaking changes to `sys_net_send`/`sys_net_recv` ABI or semantics.
 
 ## Notes
 

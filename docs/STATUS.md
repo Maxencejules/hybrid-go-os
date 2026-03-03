@@ -89,4 +89,10 @@ IPC, shared memory, service registry, VirtIO block, filesystem, package manager,
 shell, VirtIO net, UDP echo, and TinyGo user-space services are all functional
 with passing QEMU integration tests.
 
+G2 prep freeze is active from 2026-03-03 through 2026-03-17 (or 2 releases):
+- `docs/abi/syscall_v0.md` locks syscall ABI semantics for existing syscalls.
+- FS/NET syscall contracts are marked no-breaking-change during freeze.
+- `docs/abi/process_thread_model_v0.md` defines task lifecycle, spawn/exit,
+  and scheduler guarantees.
+
 
