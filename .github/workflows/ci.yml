@@ -76,3 +76,15 @@ jobs:
         run: |
           python3 -m pytest tests/compat -v
           python3 -m pytest tests/pkg/test_pkg_external_apps.py -v
+
+      - name: Hardware matrix v1 gate
+        run: |
+          make image-blk image-blk-badlen image-blk-badptr image-net
+          python3 -m pytest tests/hw -v --junitxml=out/pytest-hw-matrix.xml
+
+      - name: Upload hardware matrix JUnit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hw-matrix-junit
+          path: out/pytest-hw-matrix.xml

@@ -48,7 +48,7 @@ endif
        build-net image-net \
        build-go image-go \
        build-go-std image-go-std \
-       run test-qemu repro-check clean legacy docker-all docker-legacy
+       run test-qemu test-hw-matrix repro-check clean legacy docker-all docker-legacy
 
 # Tools
 NASM    ?= nasm
@@ -490,6 +490,9 @@ run: image
 
 test-qemu: image image-panic image-pf image-idt image-sched image-user-hello image-syscall image-thread-exit image-thread-spawn image-vm-map image-syscall-invalid image-stress-syscall image-stress-ipc image-stress-blk image-pressure-shm image-yield image-user-fault image-ipc image-ipc-badptr-send image-ipc-badptr-recv image-svc-badptr image-ipc-buffer-full image-ipc-waiter-busy image-ipc-svc-overwrite image-svc-full image-svc-bad-endpoint image-shm image-quota-endpoints image-quota-shm image-quota-threads image-blk image-blk-badlen image-blk-badptr image-blk-invariants image-blk-init-fail image-fs image-fs-badmagic image-pkg-hash image-net image-go image-go-std
 	$(PYTHON) -m pytest tests/ -v
+
+test-hw-matrix: image-blk image-blk-badlen image-blk-badptr image-net
+	$(PYTHON) -m pytest tests/hw -v
 
 repro-check:
 	@set -e; \

@@ -2479,28 +2479,108 @@ unsafe fn pci_read32(bus: u8, dev: u8, func: u8, offset: u8) -> u32 {
     inl(PCI_CONFIG_DATA)
 }
 
+#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "net_test"))]
+unsafe fn pci_write32(bus: u8, dev: u8, func: u8, offset: u8, value: u32) {
+    let addr: u32 = (1u32 << 31)
+        | ((bus as u32) << 16)
+        | ((dev as u32) << 11)
+        | ((func as u32) << 8)
+        | ((offset as u32) & 0xFC);
+    outl(PCI_CONFIG_ADDR, addr);
+    outl(PCI_CONFIG_DATA, value);
+}
+
+#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "net_test"))]
+#[derive(Clone, Copy)]
+struct PciBdf {
+    bus: u8,
+    dev: u8,
+    func: u8,
+}
+
+#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "net_test"))]
+const PCI_CLAIM_NONE: u16 = 0xFFFF;
+#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "net_test"))]
+const PCI_CLAIM_SLOTS: usize = 4;
+#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "net_test"))]
+static mut PCI_CLAIMED: [u16; PCI_CLAIM_SLOTS] = [PCI_CLAIM_NONE; PCI_CLAIM_SLOTS];
+
+#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "net_test"))]
+fn pci_bdf_key(bdf: PciBdf) -> u16 {
+    ((bdf.bus as u16) << 8) | ((bdf.dev as u16) << 3) | (bdf.func as u16)
+}
+
+/// Claim a PCI function once so one function does not get initialized by
+/// multiple in-kernel drivers.
+#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "net_test"))]
+unsafe fn pci_claim_device(bdf: PciBdf) -> bool {
+    let key = pci_bdf_key(bdf);
+    let mut i = 0usize;
+    while i < PCI_CLAIM_SLOTS {
+        let slot = PCI_CLAIMED[i];
+        if slot == key {
+            return false;
+        }
+        if slot == PCI_CLAIM_NONE {
+            PCI_CLAIMED[i] = key;
+            return true;
+        }
+        i += 1;
+    }
+    false
+}
+
+#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "net_test"))]
+unsafe fn pci_find_device(vendor: u16, device: u16) -> Option<PciBdf> {
+    for dev in 0..32u8 {
+        let id = pci_read32(0, dev, 0, 0);
+        let v = (id & 0xFFFF) as u16;
+        let d = ((id >> 16) & 0xFFFF) as u16;
+        if v == vendor && d == device {
+            return Some(PciBdf { bus: 0, dev, func: 0 });
+        }
+    }
+    None
+}
+
+#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "net_test"))]
+unsafe fn pci_enable_io_bus_master(bdf: PciBdf) {
+    let cmd_reg = pci_read32(bdf.bus, bdf.dev, bdf.func, 0x04);
+    let mut cmd = (cmd_reg & 0xFFFF) as u16;
+    cmd |= 0x0005; // I/O space + bus master
+    let new_cmd_reg = (cmd_reg & 0xFFFF_0000) | (cmd as u32);
+    pci_write32(bdf.bus, bdf.dev, bdf.func, 0x04, new_cmd_reg);
+}
+
+#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "net_test"))]
+unsafe fn pci_bar0_iobase(bdf: PciBdf) -> Option<u16> {
+    let bar0_raw = pci_read32(bdf.bus, bdf.dev, bdf.func, 0x10);
+    if (bar0_raw & 1) == 0 {
+        return None;
+    }
+    let iobase = (bar0_raw & !3u32) as u16;
+    if iobase == 0 {
+        return None;
+    }
+    Some(iobase)
+}
+
+#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "net_test"))]
+unsafe fn pci_find_virtio_legacy_iobase(device: u16) -> Option<u16> {
+    let bdf = pci_find_device(0x1AF4, device)?;
+    let iobase = pci_bar0_iobase(bdf)?;
+    if !pci_claim_device(bdf) {
+        return None;
+    }
+    pci_enable_io_bus_master(bdf);
+    Some(iobase)
+}
+
 /// Scan PCI bus 0 for VirtIO block device (vendor 0x1AF4, device 0x1001).
 /// Returns the I/O base address (BAR0) if found.
 #[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test"))]
 unsafe fn pci_find_virtio_blk() -> Option<u16> {
-    for dev in 0..32u8 {
-        let id = pci_read32(0, dev, 0, 0);
-        let vendor = (id & 0xFFFF) as u16;
-        let device = ((id >> 16) & 0xFFFF) as u16;
-        if vendor == 0x1AF4 && device == 0x1001 {
-            let bar0_raw = pci_read32(0, dev, 0, 0x10);
-            // BAR0 is I/O space (bit 0 = 1); mask lower 2 bits
-            let iobase = (bar0_raw & !3u32) as u16;
-            // Enable PCI bus mastering (command register, offset 0x04)
-            let cmd = pci_read32(0, dev, 0, 0x04);
-            let new_cmd = cmd | 0x05; // I/O space + bus master
-            let addr: u32 = (1u32 << 31) | ((dev as u32) << 11) | 0x04;
-            outl(PCI_CONFIG_ADDR, addr);
-            outl(PCI_CONFIG_DATA, new_cmd);
-            return Some(iobase);
-        }
-    }
-    None
+    pci_find_virtio_legacy_iobase(0x1001)
 }
 
 // --------------- M5: VirtIO legacy transport registers -----------------------
@@ -3794,24 +3874,8 @@ const NET_ECHO_PORT: u16 = 7;
 
 #[cfg(feature = "net_test")]
 unsafe fn pci_find_virtio_net() -> Option<u16> {
-    for dev in 0..32u8 {
-        let id = pci_read32(0, dev, 0, 0);
-        let vendor = (id & 0xFFFF) as u16;
-        let device = ((id >> 16) & 0xFFFF) as u16;
-        // VirtIO-net transitional: vendor 0x1AF4, device 0x1000
-        if vendor == 0x1AF4 && device == 0x1000 {
-            let bar0_raw = pci_read32(0, dev, 0, 0x10);
-            let iobase = (bar0_raw & !3u32) as u16;
-            // Enable I/O space + bus mastering
-            let cmd = pci_read32(0, dev, 0, 0x04);
-            let new_cmd = cmd | 0x05;
-            let addr: u32 = (1u32 << 31) | ((dev as u32) << 11) | 0x04;
-            outl(PCI_CONFIG_ADDR, addr);
-            outl(PCI_CONFIG_DATA, new_cmd);
-            return Some(iobase);
-        }
-    }
-    None
+    // VirtIO-net transitional: vendor 0x1AF4, device 0x1000
+    pci_find_virtio_legacy_iobase(0x1000)
 }
 
 // --------------- M7: Static memory for VirtIO net ----------------------------

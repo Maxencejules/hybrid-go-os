@@ -92,7 +92,7 @@ def _resolve_qemu_bin():
 QEMU_BIN = _resolve_qemu_bin()
 
 
-def _boot_iso(iso_path):
+def _boot_iso(iso_path, machine="q35"):
     """Boot an ISO in QEMU headless and return the CompletedProcess."""
     assert os.path.isfile(iso_path), f"ISO not found: {iso_path}"
     if not QEMU_BIN:
@@ -102,7 +102,7 @@ def _boot_iso(iso_path):
         result = subprocess.run(
             [
                 QEMU_BIN,
-                "-machine", "q35",
+                "-machine", machine,
                 "-cpu", "qemu64",
                 "-m", "128",
                 "-serial", "stdio",
@@ -362,32 +362,44 @@ def qemu_serial_quota_threads():
     return _boot_iso(ISO_QUOTA_THREADS_PATH)
 
 
-def _boot_iso_with_disk(iso_path, disk_path):
-    """Boot an ISO in QEMU with a virtio-blk disk attached."""
+def _boot_iso_with_disk(
+    iso_path,
+    disk_path,
+    machine="q35",
+    device="virtio-blk-pci,drive=disk0,disable-modern=on",
+):
+    """Boot an ISO in QEMU with a selectable block-device profile."""
     assert os.path.isfile(iso_path), f"ISO not found: {iso_path}"
     if not QEMU_BIN:
         pytest.skip("qemu-system-x86_64 not found (set QEMU_BIN or install QEMU)")
 
-    # Create a 1 MiB raw disk image if it doesn't exist
-    if not os.path.isfile(disk_path):
-        with open(disk_path, "wb") as f:
-            f.write(b"\x00" * (1024 * 1024))
+    cmd = [
+        QEMU_BIN,
+        "-machine", machine,
+        "-cpu", "qemu64",
+        "-m", "128",
+        "-serial", "stdio",
+        "-display", "none",
+        "-no-reboot",
+        "-device", "isa-debug-exit,iobase=0xf4,iosize=0x04",
+        "-cdrom", iso_path,
+    ]
+
+    if device:
+        # Create a 1 MiB raw disk image if it doesn't exist.
+        if not os.path.isfile(disk_path):
+            with open(disk_path, "wb") as f:
+                f.write(b"\x00" * (1024 * 1024))
+        cmd.extend(
+            [
+                "-drive", f"file={disk_path},format=raw,if=none,id=disk0",
+                "-device", device,
+            ]
+        )
 
     try:
         result = subprocess.run(
-            [
-                QEMU_BIN,
-                "-machine", "q35",
-                "-cpu", "qemu64",
-                "-m", "128",
-                "-serial", "stdio",
-                "-display", "none",
-                "-no-reboot",
-                "-device", "isa-debug-exit,iobase=0xf4,iosize=0x04",
-                "-cdrom", iso_path,
-                "-drive", f"file={disk_path},format=raw,if=none,id=disk0",
-                "-device", "virtio-blk-pci,drive=disk0,disable-modern=on",
-            ],
+            cmd,
             capture_output=True,
             text=True,
             timeout=QEMU_TIMEOUT,
@@ -405,6 +417,30 @@ def qemu_serial_blk():
     if not os.path.isfile(ISO_BLK_PATH):
         pytest.skip(f"ISO not built: {ISO_BLK_PATH}")
     return _boot_iso_with_disk(ISO_BLK_PATH, BLK_DISK_IMG)
+
+
+@pytest.fixture
+def qemu_serial_blk_q35():
+    """Boot VirtIO block test OS image on Tier 0 (q35) profile."""
+    if not os.path.isfile(ISO_BLK_PATH):
+        pytest.skip(f"ISO not built: {ISO_BLK_PATH}")
+    return _boot_iso_with_disk(ISO_BLK_PATH, BLK_DISK_IMG, machine="q35")
+
+
+@pytest.fixture
+def qemu_serial_blk_i440fx():
+    """Boot VirtIO block test OS image on Tier 1 (i440fx/pc) profile."""
+    if not os.path.isfile(ISO_BLK_PATH):
+        pytest.skip(f"ISO not built: {ISO_BLK_PATH}")
+    return _boot_iso_with_disk(ISO_BLK_PATH, BLK_DISK_IMG, machine="pc")
+
+
+@pytest.fixture
+def qemu_serial_blk_missing():
+    """Boot block-test image without block device to verify probe failure path."""
+    if not os.path.isfile(ISO_BLK_PATH):
+        pytest.skip(f"ISO not built: {ISO_BLK_PATH}")
+    return _boot_iso(ISO_BLK_PATH, machine="q35")
 
 
 @pytest.fixture
@@ -539,28 +575,42 @@ def _find_free_udp_port():
     return port
 
 
-def _boot_iso_with_net(iso_path):
-    """Boot an ISO in QEMU with virtio-net and inject a UDP echo packet."""
+def _boot_iso_with_net(
+    iso_path,
+    machine="q35",
+    device="virtio-net-pci,netdev=n0,disable-modern=on",
+    inject_udp=True,
+):
+    """Boot an ISO in QEMU with configurable NIC profile and optional UDP inject."""
     assert os.path.isfile(iso_path), f"ISO not found: {iso_path}"
     if not QEMU_BIN:
         pytest.skip("qemu-system-x86_64 not found (set QEMU_BIN or install QEMU)")
 
-    udp_port = _find_free_udp_port()
+    if inject_udp and not device:
+        pytest.fail("inject_udp requires a network device profile")
+
+    udp_port = _find_free_udp_port() if device else 0
+    cmd = [
+        QEMU_BIN,
+        "-machine", machine,
+        "-cpu", "qemu64",
+        "-m", "128",
+        "-serial", "stdio",
+        "-display", "none",
+        "-no-reboot",
+        "-device", "isa-debug-exit,iobase=0xf4,iosize=0x04",
+        "-cdrom", iso_path,
+    ]
+    if device:
+        cmd.extend(
+            [
+                "-netdev", f"user,id=n0,hostfwd=udp::{udp_port}-10.0.2.15:7",
+                "-device", device,
+            ]
+        )
 
     proc = subprocess.Popen(
-        [
-            QEMU_BIN,
-            "-machine", "q35",
-            "-cpu", "qemu64",
-            "-m", "128",
-            "-serial", "stdio",
-            "-display", "none",
-            "-no-reboot",
-            "-device", "isa-debug-exit,iobase=0xf4,iosize=0x04",
-            "-cdrom", iso_path,
-            "-netdev", f"user,id=n0,hostfwd=udp::{udp_port}-10.0.2.15:7",
-            "-device", "virtio-net-pci,netdev=n0,disable-modern=on",
-        ],
+        cmd,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
     )
@@ -577,8 +627,9 @@ def _boot_iso_with_net(iso_path):
                 pass
             time.sleep(0.5)
 
-    sender = threading.Thread(target=_send_udp, daemon=True)
-    sender.start()
+    if inject_udp:
+        sender = threading.Thread(target=_send_udp, daemon=True)
+        sender.start()
 
     try:
         stdout, stderr = proc.communicate(timeout=NET_TIMEOUT)
@@ -604,6 +655,30 @@ def qemu_serial_net():
     if not os.path.isfile(ISO_NET_PATH):
         pytest.skip(f"ISO not built: {ISO_NET_PATH}")
     return _boot_iso_with_net(ISO_NET_PATH)
+
+
+@pytest.fixture
+def qemu_serial_net_q35():
+    """Boot VirtIO net test OS image on Tier 0 (q35) profile."""
+    if not os.path.isfile(ISO_NET_PATH):
+        pytest.skip(f"ISO not built: {ISO_NET_PATH}")
+    return _boot_iso_with_net(ISO_NET_PATH, machine="q35")
+
+
+@pytest.fixture
+def qemu_serial_net_i440fx():
+    """Boot VirtIO net test OS image on Tier 1 (i440fx/pc) profile."""
+    if not os.path.isfile(ISO_NET_PATH):
+        pytest.skip(f"ISO not built: {ISO_NET_PATH}")
+    return _boot_iso_with_net(ISO_NET_PATH, machine="pc")
+
+
+@pytest.fixture
+def qemu_serial_net_missing():
+    """Boot net-test image without NIC to verify probe failure path."""
+    if not os.path.isfile(ISO_NET_PATH):
+        pytest.skip(f"ISO not built: {ISO_NET_PATH}")
+    return _boot_iso(ISO_NET_PATH, machine="q35")
 
 
 @pytest.fixture

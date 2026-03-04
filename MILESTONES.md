@@ -73,6 +73,8 @@ Tests: `legacy/tests/` (boot, trap, sched, user, ipc, drivers, fs, pkg, net)
 | G0 | Go kernel entry (gccgo) | ✅ | n/a | Legacy: `legacy/tests/boot/test_go_entry.py`. Legacy-only milestone. |
 | G1 | Go services (TinyGo) | n/a | ✅ | Rugo: `tests/go/test_go_user_service.py` (`GOUSR: ok`). TinyGo bare-metal x86_64. |
 | G2 | Full Go port | n/a | ✅ | Rugo-only milestone. Done (`tests/go/test_std_go_binary.py`, stock-Go artifact contract path). |
+| M8 | Compatibility Profile v1 | n/a | ✅ | Rugo: `tests/compat/*`, `tests/pkg/test_pkg_external_apps.py`; docs in `docs/abi/*` and `docs/M8_EXECUTION_BACKLOG.md`. |
+| M9 | Hardware enablement matrix v1 | n/a | ✅ | Rugo: `tests/hw/*`, CI hardware gate, and docs in `docs/hw/*`, `docs/M9_EXECUTION_BACKLOG.md`. |
 
 Legend: ✅ = done with passing tests, ◐ = in progress (prep), — = not started, n/a = not applicable to this lane.
 
@@ -497,6 +499,45 @@ Milestone status: done (2026-03-04).
   - `tests/pkg/test_pkg_external_apps.py`
 - Compatibility/profile gating promoted to CI:
   - `.github/workflows/ci.yml` explicit compatibility profile v1 gate step
+
+---
+
+## M9: Hardware Enablement Matrix v1
+
+Milestone status: done (2026-03-04).
+
+### Definition of done
+
+- Published hardware matrix v1 with Tier 0/Tier 1 target classes.
+- Deterministic storage + network smoke checks run on both matrix tiers.
+- PCI probe/init path is shared across in-tree virtio drivers.
+- DMA invalid-input rejection checks are included in matrix acceptance.
+- ACPI/UEFI hardening policy and bare-metal bring-up runbook are published.
+
+### Acceptance tests
+
+| Test | Markers |
+|------|---------|
+| `tests/hw/test_hardware_matrix_v1.py` | `BLK: found virtio-blk`, `BLK: rw ok`, `NET: virtio-net ready`, `NET: udp echo` |
+| `tests/hw/test_probe_negative_paths_v1.py` | `BLK: not found`, `NET: not found` |
+| `tests/hw/test_dma_safety_v1.py` | `BLK: badlen ok`, `BLK: badptr ok` |
+
+### Rugo evidence
+
+- PCI helper cleanup + arbitration baseline in `kernel_rs/src/lib.rs`:
+  - shared device lookup and BAR parsing helpers,
+  - shared bus-master enable helper,
+  - PCI function claim guard.
+- Hardware matrix docs:
+  - `docs/hw/support_matrix_v1.md`
+  - `docs/hw/dma_iommu_strategy_v1.md`
+  - `docs/hw/acpi_uefi_hardening_v1.md`
+  - `docs/hw/bare_metal_bringup_v1.md`
+- Execution and sequencing history:
+  - `docs/M9_EXECUTION_BACKLOG.md`
+- Release gating:
+  - `Makefile` target `test-hw-matrix`
+  - `.github/workflows/ci.yml` step `Hardware matrix v1 gate`
 
 ---
 

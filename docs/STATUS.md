@@ -39,6 +39,8 @@ make docker-legacy       # Legacy only (requires gccgo in Docker image)
 | **G0** Go kernel entry | ✅ | n/a | `legacy/tests/boot/test_go_entry.py` (`GO: kmain ok`). Legacy-only. Re-verified 2026-02-18 via Docker. |
 | **G1** Go services (TinyGo) | n/a | ✅ | Rugo: `tests/go/test_go_user_service.py` (`GOUSR: ok`). TinyGo bare-metal x86_64. |
 | **G2** Full Go port | n/a | ✅ | Rugo-only. Done: `tests/go/test_std_go_binary.py` on `go_std_test` stock-Go artifact path (`os-go-std.iso`, `GOSTD: ok`). |
+| **M8** Compatibility Profile v1 | n/a | ✅ | Rugo: `tests/compat/*`, `tests/pkg/test_pkg_external_apps.py`; docs in `docs/abi/*` and `docs/M8_EXECUTION_BACKLOG.md`. |
+| **M9** Hardware enablement matrix v1 | n/a | ✅ | Rugo: `tests/hw/*`, `make test-hw-matrix`, CI `Hardware matrix v1 gate`, docs in `docs/hw/*` and `docs/M9_EXECUTION_BACKLOG.md`. |
 
 ✅ done &ensp; ◐ in progress (prep) &ensp; ⬜ not started &ensp; n/a not applicable
 
@@ -124,8 +126,26 @@ M8 execution update (2026-03-04):
     - `.github/workflows/ci.yml` compatibility profile v1 gate step
 - M8 is done.
 
+M9 execution update (2026-03-04):
+- PR-1 complete (hardware matrix contract + harness):
+  - `docs/hw/support_matrix_v1.md`
+  - `tests/hw/test_hardware_matrix_v1.py`
+  - `tests/hw/test_probe_negative_paths_v1.py`
+  - tiered QEMU fixtures in `tests/conftest.py` (`q35`, `pc`/i440fx)
+- PR-2 complete (PCI cleanup + DMA safety gate):
+  - shared PCI helpers + claim path in `kernel_rs/src/lib.rs`
+  - DMA rejection checks in `tests/hw/test_dma_safety_v1.py`
+- PR-3 complete (CI gate + hardening docs + milestone closure):
+  - `Makefile` target `test-hw-matrix`
+  - `.github/workflows/ci.yml` step `Hardware matrix v1 gate`
+  - `docs/hw/dma_iommu_strategy_v1.md`
+  - `docs/hw/acpi_uefi_hardening_v1.md`
+  - `docs/hw/bare_metal_bringup_v1.md`
+- M9 is done.
+
 Post-G2 planning and execution:
 - Extended roadmap (M8-M14): `docs/POST_G2_EXTENDED_MILESTONES.md`
-- Next execution backlog (M8): `docs/M8_EXECUTION_BACKLOG.md`
+- Last completed backlog (M9): `docs/M9_EXECUTION_BACKLOG.md`
+- Next execution backlog target: M10
 
 
