@@ -70,35 +70,48 @@ if [ -n "$SOURCE_DATE_EPOCH" ]; then
 fi
 
 # --- Create ISO ---------------------------------------------------------------
+USED_PYCDLIB=0
 if ! command -v "$ISO_TOOL" >/dev/null 2>&1; then
     if command -v mkisofs >/dev/null 2>&1; then
         ISO_TOOL="mkisofs"
     elif command -v genisoimage >/dev/null 2>&1; then
         ISO_TOOL="genisoimage"
+    elif command -v python3 >/dev/null 2>&1 || command -v python >/dev/null 2>&1; then
+        PYTHON_BIN="python3"
+        if ! command -v "$PYTHON_BIN" >/dev/null 2>&1; then
+            PYTHON_BIN="python"
+        fi
+        echo "==> No xorriso/mkisofs found; using pycdlib fallback ISO builder..."
+        "$PYTHON_BIN" "$ROOT/tools/mkiso_pycdlib.py" \
+            --iso-root "$ISO_ROOT" \
+            --out-iso "$OUT/$ISO_NAME"
+        USED_PYCDLIB=1
     else
-        echo "ERROR: no ISO builder found (tried '$ISO_TOOL', mkisofs, genisoimage)." >&2
+        echo "ERROR: no ISO builder found (tried '$ISO_TOOL', mkisofs, genisoimage, pycdlib)." >&2
         exit 1
     fi
 fi
 
-if [ "$ISO_TOOL" = "xorriso" ]; then
-    "$ISO_TOOL" -as mkisofs \
-        -R -r -J \
-        -V "RUGO_OS" -volset "RUGO_OS" -A "RUGO_OS" -p "RUGO" -P "RUGO" \
-        "${XORRISO_DATE_ARGS[@]}" \
-        -b boot/limine/limine-bios-cd.bin \
-        -no-emul-boot -boot-load-size 4 -boot-info-table \
-        -o "$OUT/$ISO_NAME" \
-        "$ISO_ROOT"
-else
-    # xorriso date flags are not supported by mkisofs/genisoimage.
-    "$ISO_TOOL" \
-        -R -r -J \
-        -V "RUGO_OS" -volset "RUGO_OS" -A "RUGO_OS" -p "RUGO" -P "RUGO" \
-        -b boot/limine/limine-bios-cd.bin \
-        -no-emul-boot -boot-load-size 4 -boot-info-table \
-        -o "$OUT/$ISO_NAME" \
-        "$ISO_ROOT"
+if [ "$USED_PYCDLIB" -eq 0 ]; then
+    if [ "$ISO_TOOL" = "xorriso" ]; then
+        "$ISO_TOOL" -as mkisofs \
+            -R -r -J \
+            -V "RUGO_OS" -volset "RUGO_OS" -A "RUGO_OS" -p "RUGO" -P "RUGO" \
+            "${XORRISO_DATE_ARGS[@]}" \
+            -b boot/limine/limine-bios-cd.bin \
+            -no-emul-boot -boot-load-size 4 -boot-info-table \
+            -o "$OUT/$ISO_NAME" \
+            "$ISO_ROOT"
+    else
+        # xorriso date flags are not supported by mkisofs/genisoimage.
+        "$ISO_TOOL" \
+            -R -r -J \
+            -V "RUGO_OS" -volset "RUGO_OS" -A "RUGO_OS" -p "RUGO" -P "RUGO" \
+            -b boot/limine/limine-bios-cd.bin \
+            -no-emul-boot -boot-load-size 4 -boot-info-table \
+            -o "$OUT/$ISO_NAME" \
+            "$ISO_ROOT"
+    fi
 fi
 
 # --- Install Limine BIOS boot stages -----------------------------------------
