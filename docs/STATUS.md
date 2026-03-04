@@ -15,6 +15,7 @@ Full milestone definitions and acceptance criteria live in
 ```bash
 # Rugo (build + full QEMU smoke-test suite)
 make test-qemu
+make test-runtime-maturity
 
 # Legacy (build + QEMU smoke tests, 16 tests)
 make -C legacy build && make -C legacy image && make -C legacy test-qemu
@@ -42,6 +43,7 @@ make docker-legacy       # Legacy only (requires gccgo in Docker image)
 | **M8** Compatibility Profile v1 | n/a | ✅ | Rugo: `tests/compat/*`, `tests/pkg/test_pkg_external_apps.py`; docs in `docs/abi/*` and `docs/M8_EXECUTION_BACKLOG.md`. |
 | **M9** Hardware enablement matrix v1 | n/a | ✅ | Rugo: `tests/hw/*`, `make test-hw-matrix`, CI `Hardware matrix v1 gate`, docs in `docs/hw/*` and `docs/M9_EXECUTION_BACKLOG.md`. |
 | **M10** Security baseline v1 | n/a | ✅ | Rugo: `tests/security/*`, `make test-security-baseline`, CI `Security baseline v1 gate`, docs in `docs/security/*` and `docs/M10_EXECUTION_BACKLOG.md`. |
+| **M11** Runtime + toolchain maturity v1 | n/a | ✅ | Rugo: `tests/runtime/*`, `make test-runtime-maturity`, CI `Runtime + toolchain maturity v1 gate`, docs in `docs/runtime/*` and `docs/M11_EXECUTION_BACKLOG.md`. |
 
 ✅ done &ensp; ◐ in progress (prep) &ensp; ⬜ not started &ensp; n/a not applicable
 
@@ -165,12 +167,30 @@ M10 execution update (2026-03-04):
   - `docs/security/fuzzing_v1.md`
   - `docs/security/incident_response_v1.md`
   - `Makefile` target `test-security-baseline`
-  - `.github/workflows/ci.yml` step `Security baseline v1 gate`
+- `.github/workflows/ci.yml` step `Security baseline v1 gate`
 - M10 is done.
+
+M11 execution update (2026-03-04):
+- PR-1 complete (runtime contract + coverage matrix):
+  - `docs/runtime/port_contract_v1.md`
+  - `docs/runtime/syscall_coverage_matrix_v1.md`
+  - `docs/runtime/abi_stability_policy_v1.md`
+  - `tests/runtime/test_runtime_contract_docs_v1.py`
+  - `tests/runtime/test_runtime_abi_window_v1.py`
+- PR-2 complete (bootstrap + reproducibility tooling):
+  - `tools/bootstrap_go_port_v1.sh`
+  - `tools/runtime_toolchain_contract_v1.py`
+  - `docs/runtime/toolchain_bootstrap_v1.md`
+- PR-3 complete (runtime gate + maintainers + milestone closure):
+  - `tests/runtime/test_runtime_stress_v1.py`
+  - `docs/runtime/maintainers_v1.md`
+  - `Makefile` target `test-runtime-maturity`
+  - `.github/workflows/ci.yml` step `Runtime + toolchain maturity v1 gate`
+- M11 is done.
 
 Post-G2 planning and execution:
 - Extended roadmap (M8-M14): `docs/POST_G2_EXTENDED_MILESTONES.md`
-- Last completed backlog (M10): `docs/M10_EXECUTION_BACKLOG.md`
-- Next execution backlog target: M11
+- Last completed backlog (M11): `docs/M11_EXECUTION_BACKLOG.md`
+- Next execution backlog target: M12
 
 

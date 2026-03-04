@@ -50,7 +50,7 @@ endif
        build-go-std image-go-std \
        build-sec-rights image-sec-rights \
        build-sec-filter image-sec-filter \
-       test-security-baseline \
+       test-security-baseline test-runtime-maturity \
        run test-qemu test-hw-matrix repro-check clean legacy docker-all docker-legacy
 
 # Tools
@@ -519,6 +519,12 @@ test-hw-matrix: image-blk image-blk-badlen image-blk-badptr image-net
 
 test-security-baseline: image-sec-rights image-sec-filter
 	$(PYTHON) -m pytest tests/security -v
+
+test-runtime-maturity: image-go-std image-stress-syscall image-pressure-shm image-thread-spawn image-vm-map
+	bash tools/bootstrap_go_port_v1.sh --check
+	$(PYTHON) tools/runtime_toolchain_contract_v1.py --out $(OUT)/runtime-toolchain-contract.env
+	$(PYTHON) tools/runtime_toolchain_contract_v1.py --repro --out $(OUT)/runtime-toolchain-repro.json
+	$(PYTHON) -m pytest tests/runtime tests/go/test_std_go_binary.py tests/compat/test_posix_subset.py -v
 
 repro-check:
 	@set -e; \

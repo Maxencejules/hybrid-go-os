@@ -1,7 +1,7 @@
 # Post-G2 Extended Milestones (Research Roadmap)
 
 Date: 2026-03-04  
-Status: Proposed  
+Status: Active (M8-M11 complete; M12 next)  
 Scope: Rugo lane after G2 completion
 
 ---
@@ -181,39 +181,162 @@ Establish enforceable least-privilege and secure-boot/update foundations.
 
 ## M11 - Runtime and Toolchain Maturity v1
 
+Milestone status: done (2026-03-04).
+
 ### Goal
 
-Turn the current G2 baseline into a maintainer-grade runtime/toolchain port.
+Turn the G2 stock-Go bring-up path into a maintainer-grade, release-gated
+`GOOS=rugo` port with reproducible toolchain outputs and a documented ABI
+stability window.
+
+### Current baseline (post-M10)
+
+- G2 proves stock-Go artifact generation (`tools/build_go_std_spike.sh`,
+  `tools/gostd_stock_builder/main.go`).
+- Runtime bridge markers and contract metadata are test-backed
+  (`tests/go/test_std_go_binary.py`, `docs/abi/go_port_spike_v0.md`).
+- Compatibility, hardware, and security gates are already release-gated.
+- Missing for M11 closure: runtime syscall/behavior coverage accounting,
+  full bootstrap/rebuild workflow, a port qualification gate, and ABI stability
+  policy docs.
 
 ### Implementation strategy
 
-1. Formalize target contract:
-   - Target triple, compiler flags, linker and relocation policy.
-2. Complete language runtime integration:
-   - Scheduler, timers, memory primitives, signals, netpoll hooks.
-3. Build reproducible toolchain lane:
-   - Pinned compilers, deterministic artifacts, bootstrap docs.
-4. Add port maintenance process:
-   - Port owners, CI builders, breakage policy, deprecation policy.
+1. Freeze target and ABI contracts:
+   - publish runtime-facing syscall contract and deprecation window policy.
+   - declare required toolchain versions and deterministic build knobs.
+2. Close runtime syscall and behavior gaps:
+   - build a coverage matrix from runtime requirements.
+   - implement or explicitly defer unsupported paths with deterministic behavior.
+3. Build a reproducible bootstrap lane:
+   - add a one-command setup/check flow for host and container environments.
+   - emit machine-readable contract/reproducibility artifacts.
+4. Add release-blocking qualification:
+   - create an `all.bash`-style port qualification target.
+   - gate CI on runtime stress and ABI-window checks.
+5. Establish long-term ownership:
+   - name maintainers and define breakage/deprecation workflow.
+
+### Execution plan (3 PRs)
+
+#### PR-1: Port Contract + Runtime Coverage Matrix
+
+##### Objective
+
+Define what the runtime port guarantees, then make all gaps explicit and
+measurable.
+
+##### Scope
+
+- Add docs:
+  - `docs/runtime/port_contract_v1.md`
+  - `docs/runtime/syscall_coverage_matrix_v1.md`
+  - `docs/runtime/abi_stability_policy_v1.md`
+- Map runtime-required syscall/behavior surface against current kernel
+  implementation.
+- Add doc contract tests for completeness and format.
+- Record unsupported features as explicit deferred items with owner/date.
+
+##### Acceptance checks
+
+- `python -m pytest tests/runtime/test_runtime_contract_docs_v1.py -v`
+- `python -m pytest tests/go/test_std_go_binary.py -v`
+
+##### Done criteria for PR-1
+
+- Coverage matrix has no unowned TODO rows.
+- ABI stability window and compatibility policy are versioned and reviewable.
+
+#### PR-2: Bootstrap + Reproducibility Toolchain Lane
+
+##### Objective
+
+Make `GOOS=rugo` build/test setup reproducible across hosts and CI.
+
+##### Scope
+
+- Add bootstrap artifacts:
+  - `tools/bootstrap_go_port_v1.sh`
+  - `tools/runtime_toolchain_contract_v1.py`
+  - optional reference container file (`tools/runtime_port.Dockerfile`).
+- Emit deterministic contract/report artifacts:
+  - `out/runtime-toolchain-contract.env`
+  - `out/runtime-toolchain-repro.json`
+- Document end-to-end setup and rebuild workflow:
+  - `docs/runtime/toolchain_bootstrap_v1.md`
+
+##### Acceptance checks
+
+- `bash tools/bootstrap_go_port_v1.sh --check`
+- `python tools/runtime_toolchain_contract_v1.py --out out/runtime-toolchain-contract.env`
+- `python tools/runtime_toolchain_contract_v1.py --repro --out out/runtime-toolchain-repro.json`
+
+##### Done criteria for PR-2
+
+- A clean environment can reproduce expected artifacts with documented steps.
+- Contract and repro artifacts are stable across two fresh runs.
+
+#### PR-3: Qualification Gate + Milestone Closure
+
+##### Objective
+
+Create a release-blocking M11 gate and wire ownership/process requirements.
+
+##### Scope
+
+- Add runtime qualification target:
+  - `make test-runtime-maturity`
+- Add CI gate:
+  - `.github/workflows/ci.yml` step `Runtime + toolchain maturity v1 gate`.
+- Add runtime qualification tests:
+  - `tests/runtime/test_runtime_stress_v1.py`
+  - `tests/runtime/test_runtime_abi_window_v1.py`
+- Record maintainers and breakage policy:
+  - `docs/runtime/maintainers_v1.md`
+- Wire status docs for milestone closure once gate is green.
+
+##### Acceptance checks
+
+- `make test-runtime-maturity`
+- `python -m pytest tests/runtime -v`
+- `python -m pytest tests/go/test_std_go_binary.py tests/compat/test_posix_subset.py -v`
+
+##### Done criteria for PR-3
+
+- Runtime maturity gate is mandatory in CI.
+- Port ownership and deprecation workflow are documented.
+- M11 is evidence-backed and ready to be marked `done`.
 
 ### Work packages
 
-- M11.1 native `GOOS=rugo` full-port plan (beyond marker binary path).
-- M11.2 runtime syscall coverage matrix and gap closure.
-- M11.3 toolchain bootstrap scripts and reference container image.
-- M11.4 port qualification pipeline (`all.bash`-style equivalent + integration suite).
-- M11.5 ABI stability policy for runtime-facing syscalls.
+- M11.1 `GOOS=rugo` port contract v1 (`docs/runtime/port_contract_v1.md`).
+- M11.2 runtime syscall/behavior coverage matrix + owned gap list.
+- M11.3 bootstrap + reproducibility toolchain lane and artifacts.
+- M11.4 `all.bash`-style qualification gate (`make test-runtime-maturity` + CI).
+- M11.5 ABI stability + maintainership/deprecation policy docs.
 
 ### Exit criteria
 
-- Full runtime conformance suite for chosen language targets passes in CI.
-- Toolchain builds are reproducible and documented end-to-end.
-- Port has named maintainers and release-blocking CI.
+- Runtime coverage matrix is complete; all open gaps are closed or explicitly
+  deferred with owner/date.
+- Toolchain bootstrap and reproducibility flow is documented, executable, and
+  artifact-backed.
+- Port has named maintainers and release-blocking CI gate.
 
 ### Acceptance tests (examples)
 
 - Runtime stress tests (threads, timers, net IO, memory pressure) pass.
 - Cross-version binary compatibility tests pass for frozen ABI window.
+- Toolchain contract/repro artifacts match across clean rebuilds.
+
+### Risks and non-goals
+
+- Non-goals:
+  - shipping full upstream-Go port acceptance in this milestone.
+  - solving network/storage feature parity issues owned by M12/M13.
+- Risks to track:
+  - hidden runtime assumptions in unsupported syscall paths.
+  - host toolchain drift causing false reproducibility failures.
 
 ---
 
@@ -356,20 +479,19 @@ Make the OS operable as a real product: installable, updatable, auditable, and s
 
 ## Suggested immediate next actions
 
-1. Create `M8` design doc and split into 4 implementation PRs:
-   - ABI contract,
-   - loader and process primitives,
-   - libc compatibility profile,
-   - package/repo bootstrap.
-2. Start a "post-G2 CI" dashboard with:
-   - compatibility,
-   - hardware matrix,
-   - security fuzzing,
-   - reproducibility checks.
-3. Freeze ownership:
+1. Create `docs/M12_EXECUTION_BACKLOG.md` and split M12 into 3 PRs:
+   - IPv4 + UDP/TCP baseline contract,
+   - socket semantics + timer/retransmission engine,
+   - interop/soak CI gate + milestone closure.
+2. Extend the post-G2 dashboard with network maturity signals:
+   - TCP/UDP reliability pass rate,
+   - fault-injection recovery trend,
+   - interop matrix trend.
+3. Freeze M12 ownership:
    - one milestone owner,
-   - one test owner,
-   - one doc owner per milestone.
+   - one net-test owner,
+   - one protocol-owner,
+   - one doc owner.
 
 ---
 
@@ -423,4 +545,3 @@ Productization and supply chain:
 - SLSA spec v1.2: https://slsa.dev/spec/v1.2/
 - SPDX specification 3.0.1: https://spdx.github.io/spdx-spec/v3.0.1/
 - SOURCE_DATE_EPOCH specification: https://reproducible-builds.org/specs/source-date-epoch/
-
