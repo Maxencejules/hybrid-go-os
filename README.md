@@ -87,6 +87,11 @@ Legacy: [M0 M1 M2 M3 M4 M5 M6 M7] [G0] complete
 Rugo:   [M0 M1 M2 M3 M4 M5 M6 M7] [G1] complete  [G2] complete
 ```
 
+## Post-G2 roadmap
+
+- Research roadmap (M8-M14): [docs/POST_G2_EXTENDED_MILESTONES.md](docs/POST_G2_EXTENDED_MILESTONES.md)
+- Active execution backlog (next step): `docs/M8_EXECUTION_BACKLOG.md`
+
 ## Repo layout
 
 | Path | Responsibility |

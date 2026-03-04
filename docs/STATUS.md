@@ -98,4 +98,8 @@ G2 is complete as of 2026-03-04:
 - `make image-go-std` remains the G2 artifact gate for `os-go-std.iso`.
 - Execution and sequencing history remains in `docs/G2_EXECUTION_BACKLOG.md`.
 
+Post-G2 planning and execution:
+- Extended roadmap (M8-M14): `docs/POST_G2_EXTENDED_MILESTONES.md`
+- Next execution backlog (M8): `docs/M8_EXECUTION_BACKLOG.md`
+
 
