@@ -22,6 +22,12 @@ M8 source of truth remains `MILESTONES.md`, `docs/abi/*`, and this backlog.
 - No explicit Compatibility Profile v1 document or conformance suite exists yet.
 - No package/repository contract for third-party app distribution exists yet.
 
+## Execution Result
+
+- PR-1: complete (2026-03-04)
+- PR-2: pending
+- PR-3: pending
+
 ## PR-1: ABI v1 Contract + Compatibility Test Skeleton
 
 ### Objective

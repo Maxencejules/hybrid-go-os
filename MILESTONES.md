@@ -458,6 +458,28 @@ Milestone status: done (2026-03-04).
 
 ---
 
+## M8: Compatibility Profile v1 (in progress)
+
+Milestone status: in progress (PR-1 complete on 2026-03-04).
+
+### PR-1 deliverables completed
+
+- Versioned ABI contract: `docs/abi/syscall_v1.md`.
+- Compatibility profile contract: `docs/abi/compat_profile_v1.md`.
+- Compatibility suite skeleton: `tests/compat/`:
+  - process lifecycle (`test_process_lifecycle.py`)
+  - file I/O subset (`test_file_io_subset.py`)
+  - time/signal subset (`test_time_signal_subset.py`)
+  - socket API subset (`test_socket_api_subset.py`)
+- Backlog execution status updated: `docs/M8_EXECUTION_BACKLOG.md`.
+
+### Next steps (remaining M8 PRs)
+
+- PR-2: implement ELF/process/fd semantics required by the profile.
+- PR-3: close remaining POSIX subset and package/bootstrap gate.
+
+---
+
 ## References
 
 - Rust target `x86_64-unknown-none` platform support notes (no std; allocator
