@@ -513,40 +513,167 @@ local and CI lanes.
 
 ## M13 - Storage Reliability v1
 
+Milestone status: next (planning complete on 2026-03-04).
+
 ### Goal
 
-Evolve from functional FS behavior to crash-consistent, recoverable storage.
+Turn the current functional `SimpleFS v0` path into a crash-consistent,
+recoverable, and release-gated storage reliability lane with explicit
+durability semantics.
+
+### Current baseline (post-M12)
+
+- M6 delivers functional filesystem behavior with deterministic mount and app
+  package flow (`tests/fs/test_fsd_smoke.py`, `tests/pkg/test_pkg_install_run.py`).
+- On-disk format is documented as `SimpleFS v0` (`docs/storage/fs_v0.md`) and
+  built deterministically by `tools/mkfs.py`.
+- Basic invalid-superblock rejection exists (`tests/fs/test_fsd_bad_magic.py`).
+- M5/M9 already provide deterministic VirtIO block probe/read/write baselines.
+- Missing for M13 closure: crash model and durability contract, write-ordering
+  guarantees, replay/recovery tooling, corruption/power-loss campaigns, and a
+  dedicated storage reliability CI gate.
 
 ### Implementation strategy
 
-1. Define storage correctness model:
-   - Metadata consistency, data durability classes, fsync semantics.
-2. Choose and implement reliability strategy:
-   - Journaling or copy-on-write model with explicit recovery guarantees.
-3. Add integrity and recovery tooling:
-   - Checksums, replay, scrub/fsck-like validation utilities.
-4. Test failure realism:
-   - Power-loss and abrupt-reset campaigns integrated in CI.
+1. Freeze storage correctness contracts first:
+   - define v1 crash model, durability classes, and `fsync`/flush guarantees.
+   - document deterministic failure-path behavior for partial/aborted writes.
+2. Implement recovery-capable write path:
+   - choose reliability strategy (journaled metadata path or equivalent).
+   - enforce write ordering and barrier policy in block-facing storage path.
+3. Add verification and repair tooling:
+   - replay/recovery utility, integrity checks, and offline verifier workflow.
+4. Build realistic fault campaigns:
+   - model repeated power-loss/reset points and corruption injection.
+5. Promote reliability to release gates:
+   - storage fault/recovery reports as mandatory local/CI evidence.
+
+### Execution plan (3 PRs)
+
+#### PR-1: Storage Contract Freeze + Crash Model Baseline
+
+##### Objective
+
+Define storage v1 guarantees and make durability semantics executable before
+recovery implementation lands.
+
+##### Scope
+
+- Add docs:
+  - `docs/storage/fs_v1.md`
+  - `docs/storage/durability_model_v1.md`
+  - `docs/storage/write_ordering_policy_v1.md`
+- Add/extend executable checks:
+  - `tests/storage/test_storage_contract_docs_v1.py`
+  - `tests/storage/test_fsync_semantics_v1.py`
+  - `tests/storage/test_write_ordering_contract_v1.py`
+- Record explicit deferred items with owner/target date where needed.
+
+##### Acceptance checks
+
+- `python -m pytest tests/storage/test_storage_contract_docs_v1.py -v`
+- `python -m pytest tests/storage/test_fsync_semantics_v1.py tests/storage/test_write_ordering_contract_v1.py -v`
+
+##### Done criteria for PR-1
+
+- Storage v1 contracts are versioned, reviewable, and test-referenced.
+- Crash/durability semantics have no unowned placeholder rows.
+
+#### PR-2: Replay/Recovery Tooling + Fault-Campaign Harness
+
+##### Objective
+
+Implement and validate deterministic recovery behavior under corruption and
+power-loss scenarios.
+
+##### Scope
+
+- Add tooling:
+  - `tools/storage_recover_v1.py`
+  - `tools/run_storage_fault_campaign_v1.py`
+- Add tests:
+  - `tests/storage/test_storage_recovery_v1.py`
+  - `tests/storage/test_storage_fault_campaign_v1.py`
+  - `tests/storage/test_storage_integrity_checker_v1.py`
+- Add docs:
+  - `docs/storage/recovery_playbook_v1.md`
+  - `docs/storage/fault_campaign_v1.md`
+
+##### Acceptance checks
+
+- `python tools/storage_recover_v1.py --check --out out/storage-recovery-v1.json`
+- `python tools/run_storage_fault_campaign_v1.py --seed 20260304 --out out/storage-fault-campaign-v1.json`
+- `python -m pytest tests/storage/test_storage_recovery_v1.py tests/storage/test_storage_fault_campaign_v1.py -v`
+
+##### Done criteria for PR-2
+
+- Recovery and fault-campaign tooling emits stable machine-readable artifacts.
+- Corruption/power-loss scenarios produce deterministic pass/fail outcomes.
+
+#### PR-3: Storage Reliability Gate + Milestone Closure
+
+##### Objective
+
+Close M13 with release-blocking storage reliability gates and evidence-linked
+status closure.
+
+##### Scope
+
+- Add local gate:
+  - `Makefile` target `test-storage-reliability-v1`
+- Add CI gate:
+  - `.github/workflows/ci.yml` step `Storage reliability v1 gate`
+- Add aggregate storage test lane:
+  - `tests/storage/test_storage_reliability_gate_v1.py`
+- Wire artifact uploads:
+  - `out/storage-recovery-v1.json`
+  - `out/storage-fault-campaign-v1.json`
+- Mark milestone/status docs once gate is green.
+
+##### Acceptance checks
+
+- `make test-storage-reliability-v1`
+- `python -m pytest tests/storage -v`
+- `python tools/storage_recover_v1.py --check --out out/storage-recovery-v1.json`
+- `python tools/run_storage_fault_campaign_v1.py --seed 20260304 --out out/storage-fault-campaign-v1.json`
+
+##### Done criteria for PR-3
+
+- Storage reliability gate is mandatory in CI.
+- Recovery/fault artifacts are stable and linked in milestone evidence.
+- M13 is ready to be marked `done` in milestone/status docs.
 
 ### Work packages
 
-- M13.1 FS v1 spec (`docs/storage/fs_v1.md`) with crash model.
-- M13.2 write ordering, barriers, and flush policy.
-- M13.3 replay/recovery utility and offline verifier.
-- M13.4 snapshot/rollback strategy (if CoW selected).
-- M13.5 storage endurance and corruption-injection suite.
+- M13.1 storage v1 contracts (crash model, durability classes, fsync semantics).
+- M13.2 write-ordering/barrier policy with deterministic failure behavior.
+- M13.3 replay/recovery tooling + offline integrity verifier.
+- M13.4 power-loss/corruption fault-campaign harness + artifact schema.
+- M13.5 release-blocking local/CI storage reliability gate.
 
 ### Exit criteria
 
-- Crash-consistency claims documented and empirically validated.
-- Recovery tools restore a clean mountable state across fault campaigns.
-- Durability behavior is predictable and test-backed.
+- Crash-consistency and durability claims are versioned, explicit, and tested.
+- Recovery tooling restores a clean mountable state across campaign scenarios.
+- Storage reliability artifacts are generated and enforced by release gates.
 
 ### Acceptance tests (examples)
 
-- Repeated forced power cuts during metadata/data updates.
-- Post-recovery integrity scans and workload replay checks.
-- Large-file, many-file, and metadata-heavy stress runs.
+- Repeated forced power cuts during metadata/data update phases.
+- Post-recovery integrity/replay checks on clean and corrupted images.
+- Mixed workload stress (large-file, many-file, metadata-heavy) with bounded
+  failure thresholds.
+
+### Risks and non-goals
+
+- Non-goals:
+  - full production filesystem feature parity (quotas, snapshots, online resize).
+  - complete CoW snapshot/rollback system in M13 unless explicitly selected.
+  - broad storage hardware family expansion beyond current virtio baseline.
+- Risks to track:
+  - hidden ordering assumptions between FS metadata and block flush behavior.
+  - long fault campaigns increasing CI flakiness/runtime.
+  - recovery correctness gaps that only appear under repeated power cuts.
 
 ---
 
@@ -610,10 +737,8 @@ Make the OS operable as a real product: installable, updatable, auditable, and s
 
 ## Suggested immediate next actions
 
-1. Create `docs/M13_EXECUTION_BACKLOG.md` and split M13 into 3 PRs:
-   - FS v1 crash-model + durability contract,
-   - replay/recovery tooling + corruption campaign harness,
-   - storage reliability CI gate + milestone closure.
+1. Materialize `docs/M13_EXECUTION_BACKLOG.md` from the PR-1/PR-2/PR-3 split
+   above and open PR-1 (storage contracts + crash-model baseline gate).
 2. Extend the post-G2 dashboard with storage reliability signals:
    - crash-recovery pass rate,
    - fsck/replay clean-recovery trend,
