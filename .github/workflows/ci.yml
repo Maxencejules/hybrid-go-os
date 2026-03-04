@@ -144,3 +144,16 @@ jobs:
           path: |
             out/net-interop-v1.json
             out/net-soak-v1.json
+
+      - name: Storage reliability v1 gate
+        run: |
+          make test-storage-reliability-v1
+
+      - name: Upload storage reliability v1 artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: storage-reliability-v1-artifacts
+          path: |
+            out/storage-recovery-v1.json
+            out/storage-fault-campaign-v1.json

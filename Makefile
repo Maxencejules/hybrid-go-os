@@ -51,6 +51,7 @@ endif
        build-sec-rights image-sec-rights \
        build-sec-filter image-sec-filter \
        test-security-baseline test-runtime-maturity test-network-stack-v1 \
+       test-storage-reliability-v1 \
        run test-qemu test-hw-matrix repro-check clean legacy docker-all docker-legacy
 
 # Tools
@@ -530,6 +531,11 @@ test-network-stack-v1: image-net
 	$(PYTHON) tools/run_net_interop_matrix_v1.py --out $(OUT)/net-interop-v1.json
 	$(PYTHON) tools/run_net_soak_v1.py --out $(OUT)/net-soak-v1.json
 	$(PYTHON) -m pytest tests/net -v
+
+test-storage-reliability-v1: image-fs image-fs-badmagic
+	$(PYTHON) tools/storage_recover_v1.py --check --out $(OUT)/storage-recovery-v1.json
+	$(PYTHON) tools/run_storage_fault_campaign_v1.py --seed 20260304 --out $(OUT)/storage-fault-campaign-v1.json
+	$(PYTHON) -m pytest tests/storage -v
 
 repro-check:
 	@set -e; \

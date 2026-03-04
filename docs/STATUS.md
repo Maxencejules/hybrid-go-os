@@ -17,6 +17,7 @@ Full milestone definitions and acceptance criteria live in
 make test-qemu
 make test-runtime-maturity
 make test-network-stack-v1
+make test-storage-reliability-v1
 
 # Legacy (build + QEMU smoke tests, 16 tests)
 make -C legacy build && make -C legacy image && make -C legacy test-qemu
@@ -46,6 +47,7 @@ make docker-legacy       # Legacy only (requires gccgo in Docker image)
 | **M10** Security baseline v1 | n/a | ✅ | Rugo: `tests/security/*`, `make test-security-baseline`, CI `Security baseline v1 gate`, docs in `docs/security/*` and `docs/M10_EXECUTION_BACKLOG.md`. |
 | **M11** Runtime + toolchain maturity v1 | n/a | ✅ | Rugo: `tests/runtime/*`, `make test-runtime-maturity`, CI `Runtime + toolchain maturity v1 gate`, docs in `docs/runtime/*` and `docs/M11_EXECUTION_BACKLOG.md`. |
 | **M12** Network stack v1 | n/a | ✅ | Rugo: `tests/net/*`, `make test-network-stack-v1`, CI `Network stack v1 gate`, docs in `docs/net/*` and `docs/M12_EXECUTION_BACKLOG.md`. |
+| **M13** Storage reliability v1 | n/a | ✅ | Rugo: `tests/storage/*`, `make test-storage-reliability-v1`, CI `Storage reliability v1 gate`, docs in `docs/storage/*` and `docs/M13_EXECUTION_BACKLOG.md`. |
 
 ✅ done &ensp; ◐ in progress (prep) &ensp; ⬜ not started &ensp; n/a not applicable
 
@@ -218,9 +220,31 @@ M12 execution update (2026-03-04):
   - `.github/workflows/ci.yml` step `Network stack v1 gate`
 - M12 is done.
 
+M13 execution update (2026-03-04):
+- PR-1 complete (storage contracts + durability baseline):
+  - `docs/storage/fs_v1.md`
+  - `docs/storage/durability_model_v1.md`
+  - `docs/storage/write_ordering_policy_v1.md`
+  - `tests/storage/test_storage_contract_docs_v1.py`
+  - `tests/storage/test_fsync_semantics_v1.py`
+  - `tests/storage/test_write_ordering_contract_v1.py`
+- PR-2 complete (recovery tooling + fault campaign):
+  - `tools/storage_recover_v1.py`
+  - `tools/run_storage_fault_campaign_v1.py`
+  - `docs/storage/recovery_playbook_v1.md`
+  - `docs/storage/fault_campaign_v1.md`
+  - `tests/storage/test_storage_recovery_v1.py`
+  - `tests/storage/test_storage_fault_campaign_v1.py`
+  - `tests/storage/test_storage_integrity_checker_v1.py`
+- PR-3 complete (storage reliability gate + milestone closure):
+  - `tests/storage/test_storage_reliability_gate_v1.py`
+  - `Makefile` target `test-storage-reliability-v1`
+  - `.github/workflows/ci.yml` step `Storage reliability v1 gate`
+- M13 is done.
+
 Post-G2 planning and execution:
 - Extended roadmap (M8-M14): `docs/POST_G2_EXTENDED_MILESTONES.md`
-- Last completed backlog (M12): `docs/M12_EXECUTION_BACKLOG.md`
-- Next execution backlog target: M13
+- Last completed backlog (M13): `docs/M13_EXECUTION_BACKLOG.md`
+- Next execution backlog target: M14
 
 

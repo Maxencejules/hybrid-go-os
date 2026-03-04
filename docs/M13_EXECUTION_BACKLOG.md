@@ -31,9 +31,9 @@ backlog.
 
 ## Execution Result
 
-- PR-1: pending
-- PR-2: pending
-- PR-3: pending
+- PR-1: complete (2026-03-04)
+- PR-2: complete (2026-03-04)
+- PR-3: complete (2026-03-04)
 
 ## PR-1: Storage Contract Freeze + Crash Model Baseline
 
@@ -62,6 +62,7 @@ recovery implementation lands.
 - `tests/storage/test_storage_contract_docs_v1.py`
 - `tests/storage/test_fsync_semantics_v1.py`
 - `tests/storage/test_write_ordering_contract_v1.py`
+- `tests/storage/v1_model.py`
 
 ### Acceptance checks
 
@@ -142,6 +143,7 @@ status docs with evidence pointers.
 - `MILESTONES.md`
 - `docs/STATUS.md`
 - `README.md`
+- `docs/POST_G2_EXTENDED_MILESTONES.md`
 
 ### Acceptance checks
 

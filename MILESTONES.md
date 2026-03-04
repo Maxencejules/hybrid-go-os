@@ -78,6 +78,7 @@ Tests: `legacy/tests/` (boot, trap, sched, user, ipc, drivers, fs, pkg, net)
 | M10 | Security baseline v1 | n/a | ✅ | Rugo: `tests/security/*`, security CI gate, and docs in `docs/security/*`, `docs/M10_EXECUTION_BACKLOG.md`. |
 | M11 | Runtime + toolchain maturity v1 | n/a | ✅ | Rugo: `tests/runtime/*`, `make test-runtime-maturity`, CI runtime gate, docs in `docs/runtime/*`, `docs/M11_EXECUTION_BACKLOG.md`. |
 | M12 | Network stack v1 | n/a | ✅ | Rugo: `tests/net/*`, `make test-network-stack-v1`, CI network gate, docs in `docs/net/*`, `docs/M12_EXECUTION_BACKLOG.md`. |
+| M13 | Storage reliability v1 | n/a | ✅ | Rugo: `tests/storage/*`, `make test-storage-reliability-v1`, CI storage gate, docs in `docs/storage/*`, `docs/M13_EXECUTION_BACKLOG.md`. |
 
 Legend: ✅ = done with passing tests, ◐ = in progress (prep), — = not started, n/a = not applicable to this lane.
 
@@ -685,6 +686,53 @@ Milestone status: done (2026-03-04).
 - Release gating:
   - `Makefile` target `test-network-stack-v1`
   - `.github/workflows/ci.yml` step `Network stack v1 gate`
+
+---
+
+## M13: Storage Reliability v1
+
+Milestone status: done (2026-03-04).
+
+### Definition of done
+
+- Storage v1 contracts are documented for crash model and durability classes.
+- Write-ordering/barrier semantics are explicitly defined and test-backed.
+- Recovery and fault-campaign tooling produce machine-readable reports.
+- Storage reliability is release-gated in local and CI lanes.
+- M13 evidence is linked in backlog/status docs.
+
+### Acceptance tests
+
+| Test | Markers/Outcome |
+|------|------------------|
+| `tests/storage/test_storage_contract_docs_v1.py` | storage docs/tools/gate wiring present |
+| `tests/storage/test_fsync_semantics_v1.py` | `fdatasync` vs `fsync` durability semantics |
+| `tests/storage/test_write_ordering_contract_v1.py` | ordered commit baseline and invalid ordering rejection |
+| `tests/storage/test_storage_recovery_v1.py` | recovery report schema + mountability checks |
+| `tests/storage/test_storage_fault_campaign_v1.py` | campaign report schema + threshold checks |
+| `tests/storage/test_storage_integrity_checker_v1.py` | checksum/corruption detection baseline |
+| `tests/storage/test_storage_reliability_gate_v1.py` | make/ci/status wiring for M13 gate |
+
+### Rugo evidence
+
+- Storage contract docs:
+  - `docs/storage/fs_v1.md`
+  - `docs/storage/durability_model_v1.md`
+  - `docs/storage/write_ordering_policy_v1.md`
+  - `docs/storage/recovery_playbook_v1.md`
+  - `docs/storage/fault_campaign_v1.md`
+- Storage tooling:
+  - `tools/storage_recover_v1.py`
+  - `tools/run_storage_fault_campaign_v1.py`
+- Storage test gate:
+  - `tests/storage/test_storage_recovery_v1.py`
+  - `tests/storage/test_storage_fault_campaign_v1.py`
+  - `tests/storage/test_storage_reliability_gate_v1.py`
+- Execution and sequencing history:
+  - `docs/M13_EXECUTION_BACKLOG.md`
+- Release gating:
+  - `Makefile` target `test-storage-reliability-v1`
+  - `.github/workflows/ci.yml` step `Storage reliability v1 gate`
 
 ---
 

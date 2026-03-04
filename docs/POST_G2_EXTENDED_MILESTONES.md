@@ -1,7 +1,7 @@
 # Post-G2 Extended Milestones (Research Roadmap)
 
 Date: 2026-03-04  
-Status: Active (M8-M12 complete; M13 next)  
+Status: Active (M8-M13 complete; M14 next)  
 Scope: Rugo lane after G2 completion
 
 ---
@@ -513,7 +513,7 @@ local and CI lanes.
 
 ## M13 - Storage Reliability v1
 
-Milestone status: next (planning complete on 2026-03-04).
+Milestone status: done (2026-03-04).
 
 ### Goal
 
@@ -529,9 +529,9 @@ durability semantics.
   built deterministically by `tools/mkfs.py`.
 - Basic invalid-superblock rejection exists (`tests/fs/test_fsd_bad_magic.py`).
 - M5/M9 already provide deterministic VirtIO block probe/read/write baselines.
-- Missing for M13 closure: crash model and durability contract, write-ordering
-  guarantees, replay/recovery tooling, corruption/power-loss campaigns, and a
-  dedicated storage reliability CI gate.
+- Kickoff gaps (closed in M13): crash model and durability contract,
+  write-ordering guarantees, replay/recovery tooling,
+  corruption/power-loss campaigns, and a dedicated storage reliability CI gate.
 
 ### Implementation strategy
 
@@ -737,16 +737,18 @@ Make the OS operable as a real product: installable, updatable, auditable, and s
 
 ## Suggested immediate next actions
 
-1. Materialize `docs/M13_EXECUTION_BACKLOG.md` from the PR-1/PR-2/PR-3 split
-   above and open PR-1 (storage contracts + crash-model baseline gate).
-2. Extend the post-G2 dashboard with storage reliability signals:
-   - crash-recovery pass rate,
-   - fsck/replay clean-recovery trend,
-   - corruption-injection detection trend.
-3. Freeze M13 ownership:
+1. Create `docs/M14_EXECUTION_BACKLOG.md` and split M14 into 3 PRs:
+   - release policy + channel/train contract,
+   - signed OTA/update pipeline + rollback protections,
+   - supply-chain/reproducibility CI gate + milestone closure.
+2. Extend the post-G2 dashboard with productization signals:
+   - OTA success and rollback trend,
+   - SBOM/provenance coverage,
+   - release reproducibility pass rate.
+3. Freeze M14 ownership:
    - one milestone owner,
-   - one storage-test owner,
-   - one recovery-owner,
+   - one release-owner,
+   - one update-pipeline owner,
    - one doc owner.
 
 ---
