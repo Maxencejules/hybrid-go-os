@@ -51,7 +51,7 @@ endif
        build-sec-rights image-sec-rights \
        build-sec-filter image-sec-filter \
        test-security-baseline test-runtime-maturity test-network-stack-v1 \
-       test-storage-reliability-v1 \
+       test-storage-reliability-v1 test-release-engineering-v1 \
        run test-qemu test-hw-matrix repro-check clean legacy docker-all docker-legacy
 
 # Tools
@@ -536,6 +536,16 @@ test-storage-reliability-v1: image-fs image-fs-badmagic
 	$(PYTHON) tools/storage_recover_v1.py --check --out $(OUT)/storage-recovery-v1.json
 	$(PYTHON) tools/run_storage_fault_campaign_v1.py --seed 20260304 --out $(OUT)/storage-fault-campaign-v1.json
 	$(PYTHON) -m pytest tests/storage -v
+
+test-release-engineering-v1: image
+	$(PYTHON) tools/release_contract_v1.py --out $(OUT)/release-contract-v1.json
+	$(PYTHON) tools/update_repo_sign_v1.py --repo $(OUT)/update-repo-v1 --version 1.0.0 --build-sequence 1 --out $(OUT)/update-metadata-v1.json
+	$(PYTHON) tools/update_client_verify_v1.py --repo $(OUT)/update-repo-v1 --metadata $(OUT)/update-metadata-v1.json --state $(OUT)/update-client-state-v1.json --expect-version 1.0.0
+	$(PYTHON) tools/run_update_attack_suite_v1.py --seed 20260304 --out $(OUT)/update-attack-suite-v1.json
+	$(PYTHON) tools/generate_sbom_v1.py --out $(OUT)/sbom-v1.spdx.json
+	$(PYTHON) tools/generate_provenance_v1.py --out $(OUT)/provenance-v1.json
+	$(PYTHON) tools/collect_support_bundle_v1.py --out $(OUT)/support-bundle-v1.json
+	$(PYTHON) -m pytest tests/build tests/pkg/test_update_metadata_v1.py tests/pkg/test_update_rollback_protection_v1.py tests/pkg/test_update_attack_suite_v1.py -v
 
 repro-check:
 	@set -e; \

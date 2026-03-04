@@ -1,7 +1,7 @@
 # Post-G2 Extended Milestones (Research Roadmap)
 
 Date: 2026-03-04  
-Status: Active (M8-M13 complete; M14 next)  
+Status: Complete (M8-M14 complete)  
 Scope: Rugo lane after G2 completion
 
 ---
@@ -679,42 +679,192 @@ status closure.
 
 ## M14 - Productization and Release Engineering v1
 
+Milestone status: done (2026-03-04).
+
 ### Goal
 
-Make the OS operable as a real product: installable, updatable, auditable, and supportable.
+Turn the current milestone-complete platform into a shippable, supportable
+product lane with versioned releases, signed updates, supply-chain evidence,
+and installer/recovery baselines enforced by release gates.
+
+### Current baseline (post-M13)
+
+- M8-M13 are complete with release-blocking gates for compatibility, hardware,
+  security, runtime/toolchain, network, and storage.
+- Build determinism already exists at image level (`make repro-check`,
+  `tools/mkimage.sh`, `docs/BUILD.md`).
+- Security baseline already includes signed boot-manifest and key-rotation
+  policy artifacts (`tools/secure_boot_manifest_v1.py`,
+  `docs/security/secure_boot_policy_v1.md`).
+- M11/M12/M13 already established the machine-readable artifact pattern in
+  `out/*.json` and CI artifact uploads (`.github/workflows/ci.yml`).
+- Kickoff gaps for M14: no release-channel contract, no signed OTA/update
+  repository/client workflow, no SBOM/provenance release artifacts, no
+  installer/recovery operation contract, and no dedicated release-engineering
+  gate.
 
 ### Implementation strategy
 
-1. Define release train:
-   - Stable, beta, nightly channels; LTS policy; backport workflow.
-2. Secure update pipeline:
-   - Signed metadata and target files, rollback protection, key rotation.
-3. Supply-chain security and transparency:
-   - Build provenance, SBOM generation, artifact attestations.
-4. Reproducibility and observability:
-   - Deterministic release images and standardized crash/telemetry data.
-5. Operational UX:
-   - Installer, recovery mode, system diagnostics and support bundle tools.
+1. Freeze release governance and channel contracts first:
+   - stable/beta/nightly semantics, support windows, backport policy, and
+     ownership/approval flow.
+2. Build a signed update path with explicit rollback defenses:
+   - signed metadata/targets, monotonic version policy, key-rotation workflow,
+     and offline verification behavior.
+3. Add supply-chain evidence to every releasable artifact:
+   - SBOM output, provenance attestations, and artifact manifest checksums.
+4. Promote reproducibility + release assembly to mandatory gates:
+   - deterministic release-image checks and policy validation in local/CI.
+5. Define operator-facing product UX baseline:
+   - installer flow, recovery mode, and support bundle collection contract.
+
+### Execution plan (3 PRs)
+
+#### PR-1: Release Contract Freeze + Channel Governance
+
+##### Objective
+
+Make release/versioning policy executable before update transport mechanics are
+implemented.
+
+##### Scope
+
+- Add release contract docs:
+  - `docs/build/release_policy_v1.md`
+  - `docs/build/versioning_scheme_v1.md`
+  - `docs/build/release_checklist_v1.md`
+- Add contract/report helper:
+  - `tools/release_contract_v1.py`
+- Add executable checks:
+  - `tests/build/test_release_contract_docs_v1.py`
+  - `tests/build/test_release_contract_report_v1.py`
+- Freeze release-role ownership and escalation paths in docs.
+
+##### Acceptance checks
+
+- `python tools/release_contract_v1.py --out out/release-contract-v1.json`
+- `python -m pytest tests/build/test_release_contract_docs_v1.py tests/build/test_release_contract_report_v1.py -v`
+
+##### Done criteria for PR-1
+
+- Release policy is versioned, reviewable, and test-referenced.
+- Channel/support/backport rules have no unowned placeholders.
+- Release contract report schema is stable.
+
+#### PR-2: Signed Update Pipeline + Rollback Protection
+
+##### Objective
+
+Ship a deterministic, attack-aware OTA/update baseline with explicit replay,
+freeze, and rollback defenses.
+
+##### Scope
+
+- Add update protocol docs:
+  - `docs/pkg/update_protocol_v1.md`
+  - `docs/pkg/update_repo_layout_v1.md`
+  - `docs/security/update_signing_policy_v1.md`
+- Add update tooling:
+  - `tools/update_repo_sign_v1.py`
+  - `tools/update_client_verify_v1.py`
+  - `tools/run_update_attack_suite_v1.py`
+- Add executable checks:
+  - `tests/pkg/test_update_metadata_v1.py`
+  - `tests/pkg/test_update_rollback_protection_v1.py`
+  - `tests/pkg/test_update_attack_suite_v1.py`
+
+##### Acceptance checks
+
+- `python tools/update_repo_sign_v1.py --repo out/update-repo-v1 --out out/update-metadata-v1.json`
+- `python tools/update_client_verify_v1.py --repo out/update-repo-v1 --expect-version 1.0.0`
+- `python tools/run_update_attack_suite_v1.py --seed 20260304 --out out/update-attack-suite-v1.json`
+- `python -m pytest tests/pkg/test_update_metadata_v1.py tests/pkg/test_update_rollback_protection_v1.py tests/pkg/test_update_attack_suite_v1.py -v`
+
+##### Done criteria for PR-2
+
+- Update metadata/targets are signed and verifiable with documented key-rotation
+  behavior.
+- Replay/freeze/rollback attack simulations have deterministic pass/fail
+  outcomes.
+- Update reports are machine-readable and schema-validated.
+
+#### PR-3: Supply-Chain + Reproducibility Gate + Installer/Recovery Closure
+
+##### Objective
+
+Close M14 with release-blocking productization gates and evidence-linked
+milestone closure.
+
+##### Scope
+
+- Add supply-chain docs/tooling:
+  - `docs/build/supply_chain_policy_v1.md`
+  - `tools/generate_sbom_v1.py`
+  - `tools/generate_provenance_v1.py`
+- Add installer/recovery baseline docs/tooling:
+  - `docs/build/installer_recovery_baseline_v1.md`
+  - `tools/collect_support_bundle_v1.py`
+- Add release gate wiring:
+  - `Makefile` target `test-release-engineering-v1`
+  - `.github/workflows/ci.yml` step `Release engineering v1 gate`
+- Add aggregate checks:
+  - `tests/build/test_release_engineering_gate_v1.py`
+- Wire release artifacts:
+  - `out/release-contract-v1.json`
+  - `out/update-attack-suite-v1.json`
+  - `out/sbom-v1.spdx.json`
+  - `out/provenance-v1.json`
+- Mark milestone/status docs once gate is green.
+
+##### Acceptance checks
+
+- `make test-release-engineering-v1`
+- `make repro-check`
+- `python tools/generate_sbom_v1.py --out out/sbom-v1.spdx.json`
+- `python tools/generate_provenance_v1.py --out out/provenance-v1.json`
+- `python -m pytest tests/build/test_release_engineering_gate_v1.py -v`
+
+##### Done criteria for PR-3
+
+- Release-engineering gate is mandatory in local and CI lanes.
+- Release artifacts include reproducibility, update-security, SBOM, and
+  provenance evidence.
+- M14 is evidence-backed and ready to be marked `done` in milestone/status docs.
 
 ### Work packages
 
 - M14.1 release policy and versioning scheme.
-- M14.2 OTA/update client and repository service.
-- M14.3 provenance + SBOM emission in CI.
-- M14.4 reproducible build gate (hash equality across clean environments).
-- M14.5 installer and recovery UX baseline.
+- M14.2 signed OTA/update repository + client verification path.
+- M14.3 provenance + SBOM artifact emission and schema validation in CI.
+- M14.4 release-blocking reproducible build and release-assembly gate.
+- M14.5 installer, recovery, and support-bundle operational baseline.
 
 ### Exit criteria
 
-- Signed OTA updates with rollback/expiry protections in production flow.
-- Every release has SBOM + provenance artifacts.
-- Reproducibility checks are mandatory release gates.
+- Release/channel policy is versioned, executable, and owner-closed.
+- Signed OTA/update flow enforces rollback/replay/freeze defenses.
+- Every release candidate emits reproducibility + SBOM + provenance artifacts.
+- Release engineering gate is mandatory for local and CI release lanes.
 
 ### Acceptance tests (examples)
 
-- Update attack simulations (replay, freeze, key compromise drills).
-- Fresh install + upgrade + rollback end-to-end tests.
-- Multi-run reproducibility checks for release artifacts.
+- Update attack simulations (replay, freeze, rollback, key-rotation drills).
+- Fresh install + upgrade + rollback + recovery mode end-to-end flow.
+- Multi-run release-image reproducibility and artifact checksum verification.
+- Support-bundle generation and redaction policy checks.
+
+### Risks and non-goals
+
+- Non-goals:
+  - full enterprise fleet-management platform in M14.
+  - complete package ecosystem governance beyond baseline update/release policy.
+  - broad hardware-specific installer UX permutations beyond current QEMU/virtio
+    baseline.
+- Risks to track:
+  - update signing key lifecycle mistakes causing lockout or unsafe bypass paths.
+  - reproducibility drift from host/toolchain variance outside pinned baseline.
+  - CI runtime growth from combined reproducibility + security + artifact gates.
+  - installer/recovery flows diverging from documented operator procedures.
 
 ---
 
@@ -737,15 +887,15 @@ Make the OS operable as a real product: installable, updatable, auditable, and s
 
 ## Suggested immediate next actions
 
-1. Create `docs/M14_EXECUTION_BACKLOG.md` and split M14 into 3 PRs:
-   - release policy + channel/train contract,
-   - signed OTA/update pipeline + rollback protections,
-   - supply-chain/reproducibility CI gate + milestone closure.
+1. Keep the release-engineering gate green and trendable:
+   - reproducibility pass rate,
+   - update attack-suite pass rate,
+   - SBOM/provenance artifact completeness.
 2. Extend the post-G2 dashboard with productization signals:
    - OTA success and rollback trend,
    - SBOM/provenance coverage,
    - release reproducibility pass rate.
-3. Freeze M14 ownership:
+3. Freeze steady-state ownership:
    - one milestone owner,
    - one release-owner,
    - one update-pipeline owner,

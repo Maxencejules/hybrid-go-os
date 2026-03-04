@@ -21,4 +21,4 @@ def test_storage_reliability_gate_wiring():
     assert "Storage reliability v1 gate" in ci
     assert "M13" in milestones
     assert "M13" in status
-    assert "Next execution backlog target: M14" in status
+    assert "M14 execution update" in status

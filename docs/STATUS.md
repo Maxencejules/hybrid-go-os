@@ -18,6 +18,7 @@ make test-qemu
 make test-runtime-maturity
 make test-network-stack-v1
 make test-storage-reliability-v1
+make test-release-engineering-v1
 
 # Legacy (build + QEMU smoke tests, 16 tests)
 make -C legacy build && make -C legacy image && make -C legacy test-qemu
@@ -48,6 +49,7 @@ make docker-legacy       # Legacy only (requires gccgo in Docker image)
 | **M11** Runtime + toolchain maturity v1 | n/a | ✅ | Rugo: `tests/runtime/*`, `make test-runtime-maturity`, CI `Runtime + toolchain maturity v1 gate`, docs in `docs/runtime/*` and `docs/M11_EXECUTION_BACKLOG.md`. |
 | **M12** Network stack v1 | n/a | ✅ | Rugo: `tests/net/*`, `make test-network-stack-v1`, CI `Network stack v1 gate`, docs in `docs/net/*` and `docs/M12_EXECUTION_BACKLOG.md`. |
 | **M13** Storage reliability v1 | n/a | ✅ | Rugo: `tests/storage/*`, `make test-storage-reliability-v1`, CI `Storage reliability v1 gate`, docs in `docs/storage/*` and `docs/M13_EXECUTION_BACKLOG.md`. |
+| **M14** Productization + release engineering v1 | n/a | done | Rugo: `tests/build/*`, update tests in `tests/pkg/*`, `make test-release-engineering-v1`, CI `Release engineering v1 gate`, docs in `docs/build/*`, `docs/pkg/*`, and `docs/M14_EXECUTION_BACKLOG.md`. |
 
 ✅ done &ensp; ◐ in progress (prep) &ensp; ⬜ not started &ensp; n/a not applicable
 
@@ -242,9 +244,38 @@ M13 execution update (2026-03-04):
   - `.github/workflows/ci.yml` step `Storage reliability v1 gate`
 - M13 is done.
 
+M14 execution update (2026-03-04):
+- PR-1 complete (release contracts and governance docs):
+  - `docs/build/release_policy_v1.md`
+  - `docs/build/versioning_scheme_v1.md`
+  - `docs/build/release_checklist_v1.md`
+  - `tools/release_contract_v1.py`
+  - `tests/build/test_release_contract_docs_v1.py`
+  - `tests/build/test_release_contract_report_v1.py`
+- PR-2 complete (signed update metadata + rollback defenses):
+  - `docs/pkg/update_protocol_v1.md`
+  - `docs/pkg/update_repo_layout_v1.md`
+  - `docs/security/update_signing_policy_v1.md`
+  - `tools/update_repo_sign_v1.py`
+  - `tools/update_client_verify_v1.py`
+  - `tools/run_update_attack_suite_v1.py`
+  - `tests/pkg/test_update_metadata_v1.py`
+  - `tests/pkg/test_update_rollback_protection_v1.py`
+  - `tests/pkg/test_update_attack_suite_v1.py`
+- PR-3 complete (supply-chain + release gate + milestone closure):
+  - `docs/build/supply_chain_policy_v1.md`
+  - `docs/build/installer_recovery_baseline_v1.md`
+  - `tools/generate_sbom_v1.py`
+  - `tools/generate_provenance_v1.py`
+  - `tools/collect_support_bundle_v1.py`
+  - `tests/build/test_release_engineering_gate_v1.py`
+  - `Makefile` target `test-release-engineering-v1`
+  - `.github/workflows/ci.yml` step `Release engineering v1 gate`
+- M14 is done.
+
 Post-G2 planning and execution:
 - Extended roadmap (M8-M14): `docs/POST_G2_EXTENDED_MILESTONES.md`
-- Last completed backlog (M13): `docs/M13_EXECUTION_BACKLOG.md`
-- Next execution backlog target: M14
+- Last completed backlog (M14): `docs/M14_EXECUTION_BACKLOG.md`
+- Post-M14 focus: keep release-engineering gates stable and evidence trendable.
 
 

@@ -79,7 +79,7 @@ Tests: `legacy/tests/` (boot, trap, sched, user, ipc, drivers, fs, pkg, net)
 | M11 | Runtime + toolchain maturity v1 | n/a | ✅ | Rugo: `tests/runtime/*`, `make test-runtime-maturity`, CI runtime gate, docs in `docs/runtime/*`, `docs/M11_EXECUTION_BACKLOG.md`. |
 | M12 | Network stack v1 | n/a | ✅ | Rugo: `tests/net/*`, `make test-network-stack-v1`, CI network gate, docs in `docs/net/*`, `docs/M12_EXECUTION_BACKLOG.md`. |
 | M13 | Storage reliability v1 | n/a | ✅ | Rugo: `tests/storage/*`, `make test-storage-reliability-v1`, CI storage gate, docs in `docs/storage/*`, `docs/M13_EXECUTION_BACKLOG.md`. |
-
+| M14 | Productization + release engineering v1 | n/a | done | Rugo: `tests/build/*`, update attack/metadata tests in `tests/pkg/*`, `make test-release-engineering-v1`, CI release-engineering gate, docs in `docs/build/*`, `docs/pkg/*`, `docs/M14_EXECUTION_BACKLOG.md`. |
 Legend: ✅ = done with passing tests, ◐ = in progress (prep), — = not started, n/a = not applicable to this lane.
 
 ---
@@ -736,6 +736,62 @@ Milestone status: done (2026-03-04).
 
 ---
 
+## M14: Productization + Release Engineering v1
+
+Milestone status: done (2026-03-04).
+
+### Definition of done
+
+- Release/channel/versioning policy is documented and executable.
+- Signed update metadata and client verification enforce rollback/replay/freeze
+  protection.
+- Supply-chain artifacts (SBOM + provenance) are generated in local/CI gates.
+- Release engineering is release-gated in local and CI lanes.
+- Installer/recovery/support-bundle baseline is documented and test-backed.
+
+### Acceptance tests
+
+| Test | Markers/Outcome |
+|------|------------------|
+| `tests/build/test_release_contract_docs_v1.py` | release policy/versioning/checklist docs and tool presence |
+| `tests/build/test_release_contract_report_v1.py` | release contract report schema + channel metadata |
+| `tests/pkg/test_update_metadata_v1.py` | signed update metadata + verify roundtrip |
+| `tests/pkg/test_update_rollback_protection_v1.py` | replay/rollback rejection by monotonic sequence |
+| `tests/pkg/test_update_attack_suite_v1.py` | attack-suite report schema + zero failures target |
+| `tests/build/test_release_engineering_gate_v1.py` | make/ci/docs wiring + supply-chain/support artifacts |
+
+### Rugo evidence
+
+- Release and productization docs:
+  - `docs/build/release_policy_v1.md`
+  - `docs/build/versioning_scheme_v1.md`
+  - `docs/build/release_checklist_v1.md`
+  - `docs/build/supply_chain_policy_v1.md`
+  - `docs/build/installer_recovery_baseline_v1.md`
+  - `docs/pkg/update_protocol_v1.md`
+  - `docs/pkg/update_repo_layout_v1.md`
+  - `docs/security/update_signing_policy_v1.md`
+- Tooling:
+  - `tools/release_contract_v1.py`
+  - `tools/update_repo_sign_v1.py`
+  - `tools/update_client_verify_v1.py`
+  - `tools/run_update_attack_suite_v1.py`
+  - `tools/generate_sbom_v1.py`
+  - `tools/generate_provenance_v1.py`
+  - `tools/collect_support_bundle_v1.py`
+- Release test gate:
+  - `tests/build/test_release_engineering_gate_v1.py`
+  - `tests/pkg/test_update_metadata_v1.py`
+  - `tests/pkg/test_update_rollback_protection_v1.py`
+  - `tests/pkg/test_update_attack_suite_v1.py`
+- Execution and sequencing history:
+  - `docs/M14_EXECUTION_BACKLOG.md`
+- Release gating:
+  - `Makefile` target `test-release-engineering-v1`
+  - `.github/workflows/ci.yml` step `Release engineering v1 gate`
+
+---
+
 ## References
 
 - Rust target `x86_64-unknown-none` platform support notes (no std; allocator
@@ -744,3 +800,4 @@ Milestone status: done (2026-03-04).
 - TinyGo documentation (targets; language and stdlib support notes).
 - Build toolchain details: `docs/build/rust_toolchain.md`
 - Legacy Go toolchain: `docs/build/go_toolchain.md`
+
