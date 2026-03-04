@@ -131,3 +131,16 @@ jobs:
           path: |
             out/runtime-toolchain-contract.env
             out/runtime-toolchain-repro.json
+
+      - name: Network stack v1 gate
+        run: |
+          make test-network-stack-v1
+
+      - name: Upload network stack v1 artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: network-stack-v1-artifacts
+          path: |
+            out/net-interop-v1.json
+            out/net-soak-v1.json

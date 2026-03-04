@@ -50,7 +50,7 @@ endif
        build-go-std image-go-std \
        build-sec-rights image-sec-rights \
        build-sec-filter image-sec-filter \
-       test-security-baseline test-runtime-maturity \
+       test-security-baseline test-runtime-maturity test-network-stack-v1 \
        run test-qemu test-hw-matrix repro-check clean legacy docker-all docker-legacy
 
 # Tools
@@ -525,6 +525,11 @@ test-runtime-maturity: image-go-std image-stress-syscall image-pressure-shm imag
 	$(PYTHON) tools/runtime_toolchain_contract_v1.py --out $(OUT)/runtime-toolchain-contract.env
 	$(PYTHON) tools/runtime_toolchain_contract_v1.py --repro --out $(OUT)/runtime-toolchain-repro.json
 	$(PYTHON) -m pytest tests/runtime tests/go/test_std_go_binary.py tests/compat/test_posix_subset.py -v
+
+test-network-stack-v1: image-net
+	$(PYTHON) tools/run_net_interop_matrix_v1.py --out $(OUT)/net-interop-v1.json
+	$(PYTHON) tools/run_net_soak_v1.py --out $(OUT)/net-soak-v1.json
+	$(PYTHON) -m pytest tests/net -v
 
 repro-check:
 	@set -e; \

@@ -16,6 +16,7 @@ Full milestone definitions and acceptance criteria live in
 # Rugo (build + full QEMU smoke-test suite)
 make test-qemu
 make test-runtime-maturity
+make test-network-stack-v1
 
 # Legacy (build + QEMU smoke tests, 16 tests)
 make -C legacy build && make -C legacy image && make -C legacy test-qemu
@@ -44,6 +45,7 @@ make docker-legacy       # Legacy only (requires gccgo in Docker image)
 | **M9** Hardware enablement matrix v1 | n/a | ✅ | Rugo: `tests/hw/*`, `make test-hw-matrix`, CI `Hardware matrix v1 gate`, docs in `docs/hw/*` and `docs/M9_EXECUTION_BACKLOG.md`. |
 | **M10** Security baseline v1 | n/a | ✅ | Rugo: `tests/security/*`, `make test-security-baseline`, CI `Security baseline v1 gate`, docs in `docs/security/*` and `docs/M10_EXECUTION_BACKLOG.md`. |
 | **M11** Runtime + toolchain maturity v1 | n/a | ✅ | Rugo: `tests/runtime/*`, `make test-runtime-maturity`, CI `Runtime + toolchain maturity v1 gate`, docs in `docs/runtime/*` and `docs/M11_EXECUTION_BACKLOG.md`. |
+| **M12** Network stack v1 | n/a | ✅ | Rugo: `tests/net/*`, `make test-network-stack-v1`, CI `Network stack v1 gate`, docs in `docs/net/*` and `docs/M12_EXECUTION_BACKLOG.md`. |
 
 ✅ done &ensp; ◐ in progress (prep) &ensp; ⬜ not started &ensp; n/a not applicable
 
@@ -188,9 +190,37 @@ M11 execution update (2026-03-04):
   - `.github/workflows/ci.yml` step `Runtime + toolchain maturity v1 gate`
 - M11 is done.
 
+M12 execution update (2026-03-04):
+- PR-1 complete (network/socket contract + IPv4/UDP baseline):
+  - `docs/net/network_stack_contract_v1.md`
+  - `docs/net/socket_contract_v1.md`
+  - `docs/net/ipv4_udp_profile_v1.md`
+  - `tests/net/test_udp_echo.py`
+  - `tests/net/test_ipv4_udp_contract_v1.py`
+  - `tests/net/test_socket_contract_docs_v1.py`
+- PR-2 complete (TCP + socket semantics baseline):
+  - `docs/net/tcp_state_machine_v1.md`
+  - `docs/net/retransmission_timer_policy_v1.md`
+  - `tests/net/v1_model.py`
+  - `tests/net/test_tcp_state_machine_v1.py`
+  - `tests/net/test_tcp_retransmission_v1.py`
+  - `tests/net/test_socket_poll_semantics_v1.py`
+- PR-3 complete (IPv6 baseline + interop/soak gate + milestone closure):
+  - `docs/net/ipv6_baseline_v1.md`
+  - `tools/net_trace_capture_v1.py`
+  - `tools/run_net_interop_matrix_v1.py`
+  - `tools/run_net_soak_v1.py`
+  - `tests/net/test_ipv6_nd_icmpv6_v1.py`
+  - `tests/net/test_net_trace_capture_v1.py`
+  - `tests/net/test_net_interop_matrix_v1.py`
+  - `tests/net/test_net_soak_v1.py`
+  - `Makefile` target `test-network-stack-v1`
+  - `.github/workflows/ci.yml` step `Network stack v1 gate`
+- M12 is done.
+
 Post-G2 planning and execution:
 - Extended roadmap (M8-M14): `docs/POST_G2_EXTENDED_MILESTONES.md`
-- Last completed backlog (M11): `docs/M11_EXECUTION_BACKLOG.md`
-- Next execution backlog target: M12
+- Last completed backlog (M12): `docs/M12_EXECUTION_BACKLOG.md`
+- Next execution backlog target: M13
 
 

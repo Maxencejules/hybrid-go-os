@@ -77,6 +77,7 @@ Tests: `legacy/tests/` (boot, trap, sched, user, ipc, drivers, fs, pkg, net)
 | M9 | Hardware enablement matrix v1 | n/a | ✅ | Rugo: `tests/hw/*`, CI hardware gate, and docs in `docs/hw/*`, `docs/M9_EXECUTION_BACKLOG.md`. |
 | M10 | Security baseline v1 | n/a | ✅ | Rugo: `tests/security/*`, security CI gate, and docs in `docs/security/*`, `docs/M10_EXECUTION_BACKLOG.md`. |
 | M11 | Runtime + toolchain maturity v1 | n/a | ✅ | Rugo: `tests/runtime/*`, `make test-runtime-maturity`, CI runtime gate, docs in `docs/runtime/*`, `docs/M11_EXECUTION_BACKLOG.md`. |
+| M12 | Network stack v1 | n/a | ✅ | Rugo: `tests/net/*`, `make test-network-stack-v1`, CI network gate, docs in `docs/net/*`, `docs/M12_EXECUTION_BACKLOG.md`. |
 
 Legend: ✅ = done with passing tests, ◐ = in progress (prep), — = not started, n/a = not applicable to this lane.
 
@@ -634,6 +635,56 @@ Milestone status: done (2026-03-04).
 - Release gating:
   - `Makefile` target `test-runtime-maturity`
   - `.github/workflows/ci.yml` step `Runtime + toolchain maturity v1 gate`
+
+---
+
+## M12: Network Stack v1
+
+Milestone status: done (2026-03-04).
+
+### Definition of done
+
+- Network stack v1 contract docs are published and versioned.
+- IPv4/UDP baseline behavior is deterministic and test-backed.
+- TCP state-machine and retransmission policy baselines are documented and
+  tested.
+- IPv6 ND + ICMPv6 baseline is documented and covered by model checks.
+- Interop and soak artifact lanes are release-gated locally and in CI.
+
+### Acceptance tests
+
+| Test | Markers/Outcome |
+|------|------------------|
+| `tests/net/test_udp_echo.py` | `NET: virtio-net ready`, `NET: udp echo`, no timeout marker |
+| `tests/net/test_ipv4_udp_contract_v1.py` | IPv4/UDP contract + tiered net fixture checks |
+| `tests/net/test_tcp_state_machine_v1.py` | TCP lifecycle state-transition baseline |
+| `tests/net/test_tcp_retransmission_v1.py` | deterministic retransmission/backoff/timeout policy |
+| `tests/net/test_ipv6_nd_icmpv6_v1.py` | IPv6 ND + ICMPv6 baseline model checks |
+| `tests/net/test_net_interop_matrix_v1.py` | interop report schema + target threshold |
+| `tests/net/test_net_soak_v1.py` | soak/fault-injection report schema + failure threshold |
+
+### Rugo evidence
+
+- Network contract docs:
+  - `docs/net/network_stack_contract_v1.md`
+  - `docs/net/socket_contract_v1.md`
+  - `docs/net/ipv4_udp_profile_v1.md`
+  - `docs/net/tcp_state_machine_v1.md`
+  - `docs/net/retransmission_timer_policy_v1.md`
+  - `docs/net/ipv6_baseline_v1.md`
+- Network tooling:
+  - `tools/net_trace_capture_v1.py`
+  - `tools/run_net_interop_matrix_v1.py`
+  - `tools/run_net_soak_v1.py`
+- Network test gate:
+  - `tests/net/test_socket_contract_docs_v1.py`
+  - `tests/net/test_socket_poll_semantics_v1.py`
+  - `tests/net/test_net_trace_capture_v1.py`
+- Execution and sequencing history:
+  - `docs/M12_EXECUTION_BACKLOG.md`
+- Release gating:
+  - `Makefile` target `test-network-stack-v1`
+  - `.github/workflows/ci.yml` step `Network stack v1 gate`
 
 ---
 

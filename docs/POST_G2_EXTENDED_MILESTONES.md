@@ -1,7 +1,7 @@
 # Post-G2 Extended Milestones (Research Roadmap)
 
 Date: 2026-03-04  
-Status: Active (M8-M11 complete; M12 next)  
+Status: Active (M8-M12 complete; M13 next)  
 Scope: Rugo lane after G2 completion
 
 ---
@@ -342,41 +342,172 @@ Create a release-blocking M11 gate and wire ownership/process requirements.
 
 ## M12 - Network Stack v1
 
+Milestone status: done (2026-03-04).
+
 ### Goal
 
-Move from UDP-echo milestone coverage to production-oriented network behavior.
+Turn the M7 UDP-echo baseline into a maintainer-grade, release-gated network
+lane with explicit socket semantics, TCP correctness, and interop/soak
+evidence.
+
+### Current baseline (post-M11)
+
+- M7 provides a kernel-side VirtIO-net polling path with ARP + IPv4 UDP echo
+  coverage (`tests/net/test_udp_echo.py`, `docs/net/udp_echo_v0.md`).
+- ABI v1 already reserves raw frame networking via `sys_net_send` and
+  `sys_net_recv` (`docs/abi/syscall_v1.md`), but no network v1 socket contract
+  is published yet.
+- QEMU fixtures already support deterministic UDP inject and tiered net-machine
+  profiles (`tests/conftest.py`: `_boot_iso_with_net`, `qemu_serial_net_*`).
+- M9 hardware matrix proves basic net probe/init across tiered machine profiles.
+- Kickoff gaps (closed in M12): versioned network contracts, TCP state/timer
+  correctness coverage, IPv6 baseline docs/tests, and a dedicated network CI
+  maturity gate.
 
 ### Implementation strategy
 
-1. Stabilize L2/L3 fundamentals:
-   - ARP/ND, ICMP/ICMPv6, routing table and neighbor cache behavior.
-2. Implement robust transport:
-   - UDP hardening and full TCP state machine correctness.
-   - Retransmission, congestion control baseline, timer correctness.
-3. Establish socket contract:
-   - Blocking/non-blocking semantics, poll/epoll integration, error model.
-4. Add user-space network services:
-   - DNS resolver path, TLS-ready client/server workflows.
+1. Freeze network contracts and observability:
+   - Publish versioned L2/L3/L4/socket docs with deterministic error behavior.
+   - Define serial/trace artifacts for repeatable network triage.
+2. Raise transport correctness:
+   - Keep UDP behavior deterministic under load/loss.
+   - Add TCP state machine baseline with retransmission/timer rules.
+3. Lock socket semantics:
+   - Define blocking/non-blocking and poll integration behavior.
+   - Document unsupported operations explicitly as deterministic failures.
+4. Add IPv6 baseline:
+   - Addressing, ICMPv6 essentials, and neighbor discovery baseline.
+5. Promote reliability to release gates:
+   - Add interop and soak/fault-injection lanes with artifact outputs.
+
+### Execution plan (3 PRs)
+
+#### PR-1: Contract Freeze + IPv4/UDP Baseline Gate
+
+##### Objective
+
+Make current IPv4/UDP behavior explicit and test-gated before adding TCP/IPv6
+complexity.
+
+##### Scope
+
+- Add docs:
+  - `docs/net/network_stack_contract_v1.md`
+  - `docs/net/socket_contract_v1.md`
+  - `docs/net/ipv4_udp_profile_v1.md`
+- Add/extend executable checks:
+  - `tests/net/test_udp_echo.py` (positive + deterministic negative paths)
+  - `tests/net/test_ipv4_udp_contract_v1.py`
+  - `tests/net/test_socket_contract_docs_v1.py`
+- Add optional trace/report helper:
+  - `tools/net_trace_capture_v1.py`
+
+##### Acceptance checks
+
+- `python -m pytest tests/net/test_udp_echo.py tests/net/test_ipv4_udp_contract_v1.py -v`
+- `python -m pytest tests/net/test_socket_contract_docs_v1.py -v`
+
+##### Done criteria for PR-1
+
+- Network v1 contract docs are versioned and test-referenced.
+- IPv4/UDP behavior (including failure paths) is deterministic and executable.
+
+#### PR-2: TCP State/Timer Engine + Socket Semantics
+
+##### Objective
+
+Implement a deterministic TCP baseline and bind it to explicit socket behavior
+contracts.
+
+##### Scope
+
+- Add TCP baseline behavior:
+  - handshake, established data flow, close/teardown, reset handling.
+  - retransmission and timer policy with deterministic retry/fail semantics.
+- Add tests:
+  - `tests/net/test_tcp_state_machine_v1.py`
+  - `tests/net/test_tcp_retransmission_v1.py`
+  - `tests/net/test_socket_poll_semantics_v1.py`
+- Add docs:
+  - `docs/net/tcp_state_machine_v1.md`
+  - `docs/net/retransmission_timer_policy_v1.md`
+
+##### Acceptance checks
+
+- `python -m pytest tests/net/test_tcp_state_machine_v1.py tests/net/test_tcp_retransmission_v1.py -v`
+- `python -m pytest tests/net/test_socket_poll_semantics_v1.py -v`
+
+##### Done criteria for PR-2
+
+- TCP lifecycle and timer/retransmission behavior are deterministic and
+  test-backed.
+- Socket poll/blocking semantics are documented and enforced by tests.
+
+#### PR-3: IPv6 Baseline + Interop/Soak Gate + Milestone Closure
+
+##### Objective
+
+Close M12 with IPv6 baseline behavior and mandatory network maturity gates in
+local and CI lanes.
+
+##### Scope
+
+- Add IPv6 baseline docs/tests:
+  - `docs/net/ipv6_baseline_v1.md`
+  - `tests/net/test_ipv6_nd_icmpv6_v1.py`
+- Add interop/soak tooling and checks:
+  - `tools/run_net_interop_matrix_v1.py`
+  - `tools/run_net_soak_v1.py`
+  - `tests/net/test_net_interop_matrix_v1.py`
+  - `tests/net/test_net_soak_v1.py`
+- Add release gates:
+  - `Makefile` target `test-network-stack-v1`
+  - `.github/workflows/ci.yml` step `Network stack v1 gate`
+- Mark milestone/status docs once gate is green.
+
+##### Acceptance checks
+
+- `make test-network-stack-v1`
+- `python -m pytest tests/net -v`
+- `python tools/run_net_interop_matrix_v1.py --out out/net-interop-v1.json`
+- `python tools/run_net_soak_v1.py --out out/net-soak-v1.json`
+
+##### Done criteria for PR-3
+
+- Network maturity gate is mandatory in CI.
+- IPv4/UDP/TCP/IPv6 baseline behavior has interop + soak evidence artifacts.
+- M12 is evidence-backed and marked `done` in milestone/status docs.
 
 ### Work packages
 
-- M12.1 IPv4 baseline compliance pass.
-- M12.2 TCP state/timer engine with packet-level traces.
-- M12.3 IPv6 baseline (addressing, neighbor discovery, ICMPv6 essentials).
-- M12.4 network soak and fault-injection tests (loss, reorder, duplication).
-- M12.5 interop matrix with Linux/BSD peers.
+- M12.1 network stack contract docs v1 (IPv4/UDP/TCP/socket semantics).
+- M12.2 TCP state/timer and retransmission engine with traceability artifacts.
+- M12.3 IPv6 baseline (addressing, ND, ICMPv6 essentials) and contract tests.
+- M12.4 network soak/fault-injection harness and machine-readable reports.
+- M12.5 interop matrix + release-blocking local/CI network maturity gate.
 
 ### Exit criteria
 
-- Deterministic TCP/UDP integration suite passes.
-- Long-running soak tests meet reliability and throughput targets.
-- Socket API behavior is documented and regression-gated.
+- Socket/network contracts are versioned, executable, and release-gated.
+- Deterministic TCP/UDP suites pass under clean and degraded link conditions.
+- Interop + soak lanes produce stable reports and satisfy target thresholds.
 
 ### Acceptance tests (examples)
 
-- RFC-aligned transport conformance vectors.
-- DNS + HTTPS client flow succeeds in clean and degraded links.
-- Connection churn and retransmission stress tests pass.
+- RFC-aligned UDP/TCP conformance vectors (including failure paths).
+- DNS + HTTPS client flow succeeds under clean and degraded links.
+- Connection churn and retransmission stress suites pass.
+
+### Risks and non-goals
+
+- Non-goals:
+  - full Linux socket API parity in M12.
+  - advanced congestion-control variants beyond a baseline policy.
+  - full routing/firewall/NAT feature set in this milestone.
+- Risks to track:
+  - QEMU user-net behavior may hide physical-wire edge cases.
+  - timer granularity drift may destabilize retransmission determinism.
+  - interop flakiness without pinned peer versions/configs.
 
 ---
 
@@ -479,18 +610,18 @@ Make the OS operable as a real product: installable, updatable, auditable, and s
 
 ## Suggested immediate next actions
 
-1. Create `docs/M12_EXECUTION_BACKLOG.md` and split M12 into 3 PRs:
-   - IPv4 + UDP/TCP baseline contract,
-   - socket semantics + timer/retransmission engine,
-   - interop/soak CI gate + milestone closure.
-2. Extend the post-G2 dashboard with network maturity signals:
-   - TCP/UDP reliability pass rate,
-   - fault-injection recovery trend,
-   - interop matrix trend.
-3. Freeze M12 ownership:
+1. Create `docs/M13_EXECUTION_BACKLOG.md` and split M13 into 3 PRs:
+   - FS v1 crash-model + durability contract,
+   - replay/recovery tooling + corruption campaign harness,
+   - storage reliability CI gate + milestone closure.
+2. Extend the post-G2 dashboard with storage reliability signals:
+   - crash-recovery pass rate,
+   - fsck/replay clean-recovery trend,
+   - corruption-injection detection trend.
+3. Freeze M13 ownership:
    - one milestone owner,
-   - one net-test owner,
-   - one protocol-owner,
+   - one storage-test owner,
+   - one recovery-owner,
    - one doc owner.
 
 ---

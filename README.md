@@ -78,13 +78,13 @@ Source of truth: [MILESTONES.md](MILESTONES.md)
 | Lane | Kernel milestones | Go milestones |
 |------|-------------------|---------------|
 | Legacy (`legacy/`) | M0-M7: done | G0: done |
-| Rugo (repo root) | M0-M11: done | G1: done, G2: done |
+| Rugo (repo root) | M0-M12: done | G1: done, G2: done |
 
 Tiny visual summary:
 
 ```text
 Legacy: [M0 M1 M2 M3 M4 M5 M6 M7] [G0] complete
-Rugo:   [M0 M1 M2 M3 M4 M5 M6 M7 M8 M9 M10 M11] [G1] complete  [G2] complete
+Rugo:   [M0 M1 M2 M3 M4 M5 M6 M7 M8 M9 M10 M11 M12] [G1] complete  [G2] complete
 ```
 
 ## Post-G2 roadmap
@@ -94,11 +94,13 @@ Rugo:   [M0 M1 M2 M3 M4 M5 M6 M7 M8 M9 M10 M11] [G1] complete  [G2] complete
 - M9 execution backlog (completed): `docs/M9_EXECUTION_BACKLOG.md`
 - M10 execution backlog (completed): `docs/M10_EXECUTION_BACKLOG.md`
 - M11 execution backlog (completed): `docs/M11_EXECUTION_BACKLOG.md`
+- M12 execution backlog (completed): `docs/M12_EXECUTION_BACKLOG.md`
 - Hardware support matrix v1: [docs/hw/support_matrix_v1.md](docs/hw/support_matrix_v1.md)
 - Security baseline docs: [docs/security/rights_capability_model_v1.md](docs/security/rights_capability_model_v1.md)
 - Compatibility profile v1 contract: [docs/abi/compat_profile_v1.md](docs/abi/compat_profile_v1.md)
 - Package/repository v1 contract: [docs/pkg/package_format_v1.md](docs/pkg/package_format_v1.md)
 - Runtime/toolchain maturity docs: [docs/runtime/port_contract_v1.md](docs/runtime/port_contract_v1.md)
+- Network stack maturity docs: [docs/net/network_stack_contract_v1.md](docs/net/network_stack_contract_v1.md)
 
 ## Repo layout
 
@@ -126,6 +128,7 @@ make test-qemu
 make test-hw-matrix
 make test-security-baseline
 make test-runtime-maturity
+make test-network-stack-v1
 
 # Compatibility Profile v1 + external package bootstrap lane
 python3 tools/pkg_bootstrap_v1.py --disk-out out/fs-external.img
