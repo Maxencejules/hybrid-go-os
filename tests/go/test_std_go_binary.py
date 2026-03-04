@@ -20,6 +20,18 @@ def test_std_go_binary(qemu_serial_go_std):
         "Expected 'GOSTD: yield ok' in serial output for G2 syscall bridge.\n"
         f"Full output:\n{serial}"
     )
+    assert "GOSTD: vm ok" in serial, (
+        "Expected 'GOSTD: vm ok' in serial output for G2 vm bridge.\n"
+        f"Full output:\n{serial}"
+    )
+    assert "GOSTD: spawn child ok" in serial, (
+        "Expected child-thread marker for G2 thread-spawn bridge.\n"
+        f"Full output:\n{serial}"
+    )
+    assert "GOSTD: spawn main ok" in serial, (
+        "Expected parent-thread marker after G2 thread-spawn bridge.\n"
+        f"Full output:\n{serial}"
+    )
     assert "THREAD_EXIT: ok" in serial, (
         "Expected kernel thread-exit marker after G2 sys_thread_exit call.\n"
         f"Full output:\n{serial}"
@@ -34,6 +46,14 @@ def test_std_go_binary(qemu_serial_go_std):
     )
     assert "GOSTD: yield err" not in serial, (
         "Did not expect 'GOSTD: yield err'; sys_yield bridge failed.\n"
+        f"Full output:\n{serial}"
+    )
+    assert "GOSTD: vm err" not in serial, (
+        "Did not expect 'GOSTD: vm err'; vm bridge failed.\n"
+        f"Full output:\n{serial}"
+    )
+    assert "GOSTD: spawn err" not in serial, (
+        "Did not expect 'GOSTD: spawn err'; thread-spawn bridge failed.\n"
         f"Full output:\n{serial}"
     )
     assert "GOSTD: exit err" not in serial, (

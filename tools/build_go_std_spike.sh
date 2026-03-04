@@ -55,7 +55,7 @@ to_host_path() {
     fi
 }
 
-TINYGO_BIN="$(find_tool tinygo tinygo.exe "${TINYGO_WIN_BIN:-}/tinygo.exe")" || {
+TINYGO_BIN="$(find_tool tinygo.exe tinygo "${TINYGO_WIN_BIN:-}/tinygo.exe")" || {
     echo "ERROR: tinygo not found in PATH"
     exit 1
 }
