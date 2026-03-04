@@ -1,6 +1,7 @@
 # G2 Execution Backlog (Track B)
 
 Date: 2026-03-03  
+Updated: 2026-03-04  
 Lane: Rugo (Rust kernel + Go user space)
 
 ## Goal
@@ -15,10 +16,17 @@ G2 source of truth remains `MILESTONES.md` and `docs/abi/*`.
 
 ## Current State Summary
 
-- Spike path exists (`go_std_test`, `make image-go-std`, `tests/go/test_std_go_binary.py`).
-- Spike bridges in place: debug write, time, yield, thread-exit.
-- Kernel still has non-final runtime primitives (`sys_thread_spawn`, `sys_vm_map`, `sys_vm_unmap`) that block full runtime/toolchain port.
-- Build path still uses TinyGo compatibility bridge, not stock Go output for `GOOS=rugo`.
+- `go_std_test` acceptance path is active (`make image-go-std`, `tests/go/test_std_go_binary.py`).
+- Runtime bridge markers are covered (debug/time/yield/vm/spawn/thread-exit).
+- Kernel runtime primitives from PR-1 are complete (`sys_thread_spawn`, `sys_vm_map`, `sys_vm_unmap`).
+- Build path now runs through stock-Go tooling (`tools/build_go_std_spike.sh` -> `tools/gostd_stock_builder/main.go`).
+
+## Execution Result
+
+- PR-1: complete
+- PR-2: complete
+- PR-3: complete
+- G2 milestone gate: complete (`MILESTONES.md` + `docs/STATUS.md` marked `done`)
 
 ## PR-1: Kernel Runtime Primitives for G2
 

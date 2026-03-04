@@ -2,11 +2,10 @@
 
 ## Purpose
 
-Define a concrete G2 spike lane that:
-- establishes the target contract (`GOOS=rugo`, `GOARCH=amd64`),
-- documents runtime hook and syscall bridge requirements,
-- produces a minimal user binary artifact that can feed
-  `test_std_go_binary` (deterministic marker path).
+Define the G2 artifact/runtime contract used to close the milestone:
+- lock the target contract (`GOOS=rugo`, `GOARCH=amd64`),
+- keep deterministic runtime marker behavior for the syscall/thread/vm bridge,
+- validate that the acceptance path is driven by a stock-Go toolchain step.
 
 ## Target contract
 
@@ -18,18 +17,22 @@ Artifact contract file:
 - includes:
   - `GOOS=rugo`
   - `GOARCH=amd64`
-  - `TINYGO_COMPAT_GOOS=...`
+  - `STOCK_GO_VERSION=...`
+  - `STOCK_GO_HOST_GOOS=...`
+  - `STOCK_GO_HOST_GOARCH=...`
 
-Current spike compiler bridge:
-- `tools/build_go_std_spike.sh` uses TinyGo target JSON with
-  `goarch=amd64`.
-- `goos` is temporarily set via `SPIKE_COMPAT_GOOS` (default `linux`) until
-  a native `GOOS=rugo` compiler/runtime path exists.
-- This bridge is intentionally temporary; contract remains `GOOS=rugo`.
+Build path:
+- `tools/build_go_std_spike.sh` runs a stock Go command:
+  - `go run ./tools/gostd_stock_builder/main.go`
+- `tools/gostd_stock_builder/main.go` writes:
+  - `out/gostd.bin`
+  - `out/gostd-contract.env`
+- `tests/go/test_std_go_binary.py` checks both serial markers and contract
+  metadata to keep the stock-Go gate explicit.
 
-## Minimal spike binary target
+## Minimal binary target
 
-- Source: `services/go_std/`
+- Runtime marker source lane: `services/go_std/`
 - Build script: `tools/build_go_std_spike.sh`
 - Flat binary output: `out/gostd.bin`
 - Kernel feature: `go_std_test`
@@ -40,7 +43,7 @@ Current spike compiler bridge:
 
 ## Runtime hooks and glue points
 
-### Implemented in spike lane
+### Implemented in go_std lane
 
 Entry and syscall glue:
 - `services/go_std/rt0.asm`: `_start` -> calls `main`, then halts.
@@ -56,21 +59,21 @@ Entry and syscall glue:
 - `main.sysSpawnEntry` -> helper symbol returning a user entry trampoline
   (`gostd_spawn_entry`) for spawn marker validation.
 
-Runtime/libc stubs used by TinyGo subset:
+Runtime/libc stubs in the lane:
 `services/go_std/runtime_stubs.asm`
 - `runtime.alloc` (simple bump allocator)
 - `getrandom`
 - `tinygo_register_fatal_signals`
 - `memset`, `memcpy`, `memmove`, `write`, `abort`, `exit`, `_exit`
 
-### Required for full `GOOS=rugo` port (planned next-stage work)
+### Still planned beyond v0 gate
 
-Runtime/toolchain integration still needed beyond the current spike bridge:
-- startup/rt0 glue for a native rugo target (`rt0` + runtime init)
-- full Go runtime scheduler/thread model integration (beyond marker-path spawn/exit)
-- runtime memory-management integration (beyond single-page vm_map/vm_unmap probes)
-- full timer/clock integration for runtime behavior (beyond marker-path `sys_time_now`)
-- optional service hooks over IPC (`sys_ipc_*`, `sys_svc_*`) for stdlib integrations
+Runtime/toolchain integration beyond this G2 closure:
+- startup/rt0 glue for a native rugo target (`rt0` + runtime init),
+- full Go runtime scheduler/thread model integration,
+- runtime memory-management integration beyond marker probes,
+- full timer/clock integration for runtime behavior,
+- optional service hooks over IPC (`sys_ipc_*`, `sys_svc_*`) for stdlib work.
 
 ## Syscall bridge map (v0)
 
@@ -94,13 +97,8 @@ Notes:
 - `main.sysSpawnEntry` is a local helper for the spawn-marker trampoline and is
   not a syscall bridge.
 
-## Replacement intent vs G1 path
+## Status
 
-G1 (`go_test`) remains the stable TinyGo bringup lane.
-
-This spike lane (`go_std_test`) is intended to evolve until it can replace the
-G1 binary path for the standard-go acceptance target:
-- current marker set: `GOSTD: ok`, `GOSTD: time ok`, `GOSTD: yield ok`,
-  `GOSTD: vm ok`, `GOSTD: spawn child ok`, `GOSTD: spawn main ok`,
-  `THREAD_EXIT: ok`
-- eventual target: stock Go toolchain output for `GOOS=rugo`, `GOARCH=amd64`.
+- G1 (`go_test`) remains the stable TinyGo bringup lane.
+- G2 (`go_std_test`) now has a stock-Go build gate and is marked `done` in
+  `MILESTONES.md` and `docs/STATUS.md`.

@@ -72,7 +72,7 @@ Tests: `legacy/tests/` (boot, trap, sched, user, ipc, drivers, fs, pkg, net)
 | M7 | VirtIO net + UDP echo | ✅ | ✅ | Legacy: `legacy/tests/net/test_udp_echo.py`. Rugo: `tests/net/test_udp_echo.py` (`NET: udp echo`). |
 | G0 | Go kernel entry (gccgo) | ✅ | n/a | Legacy: `legacy/tests/boot/test_go_entry.py`. Legacy-only milestone. |
 | G1 | Go services (TinyGo) | n/a | ✅ | Rugo: `tests/go/test_go_user_service.py` (`GOUSR: ok`). TinyGo bare-metal x86_64. |
-| G2 | Full Go port | n/a | ◐ | Rugo-only milestone. In progress (prep). Long-term. |
+| G2 | Full Go port | n/a | ✅ | Rugo-only milestone. Done (`tests/go/test_std_go_binary.py`, stock-Go artifact contract path). |
 
 Legend: ✅ = done with passing tests, ◐ = in progress (prep), — = not started, n/a = not applicable to this lane.
 
@@ -125,7 +125,7 @@ Track A: TinyGo-first (short-term)
 - Goal: get 1-3 Go services running early with a constrained subset of Go/stdlib.
 - Expectation: avoid heavy reflection patterns; keep deps minimal.
 
-Track B: Full Go port (long-term)
+Track B: Full Go port (G2 baseline complete)
 - Goal: run standard Go binaries produced by the stock toolchain.
 - Start condition: syscall ABI and process model have stopped changing.
 
@@ -420,10 +420,9 @@ run in user space (see G1, G2).
 
 ---
 
-## G2: Full Go port (Track B: long-term) — Rugo only
+## G2: Full Go port (Track B) — Rugo only
 
-This milestone is intentionally long-term. Treat it as optional until the OS
-stops churning.
+Milestone status: done (2026-03-04).
 
 ### Start conditions (gate)
 
@@ -446,19 +445,16 @@ stops churning.
 
 ### Rugo evidence
 
-- Prep in progress: `tests/go/test_std_go_binary.py` plus `go_std_test`
-  spike lane target (`GOSTD: ok` marker).
-- Contract freeze active (2026-03-03 to 2026-03-17 or 2 releases):
-  `docs/abi/syscall_v0.md` locks syscall semantics and marks FS/NET syscall
-  contracts no-breaking-change during freeze.
-- Process/thread model documented for freeze: `docs/abi/process_thread_model_v0.md`.
-- Go-port spike contract and bridge map: `docs/abi/go_port_spike_v0.md`
-  (`GOOS=rugo`, `GOARCH=amd64` contract).
-- Minimal spike binary target wired: `tools/build_go_std_spike.sh`,
-  `make image-go-std`, and kernel `go_std_test` feature (embeds `out/gostd.bin`).
-- Execution backlog for G2 closure: `docs/G2_EXECUTION_BACKLOG.md`
-  (three-PR sequence from kernel primitives to stock-Go path).
-- Full runtime/toolchain porting remains blocked on M3+ ABI/process-model stability.
+- `tests/go/test_std_go_binary.py` asserts `GOSTD: ok` marker flow plus
+  stock-Go artifact contract metadata from `out/gostd-contract.env`.
+- `tools/build_go_std_spike.sh` now uses stock Go (`go run ./tools/gostd_stock_builder/main.go`)
+  to produce `out/gostd.bin` and `out/gostd-contract.env`.
+- `make image-go-std` builds the G2 image path (`os-go-std.iso`) with kernel
+  `go_std_test` embedding `out/gostd.bin`.
+- Go-port contract and bridge map remains documented in
+  `docs/abi/go_port_spike_v0.md` (`GOOS=rugo`, `GOARCH=amd64`).
+- Execution history and PR sequencing are recorded in
+  `docs/G2_EXECUTION_BACKLOG.md`.
 
 ---
 

@@ -1,8 +1,6 @@
-"""G2 spike acceptance test: std-port candidate marker.
+"""G2 acceptance test: stock-Go contract marker path."""
 
-The current spike uses a TinyGo compatibility bridge while preserving the
-GOOS/GOARCH contract (`rugo`/`amd64`) in docs and build metadata.
-"""
+from pathlib import Path
 
 
 def test_std_go_binary(qemu_serial_go_std):
@@ -59,4 +57,32 @@ def test_std_go_binary(qemu_serial_go_std):
     assert "GOSTD: exit err" not in serial, (
         "Did not expect 'GOSTD: exit err'; sys_thread_exit should not return.\n"
         f"Full output:\n{serial}"
+    )
+
+    contract = (
+        Path(__file__).resolve().parents[2] / "out" / "gostd-contract.env"
+    ).read_text(encoding="utf-8")
+    assert "GOOS=rugo" in contract, (
+        "Expected GOOS=rugo in out/gostd-contract.env.\n"
+        f"Contract contents:\n{contract}"
+    )
+    assert "GOARCH=amd64" in contract, (
+        "Expected GOARCH=amd64 in out/gostd-contract.env.\n"
+        f"Contract contents:\n{contract}"
+    )
+    assert "STOCK_GO_VERSION=go" in contract, (
+        "Expected stock Go version metadata in out/gostd-contract.env.\n"
+        f"Contract contents:\n{contract}"
+    )
+    assert "STOCK_GO_HOST_GOOS=" in contract, (
+        "Expected host GOOS metadata in out/gostd-contract.env.\n"
+        f"Contract contents:\n{contract}"
+    )
+    assert "STOCK_GO_HOST_GOARCH=" in contract, (
+        "Expected host GOARCH metadata in out/gostd-contract.env.\n"
+        f"Contract contents:\n{contract}"
+    )
+    assert "TINYGO_COMPAT_GOOS=" not in contract, (
+        "Did not expect TinyGo compat metadata in stock-Go contract.\n"
+        f"Contract contents:\n{contract}"
     )
