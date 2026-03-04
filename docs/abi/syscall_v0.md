@@ -59,11 +59,11 @@ indicates an error.
 | # | Name | Args | Returns | Status (R4) | Description |
 |---|------|------|---------|-------------|-------------|
 | 0 | sys_debug_write | rdi=buf, rsi=len | bytes written | Implemented (M3) | Write user buffer to serial (max 256 bytes, validates pointer) |
-| 1 | sys_thread_spawn | rdi=entry | tid or -1 | Stub (quota variant implemented) | Spawn user thread |
+| 1 | sys_thread_spawn | rdi=entry | tid or -1 | Implemented (M3), quota variant (R4) | Spawn cooperative user thread (M3) |
 | 2 | sys_thread_exit | -- | -- | Implemented (M3/R4) | Terminate current user thread/task |
 | 3 | sys_yield | -- | 0 | Implemented (minimal cooperative yield) | Yield CPU to scheduler |
-| 4 | sys_vm_map | rdi=vaddr, rsi=size | 0 or -1 | Stub | Map memory |
-| 5 | sys_vm_unmap | rdi=vaddr, rsi=size | 0 or -1 | Stub | Unmap memory |
+| 4 | sys_vm_map | rdi=vaddr, rsi=size | 0 or -1 | Implemented (M3/G2 v0) | Map one user page |
+| 5 | sys_vm_unmap | rdi=vaddr, rsi=size | 0 or -1 | Implemented (M3/G2 v0) | Unmap one user page |
 | 6 | sys_shm_create | rdi=size | shm_handle or -1 | **Implemented (R4)** | Create shared memory region (max 4096 bytes) |
 | 7 | sys_shm_map | rdi=shm_handle, rsi=addr_hint, rdx=flags | mapped_addr or -1 | **Implemented (R4)** | Map shared memory into caller's address space |
 | 8 | sys_ipc_send | rdi=endpoint, rsi=buf, rdx=len | 0 or -1 | **Implemented (R4)** | Send message to IPC endpoint (`len` must be 1..256; no truncation) |
@@ -78,6 +78,29 @@ indicates an error.
 | 17 | sys_ipc_endpoint_create | -- | endpoint or -1 | **Implemented (`quota_endpoints_test`)** | Create IPC endpoint for current task |
 
 Stubs return -1 (0xFFFFFFFFFFFFFFFF) and will be implemented in later milestones.
+
+## M3 thread + VM model (v0)
+
+### Cooperative user threads
+
+- `sys_thread_spawn(entry)` creates a runnable user thread in the current
+  user address space (M3/G2 path).
+- Entry must point to a mapped user page; invalid entries return `-1`.
+- Scheduler is cooperative: `sys_yield` switches to the next ready thread.
+- `sys_thread_exit` kills the current thread; when the last thread exits,
+  kernel returns to halt path (`THREAD_EXIT: ok`, `RUGO: halt ok` in tests).
+- Current limit: 4 user threads per M3 image (1 initial + up to 3 spawned).
+
+### VM map/unmap (M3/G2 v0)
+
+- `sys_vm_map(vaddr, size)` currently supports exactly one page:
+  - `size` must be 4096
+  - `vaddr` must be page-aligned and in user range
+  - target PTE must be unmapped
+- `sys_vm_unmap(vaddr, size)` currently supports exactly one page with the same
+  alignment/range constraints.
+- VM map slots are finite (8 per M3 image). Exceeding slots returns `-1`.
+- These calls are deterministic and never silently remap an occupied page.
 
 ## IPC model (R4)
 

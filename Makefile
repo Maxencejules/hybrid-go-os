@@ -15,6 +15,8 @@ endif
        build-sched image-sched \
        build-user-hello image-user-hello build-syscall image-syscall \
        build-thread-exit image-thread-exit \
+       build-thread-spawn image-thread-spawn \
+       build-vm-map image-vm-map \
        build-syscall-invalid image-syscall-invalid \
        build-stress-syscall image-stress-syscall \
        build-stress-ipc image-stress-ipc \
@@ -153,6 +155,18 @@ build-syscall: $(ASM_OBJS) boot/linker.ld
 build-thread-exit: $(ASM_OBJS) boot/linker.ld
 	cd kernel_rs && $(CARGO) build --release --features thread_exit_test
 	$(LD) $(LDFLAGS) -o $(OUT)/kernel-thread-exit.elf $(ASM_OBJS) $(KERNEL_LIB)
+
+# --- M3: Thread-spawn-test kernel ---------------------------------------------
+
+build-thread-spawn: $(ASM_OBJS) boot/linker.ld
+	cd kernel_rs && $(CARGO) build --release --features thread_spawn_test
+	$(LD) $(LDFLAGS) -o $(OUT)/kernel-thread-spawn.elf $(ASM_OBJS) $(KERNEL_LIB)
+
+# --- M3: VM-map-test kernel ---------------------------------------------------
+
+build-vm-map: $(ASM_OBJS) boot/linker.ld
+	cd kernel_rs && $(CARGO) build --release --features vm_map_test
+	$(LD) $(LDFLAGS) -o $(OUT)/kernel-vm-map.elf $(ASM_OBJS) $(KERNEL_LIB)
 
 # --- M3: Invalid-syscall-test kernel ------------------------------------------
 
@@ -321,6 +335,12 @@ image-syscall: build-syscall
 image-thread-exit: build-thread-exit
 	PATH="$(WSL_PATH)" CC="$(CC)" XORRISO="$(XORRISO)" KERNEL_ELF=kernel-thread-exit.elf ISO_NAME=os-thread-exit.iso bash tools/mkimage.sh
 
+image-thread-spawn: build-thread-spawn
+	PATH="$(WSL_PATH)" CC="$(CC)" XORRISO="$(XORRISO)" KERNEL_ELF=kernel-thread-spawn.elf ISO_NAME=os-thread-spawn.iso bash tools/mkimage.sh
+
+image-vm-map: build-vm-map
+	PATH="$(WSL_PATH)" CC="$(CC)" XORRISO="$(XORRISO)" KERNEL_ELF=kernel-vm-map.elf ISO_NAME=os-vm-map.iso bash tools/mkimage.sh
+
 image-syscall-invalid: build-syscall-invalid
 	PATH="$(WSL_PATH)" CC="$(CC)" XORRISO="$(XORRISO)" KERNEL_ELF=kernel-syscall-invalid.elf ISO_NAME=os-syscall-invalid.iso bash tools/mkimage.sh
 
@@ -468,7 +488,7 @@ image-go-std: build-go-std
 run: image
 	./tools/run_qemu.sh
 
-test-qemu: image image-panic image-pf image-idt image-sched image-user-hello image-syscall image-thread-exit image-syscall-invalid image-stress-syscall image-stress-ipc image-stress-blk image-pressure-shm image-yield image-user-fault image-ipc image-ipc-badptr-send image-ipc-badptr-recv image-svc-badptr image-ipc-buffer-full image-ipc-waiter-busy image-ipc-svc-overwrite image-svc-full image-svc-bad-endpoint image-shm image-quota-endpoints image-quota-shm image-quota-threads image-blk image-blk-badlen image-blk-badptr image-blk-invariants image-blk-init-fail image-fs image-fs-badmagic image-pkg-hash image-net image-go image-go-std
+test-qemu: image image-panic image-pf image-idt image-sched image-user-hello image-syscall image-thread-exit image-thread-spawn image-vm-map image-syscall-invalid image-stress-syscall image-stress-ipc image-stress-blk image-pressure-shm image-yield image-user-fault image-ipc image-ipc-badptr-send image-ipc-badptr-recv image-svc-badptr image-ipc-buffer-full image-ipc-waiter-busy image-ipc-svc-overwrite image-svc-full image-svc-bad-endpoint image-shm image-quota-endpoints image-quota-shm image-quota-threads image-blk image-blk-badlen image-blk-badptr image-blk-invariants image-blk-init-fail image-fs image-fs-badmagic image-pkg-hash image-net image-go image-go-std
 	$(PYTHON) -m pytest tests/ -v
 
 repro-check:

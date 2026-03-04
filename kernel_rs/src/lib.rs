@@ -7,7 +7,7 @@ use core::panic::PanicInfo;
 macro_rules! cfg_m3 {
     ($($item:item)*) => {
         $(
-            #[cfg(any(feature = "user_hello_test", feature = "syscall_test", feature = "thread_exit_test", feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test", feature = "user_fault_test", feature = "blk_test", feature = "fs_test", feature = "go_test", feature = "go_std_test"))]
+            #[cfg(any(feature = "user_hello_test", feature = "syscall_test", feature = "thread_exit_test", feature = "thread_spawn_test", feature = "vm_map_test", feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test", feature = "user_fault_test", feature = "blk_test", feature = "fs_test", feature = "go_test", feature = "go_std_test"))]
             $item
         )*
     };
@@ -18,7 +18,7 @@ macro_rules! cfg_user {
     ($($item:item)*) => {
         $(
             #[cfg(any(
-                feature = "user_hello_test", feature = "syscall_test", feature = "thread_exit_test", feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test", feature = "user_fault_test",
+                feature = "user_hello_test", feature = "syscall_test", feature = "thread_exit_test", feature = "thread_spawn_test", feature = "vm_map_test", feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test", feature = "user_fault_test",
                 feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_recv_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "ipc_waiter_busy_test", feature = "svc_overwrite_test", feature = "svc_full_test", feature = "svc_bad_endpoint_test", feature = "stress_ipc_test", feature = "quota_endpoints_test", feature = "quota_shm_test", feature = "quota_threads_test", feature = "blk_test", feature = "fs_test",
                 feature = "go_test", feature = "go_std_test",
             ))]
@@ -536,7 +536,13 @@ unsafe fn syscall_dispatch(frame: *mut u64) {
             return;
         }
 
-        #[cfg(any(feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test"))]
+        #[cfg(any(
+            feature = "syscall_invalid_test",
+            feature = "stress_syscall_test",
+            feature = "yield_test",
+            feature = "thread_spawn_test",
+            feature = "vm_map_test"
+        ))]
         {
             if nr == 98 {
                 qemu_exit(arg1 as u8);
@@ -546,7 +552,16 @@ unsafe fn syscall_dispatch(frame: *mut u64) {
 
         let ret: u64 = match nr {
             0  => sys_debug_write(arg1, arg2),
+            #[cfg(any(feature = "user_hello_test", feature = "syscall_test", feature = "thread_exit_test", feature = "thread_spawn_test", feature = "vm_map_test", feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test", feature = "user_fault_test", feature = "blk_test", feature = "fs_test", feature = "go_test", feature = "go_std_test"))]
+            1  => sys_thread_spawn_m3(frame, arg1),
+            #[cfg(any(feature = "user_hello_test", feature = "syscall_test", feature = "thread_exit_test", feature = "thread_spawn_test", feature = "vm_map_test", feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test", feature = "user_fault_test", feature = "blk_test", feature = "fs_test", feature = "go_test", feature = "go_std_test"))]
+            3  => sys_yield_m3(frame),
+            #[cfg(not(any(feature = "user_hello_test", feature = "syscall_test", feature = "thread_exit_test", feature = "thread_spawn_test", feature = "vm_map_test", feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test", feature = "user_fault_test", feature = "blk_test", feature = "fs_test", feature = "go_test", feature = "go_std_test")))]
             3  => sys_yield(),
+            #[cfg(any(feature = "user_hello_test", feature = "syscall_test", feature = "thread_exit_test", feature = "thread_spawn_test", feature = "vm_map_test", feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test", feature = "user_fault_test", feature = "blk_test", feature = "fs_test", feature = "go_test", feature = "go_std_test"))]
+            4  => sys_vm_map_m3(arg1, arg2),
+            #[cfg(any(feature = "user_hello_test", feature = "syscall_test", feature = "thread_exit_test", feature = "thread_spawn_test", feature = "vm_map_test", feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test", feature = "user_fault_test", feature = "blk_test", feature = "fs_test", feature = "go_test", feature = "go_std_test"))]
+            5  => sys_vm_unmap_m3(arg1, arg2),
             10 => sys_time_now(),
             _  => 0xFFFF_FFFF_FFFF_FFFF,
         };
@@ -599,8 +614,122 @@ unsafe fn sys_yield() -> u64 {
     0
 }
 
+cfg_m3! {
+    unsafe fn sys_yield_m3(frame: *mut u64) -> u64 {
+        if !M3_THREADING_ACTIVE {
+            return 0;
+        }
+
+        let cur = M3_CURRENT;
+        m3_save_frame(frame, cur);
+        M3_THREADS[cur].saved_frame[14] = 0;
+
+        match m3_find_ready(cur) {
+            Some(next) => {
+                if M3_THREADS[cur].state == M3ThreadState::Running {
+                    M3_THREADS[cur].state = M3ThreadState::Ready;
+                }
+                m3_switch_to(frame, next);
+            }
+            None => {
+                M3_THREADS[cur].state = M3ThreadState::Running;
+                *frame.add(14) = 0;
+            }
+        }
+        0
+    }
+
+    unsafe fn sys_thread_spawn_m3(frame: *mut u64, entry: u64) -> u64 {
+        if entry >= USER_VA_LIMIT { return 0xFFFF_FFFF_FFFF_FFFF; }
+        if !user_pages_ok(entry, 1, USER_PERM_READ) {
+            return 0xFFFF_FFFF_FFFF_FFFF;
+        }
+
+        m3_bootstrap_main_thread(frame);
+
+        for tid in 1..M3_MAX_THREADS {
+            if M3_THREADS[tid].state != M3ThreadState::Dead {
+                continue;
+            }
+            M3_THREADS[tid].saved_frame = [0u64; 22];
+            M3_THREADS[tid].saved_frame[17] = entry;                    // RIP
+            M3_THREADS[tid].saved_frame[18] = 0x23;                     // CS
+            M3_THREADS[tid].saved_frame[19] = 0x02;                     // RFLAGS
+            M3_THREADS[tid].saved_frame[20] = m3_stack_top_for_slot(tid); // RSP
+            M3_THREADS[tid].saved_frame[21] = 0x1B;                     // SS
+            M3_THREADS[tid].state = M3ThreadState::Ready;
+            return tid as u64;
+        }
+
+        0xFFFF_FFFF_FFFF_FFFF
+    }
+
+    unsafe fn sys_vm_map_m3(vaddr: u64, size: u64) -> u64 {
+        if size != M3_VM_PAGE_SIZE { return 0xFFFF_FFFF_FFFF_FFFF; }
+        if vaddr & 0xFFF != 0 { return 0xFFFF_FFFF_FFFF_FFFF; }
+        if !user_range_ok(vaddr, size as usize) { return 0xFFFF_FFFF_FFFF_FFFF; }
+
+        let pte = match m3_user_pte_ptr(vaddr) {
+            Some(p) => p,
+            None => return 0xFFFF_FFFF_FFFF_FFFF,
+        };
+        if *pte & 1 != 0 { return 0xFFFF_FFFF_FFFF_FFFF; }
+
+        for i in 0..M3_MAX_VM_MAPS {
+            if M3_VM_MAPS[i].active {
+                continue;
+            }
+            let phys = m3_kv2p(M3_VM_PAGES[i].0.as_ptr() as u64);
+            *pte = phys | 0x07;
+            core::arch::asm!("invlpg [{}]", in(reg) vaddr, options(nostack));
+            M3_VM_MAPS[i].active = true;
+            M3_VM_MAPS[i].va = vaddr;
+            return 0;
+        }
+
+        0xFFFF_FFFF_FFFF_FFFF
+    }
+
+    unsafe fn sys_vm_unmap_m3(vaddr: u64, size: u64) -> u64 {
+        if size != M3_VM_PAGE_SIZE { return 0xFFFF_FFFF_FFFF_FFFF; }
+        if vaddr & 0xFFF != 0 { return 0xFFFF_FFFF_FFFF_FFFF; }
+        if !user_range_ok(vaddr, size as usize) { return 0xFFFF_FFFF_FFFF_FFFF; }
+
+        let mut map_idx = None;
+        for i in 0..M3_MAX_VM_MAPS {
+            if M3_VM_MAPS[i].active && M3_VM_MAPS[i].va == vaddr {
+                map_idx = Some(i);
+                break;
+            }
+        }
+        let idx = match map_idx {
+            Some(i) => i,
+            None => return 0xFFFF_FFFF_FFFF_FFFF,
+        };
+
+        let pte = match m3_user_pte_ptr(vaddr) {
+            Some(p) => p,
+            None => return 0xFFFF_FFFF_FFFF_FFFF,
+        };
+        if *pte & 1 == 0 { return 0xFFFF_FFFF_FFFF_FFFF; }
+
+        *pte = 0;
+        core::arch::asm!("invlpg [{}]", in(reg) vaddr, options(nostack));
+        M3_VM_MAPS[idx] = M3VmMap::EMPTY;
+        0
+    }
+}
+
 #[cfg(not(any(feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_recv_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "ipc_waiter_busy_test", feature = "svc_overwrite_test", feature = "svc_full_test", feature = "svc_bad_endpoint_test", feature = "stress_ipc_test", feature = "quota_endpoints_test", feature = "quota_shm_test", feature = "quota_threads_test")))]
 unsafe fn sys_thread_exit_m3(frame: *mut u64) {
+    #[cfg(any(feature = "user_hello_test", feature = "syscall_test", feature = "thread_exit_test", feature = "thread_spawn_test", feature = "vm_map_test", feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test", feature = "user_fault_test", feature = "blk_test", feature = "fs_test", feature = "go_test", feature = "go_std_test"))]
+    if M3_THREADING_ACTIVE {
+        M3_THREADS[M3_CURRENT].state = M3ThreadState::Dead;
+        if let Some(next) = m3_find_ready(M3_CURRENT) {
+            m3_switch_to(frame, next);
+            return;
+        }
+    }
     serial_write(b"THREAD_EXIT: ok\n");
     m3_return_to_kernel_halt(frame);
 }
@@ -896,6 +1025,134 @@ cfg_user! {
     }
 }
 
+// --------------- M3: User thread + vm model ----------------------------------
+
+cfg_m3! {
+    const M3_MAX_THREADS: usize = 4;
+    const M3_MAX_VM_MAPS: usize = 8;
+    const M3_VM_PAGE_SIZE: u64 = 4096;
+
+    #[derive(Clone, Copy, PartialEq)]
+    enum M3ThreadState { Dead, Ready, Running }
+
+    #[derive(Clone, Copy)]
+    struct M3Thread {
+        saved_frame: [u64; 22],
+        state: M3ThreadState,
+    }
+
+    impl M3Thread {
+        const EMPTY: Self = Self {
+            saved_frame: [0u64; 22],
+            state: M3ThreadState::Dead,
+        };
+    }
+
+    #[derive(Clone, Copy)]
+    struct M3VmMap {
+        active: bool,
+        va: u64,
+    }
+
+    impl M3VmMap {
+        const EMPTY: Self = Self { active: false, va: 0 };
+    }
+
+    static mut M3_THREADS: [M3Thread; M3_MAX_THREADS] =
+        [M3Thread::EMPTY; M3_MAX_THREADS];
+    static mut M3_CURRENT: usize = 0;
+    static mut M3_THREADING_ACTIVE: bool = false;
+
+    static mut M3_STACK_PAGE_1: Page = Page([0; 4096]);
+    static mut M3_STACK_PAGE_2: Page = Page([0; 4096]);
+    static mut M3_STACK_PAGE_3: Page = Page([0; 4096]);
+
+    static mut M3_VM_PAGES: [Page; M3_MAX_VM_MAPS] = [Page([0; 4096]); M3_MAX_VM_MAPS];
+    static mut M3_VM_MAPS: [M3VmMap; M3_MAX_VM_MAPS] = [M3VmMap::EMPTY; M3_MAX_VM_MAPS];
+
+    #[inline(always)]
+    unsafe fn m3_stack_top_for_slot(slot: usize) -> u64 {
+        USER_STACK_TOP - (slot as u64) * 0x1000
+    }
+
+    unsafe fn m3_reset_state() {
+        M3_CURRENT = 0;
+        M3_THREADING_ACTIVE = false;
+        for i in 0..M3_MAX_THREADS {
+            M3_THREADS[i] = M3Thread::EMPTY;
+        }
+        for i in 0..M3_MAX_VM_MAPS {
+            M3_VM_MAPS[i] = M3VmMap::EMPTY;
+        }
+    }
+
+    unsafe fn m3_bootstrap_main_thread(frame: *mut u64) {
+        if M3_THREADING_ACTIVE { return; }
+        for i in 0..22 {
+            M3_THREADS[0].saved_frame[i] = *frame.add(i);
+        }
+        M3_THREADS[0].state = M3ThreadState::Running;
+        M3_CURRENT = 0;
+        M3_THREADING_ACTIVE = true;
+    }
+
+    unsafe fn m3_save_frame(frame: *mut u64, tid: usize) {
+        for i in 0..22 {
+            M3_THREADS[tid].saved_frame[i] = *frame.add(i);
+        }
+    }
+
+    unsafe fn m3_switch_to(frame: *mut u64, tid: usize) {
+        for i in 0..22 {
+            *frame.add(i) = M3_THREADS[tid].saved_frame[i];
+        }
+        M3_THREADS[tid].state = M3ThreadState::Running;
+        M3_CURRENT = tid;
+    }
+
+    unsafe fn m3_find_ready(exclude: usize) -> Option<usize> {
+        for tid in 0..M3_MAX_THREADS {
+            if tid != exclude && M3_THREADS[tid].state == M3ThreadState::Ready {
+                return Some(tid);
+            }
+        }
+        None
+    }
+
+    unsafe fn m3_user_pte_ptr(addr: u64) -> Option<*mut u64> {
+        if addr >= USER_VA_LIMIT { return None; }
+        let hhdm = HHDM_OFFSET;
+        if hhdm == 0 { return None; }
+
+        let cr3: u64;
+        core::arch::asm!("mov {}, cr3", out(reg) cr3, options(nomem, nostack));
+        let pml4_phys = cr3 & 0x000F_FFFF_FFFF_F000;
+        let pml4 = (pml4_phys + hhdm) as *const u64;
+        let pml4e = *pml4.add(((addr >> 39) & 0x1FF) as usize);
+        if pml4e & 1 == 0 || pml4e & 4 == 0 { return None; }
+
+        let pdpt = ((pml4e & 0x000F_FFFF_FFFF_F000) + hhdm) as *const u64;
+        let pdpte = *pdpt.add(((addr >> 30) & 0x1FF) as usize);
+        if pdpte & 1 == 0 || pdpte & 4 == 0 || pdpte & 0x80 != 0 { return None; }
+
+        let pd = ((pdpte & 0x000F_FFFF_FFFF_F000) + hhdm) as *const u64;
+        let pde = *pd.add(((addr >> 21) & 0x1FF) as usize);
+        if pde & 1 == 0 || pde & 4 == 0 || pde & 0x80 != 0 { return None; }
+
+        let pt = ((pde & 0x000F_FFFF_FFFF_F000) + hhdm) as *mut u64;
+        let pt_idx = ((addr >> 12) & 0x1FF) as usize;
+        Some(pt.add(pt_idx))
+    }
+
+    unsafe fn m3_kv2p(va: u64) -> u64 {
+        let kaddr_resp_ptr = core::ptr::read_volatile(
+            core::ptr::addr_of!(KADDR_REQUEST.response));
+        let kphys = (*kaddr_resp_ptr).physical_base;
+        let kvirt = (*kaddr_resp_ptr).virtual_base;
+        va - kvirt + kphys
+    }
+}
+
 // --------------- M3: User page setup -----------------------------------------
 
 cfg_m3! {
@@ -929,11 +1186,16 @@ cfg_m3! {
 
         let pt_stack = USER_PT_STACK.0.as_mut_ptr() as *mut u64;
         *pt_stack.add(511) = kv2p(USER_STACK_PAGE.0.as_ptr() as u64) | 0x07;
+        *pt_stack.add(510) = kv2p(M3_STACK_PAGE_1.0.as_ptr() as u64) | 0x07;
+        *pt_stack.add(509) = kv2p(M3_STACK_PAGE_2.0.as_ptr() as u64) | 0x07;
+        *pt_stack.add(508) = kv2p(M3_STACK_PAGE_3.0.as_ptr() as u64) | 0x07;
 
         *new_pml4 = kv2p(USER_PDPT.0.as_ptr() as u64) | 0x07;
 
         core::ptr::copy_nonoverlapping(
             user_code.as_ptr(), USER_CODE_PAGE.0.as_mut_ptr(), user_code.len());
+
+        m3_reset_state();
 
         let new_pml4_phys = kv2p(new_pml4 as u64);
         core::arch::asm!("mov cr3, {}", in(reg) new_pml4_phys, options(nostack));
@@ -970,6 +1232,46 @@ cfg_m3! {
         0xB8, 0x02, 0x00, 0x00, 0x00,
         0xCD, 0x80,
         0xF4,
+    ];
+
+    #[cfg(feature = "thread_spawn_test")]
+    static USER_THREAD_SPAWN_BLOB: [u8; 157] = [
+        0x48, 0x8D, 0x3D, 0x31, 0x00, 0x00, 0x00, 0xB8, 0x01, 0x00, 0x00, 0x00,
+        0xCD, 0x80, 0x48, 0x83, 0xF8, 0xFF, 0x74, 0x3C, 0xB8, 0x03, 0x00, 0x00,
+        0x00, 0xCD, 0x80, 0x48, 0x8D, 0x3D, 0x4B, 0x00, 0x00, 0x00, 0xBE, 0x0F,
+        0x00, 0x00, 0x00, 0x31, 0xC0, 0xCD, 0x80, 0xBF, 0x31, 0x00, 0x00, 0x00,
+        0xB8, 0x62, 0x00, 0x00, 0x00, 0xCD, 0x80, 0xF4, 0x48, 0x8D, 0x3D, 0x3D,
+        0x00, 0x00, 0x00, 0xBE, 0x10, 0x00, 0x00, 0x00, 0x31, 0xC0, 0xCD, 0x80,
+        0xB8, 0x02, 0x00, 0x00, 0x00, 0xCD, 0x80, 0xF4, 0x48, 0x8D, 0x3D, 0x35,
+        0x00, 0x00, 0x00, 0xBE, 0x11, 0x00, 0x00, 0x00, 0x31, 0xC0, 0xCD, 0x80,
+        0xBF, 0x33, 0x00, 0x00, 0x00, 0xB8, 0x62, 0x00, 0x00, 0x00, 0xCD, 0x80,
+        0xF4, 0x53, 0x50, 0x41, 0x57, 0x4E, 0x3A, 0x20, 0x6D, 0x61, 0x69, 0x6E,
+        0x20, 0x6F, 0x6B, 0x0A, 0x53, 0x50, 0x41, 0x57, 0x4E, 0x3A, 0x20, 0x63,
+        0x68, 0x69, 0x6C, 0x64, 0x20, 0x6F, 0x6B, 0x0A, 0x53, 0x50, 0x41, 0x57,
+        0x4E, 0x3A, 0x20, 0x73, 0x70, 0x61, 0x77, 0x6E, 0x20, 0x65, 0x72, 0x72,
+        0x0A,
+    ];
+
+    #[cfg(feature = "vm_map_test")]
+    static USER_VM_MAP_BLOB: [u8; 216] = [
+        0xBF, 0x00, 0x00, 0x50, 0x00, 0xBE, 0x00, 0x10, 0x00, 0x00, 0xB8, 0x04,
+        0x00, 0x00, 0x00, 0xCD, 0x80, 0x48, 0x83, 0xF8, 0xFF, 0x0F, 0x84, 0x89,
+        0x00, 0x00, 0x00, 0xC6, 0x04, 0x25, 0x00, 0x00, 0x50, 0x00, 0x5A, 0xBF,
+        0x00, 0x00, 0x50, 0x00, 0xBE, 0x00, 0x10, 0x00, 0x00, 0xB8, 0x05, 0x00,
+        0x00, 0x00, 0xCD, 0x80, 0x48, 0x83, 0xF8, 0xFF, 0x74, 0x6A, 0xBF, 0x01,
+        0x00, 0x50, 0x00, 0xBE, 0x00, 0x10, 0x00, 0x00, 0xB8, 0x04, 0x00, 0x00,
+        0x00, 0xCD, 0x80, 0x48, 0x83, 0xF8, 0xFF, 0x75, 0x53, 0xBF, 0x00, 0x00,
+        0x50, 0x00, 0xBE, 0x00, 0x10, 0x00, 0x00, 0xB8, 0x04, 0x00, 0x00, 0x00,
+        0xCD, 0x80, 0x48, 0x83, 0xF8, 0xFF, 0x74, 0x3C, 0xC6, 0x04, 0x25, 0x00,
+        0x00, 0x50, 0x00, 0x6B, 0xBF, 0x00, 0x00, 0x50, 0x00, 0xBE, 0x00, 0x10,
+        0x00, 0x00, 0xB8, 0x05, 0x00, 0x00, 0x00, 0xCD, 0x80, 0x48, 0x83, 0xF8,
+        0xFF, 0x74, 0x1D, 0x48, 0x8D, 0x3D, 0x33, 0x00, 0x00, 0x00, 0xBE, 0x0B,
+        0x00, 0x00, 0x00, 0x31, 0xC0, 0xCD, 0x80, 0xBF, 0x31, 0x00, 0x00, 0x00,
+        0xB8, 0x62, 0x00, 0x00, 0x00, 0xCD, 0x80, 0xF4, 0x48, 0x8D, 0x3D, 0x21,
+        0x00, 0x00, 0x00, 0xBE, 0x0C, 0x00, 0x00, 0x00, 0x31, 0xC0, 0xCD, 0x80,
+        0xBF, 0x33, 0x00, 0x00, 0x00, 0xB8, 0x62, 0x00, 0x00, 0x00, 0xCD, 0x80,
+        0xF4, 0x56, 0x4D, 0x3A, 0x20, 0x6D, 0x61, 0x70, 0x20, 0x6F, 0x6B, 0x0A,
+        0x56, 0x4D, 0x3A, 0x20, 0x6D, 0x61, 0x70, 0x20, 0x65, 0x72, 0x72, 0x0A,
     ];
 
     static USER_FAULT_BLOB: [u8; 9] = [
@@ -3707,6 +4009,24 @@ pub extern "C" fn kmain() -> ! {
         enter_ring3_at(USER_CODE_VA, USER_STACK_TOP);
     }
 
+    // M3: thread_spawn_test
+    #[cfg(feature = "thread_spawn_test")]
+    unsafe {
+        let kstack = &stack_top as *const u8 as u64;
+        tss_init(kstack);
+        setup_user_pages(&USER_THREAD_SPAWN_BLOB);
+        enter_ring3_at(USER_CODE_VA, USER_STACK_TOP);
+    }
+
+    // M3: vm_map_test
+    #[cfg(feature = "vm_map_test")]
+    unsafe {
+        let kstack = &stack_top as *const u8 as u64;
+        tss_init(kstack);
+        setup_user_pages(&USER_VM_MAP_BLOB);
+        enter_ring3_at(USER_CODE_VA, USER_STACK_TOP);
+    }
+
     // M3: syscall_invalid_test
     #[cfg(feature = "syscall_invalid_test")]
     unsafe {
@@ -4328,6 +4648,8 @@ pub extern "C" fn kmain() -> ! {
         feature = "user_hello_test",
         feature = "syscall_test",
         feature = "thread_exit_test",
+        feature = "thread_spawn_test",
+        feature = "vm_map_test",
         feature = "syscall_invalid_test",
         feature = "stress_syscall_test",
         feature = "yield_test",

@@ -27,11 +27,14 @@ This document covers:
 ### M3 user-mode path (single user task)
 
 - Kernel enters one user task via `iretq`.
+- Optional cooperative user threads can be created via `sys_thread_spawn`
+  (M3/G2 path, max 4 threads per image).
 - `sys_thread_exit` (nr `2`) terminates the current user task and returns
-  to kernel halt path.
+  to kernel halt path when no runnable user threads remain.
 - In `thread_exit_test`, kernel emits `THREAD_EXIT: ok` before halt.
 - User faults terminate the user task (`USER: killed`) and return to kernel.
-- `sys_yield` returns `0`; it does not provide user-mode task switching in this path.
+- `sys_yield` is cooperative and switches to the next ready user thread when
+  thread spawning is active; otherwise it returns `0`.
 
 ### R4 path (cooperative multi-task model)
 
@@ -54,14 +57,17 @@ Exit behavior:
 
 ## Spawn semantics (v0)
 
-`sys_thread_spawn` is currently quota-focused, not a full thread creator:
-- In `quota_threads_test`, validates entry address and enforces:
+M3/G2 cooperative path:
+- `sys_thread_spawn` creates a runnable user thread in the current address space.
+- `sys_yield` performs deterministic cooperative switching among ready threads.
+- `sys_thread_exit` removes current thread; if no threads remain, kernel exits
+  to halt path.
+
+R4 quota-hardening path:
+- In `quota_threads_test`, `sys_thread_spawn` validates entry address and enforces:
   - per-task limit: `MAX_THREADS_PER_PROC = 16`
   - global limit: `MAX_THREADS_GLOBAL = 64`
 - Returns a synthetic thread id (`tid`) on success.
-- Outside `quota_threads_test`, returns `-1` (stub behavior).
-
-No runnable thread object is created by `sys_thread_spawn` in current v0.
 
 ## Scheduler guarantees (v0)
 
@@ -77,7 +83,7 @@ No runnable thread object is created by `sys_thread_spawn` in current v0.
 
 - No POSIX-like process model.
 - No general-purpose preemptive user scheduler.
-- No complete thread lifecycle API (spawn is partial, quota-oriented).
+- No complete preemptive thread lifecycle API (cooperative M3 + quota-focused R4 paths only).
 
 ## References
 

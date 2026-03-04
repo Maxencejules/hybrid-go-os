@@ -16,6 +16,8 @@ ISO_SCHED_PATH = os.path.join(REPO_ROOT, "out", "os-sched.iso")
 ISO_USER_HELLO_PATH = os.path.join(REPO_ROOT, "out", "os-user-hello.iso")
 ISO_SYSCALL_PATH = os.path.join(REPO_ROOT, "out", "os-syscall.iso")
 ISO_THREAD_EXIT_PATH = os.path.join(REPO_ROOT, "out", "os-thread-exit.iso")
+ISO_THREAD_SPAWN_PATH = os.path.join(REPO_ROOT, "out", "os-thread-spawn.iso")
+ISO_VM_MAP_PATH = os.path.join(REPO_ROOT, "out", "os-vm-map.iso")
 ISO_SYSCALL_INVALID_PATH = os.path.join(REPO_ROOT, "out", "os-syscall-invalid.iso")
 ISO_STRESS_SYSCALL_PATH = os.path.join(REPO_ROOT, "out", "os-stress-syscall.iso")
 ISO_STRESS_IPC_PATH = os.path.join(REPO_ROOT, "out", "os-stress-ipc.iso")
@@ -173,6 +175,22 @@ def qemu_serial_thread_exit():
     if not os.path.isfile(ISO_THREAD_EXIT_PATH):
         pytest.skip(f"ISO not built: {ISO_THREAD_EXIT_PATH}")
     return _boot_iso(ISO_THREAD_EXIT_PATH)
+
+
+@pytest.fixture
+def qemu_serial_thread_spawn():
+    """Boot the thread-spawn-test OS image and return captured serial output."""
+    if not os.path.isfile(ISO_THREAD_SPAWN_PATH):
+        pytest.skip(f"ISO not built: {ISO_THREAD_SPAWN_PATH}")
+    return _boot_iso(ISO_THREAD_SPAWN_PATH)
+
+
+@pytest.fixture
+def qemu_serial_vm_map():
+    """Boot the vm-map-test OS image and return captured serial output."""
+    if not os.path.isfile(ISO_VM_MAP_PATH):
+        pytest.skip(f"ISO not built: {ISO_VM_MAP_PATH}")
+    return _boot_iso(ISO_VM_MAP_PATH)
 
 
 @pytest.fixture
