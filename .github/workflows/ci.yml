@@ -88,3 +88,33 @@ jobs:
         with:
           name: hw-matrix-junit
           path: out/pytest-hw-matrix.xml
+
+      - name: Security baseline v1 gate
+        run: |
+          make image-sec-rights image-sec-filter
+          python3 tools/secure_boot_manifest_v1.py sign \
+            --key "ci-boot-key-v1" \
+            --key-id "ci-key-2026-03" \
+            --base-dir . \
+            --out out/boot-manifest-v1.json \
+            --artifacts out/kernel.elf out/os.iso
+          python3 tools/secure_boot_manifest_v1.py verify \
+            --key "ci-boot-key-v1" \
+            --base-dir . \
+            --manifest out/boot-manifest-v1.json
+          python3 tools/run_security_fuzz_v1.py \
+            --seed 20260304 \
+            --iterations 1200 \
+            --cases 4 \
+            --out out/security-fuzz-report.json
+          python3 -m pytest tests/security -v --junitxml=out/pytest-security.xml
+
+      - name: Upload security gate artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-baseline-artifacts
+          path: |
+            out/pytest-security.xml
+            out/security-fuzz-report.json
+            out/boot-manifest-v1.json

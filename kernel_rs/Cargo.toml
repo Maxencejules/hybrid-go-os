@@ -48,6 +48,8 @@ pkg_hash_test = ["fs_test"]
 net_test = []
 go_test = []
 go_std_test = []
+sec_rights_test = []
+sec_filter_test = []
 
 [profile.dev]
 panic = "abort"

@@ -61,6 +61,8 @@ PKG_BOOTSTRAP_V1_TOOL = os.path.join(REPO_ROOT, "tools", "pkg_bootstrap_v1.py")
 ISO_NET_PATH = os.path.join(REPO_ROOT, "out", "os-net.iso")
 ISO_GO_PATH = os.path.join(REPO_ROOT, "out", "os-go.iso")
 ISO_GO_STD_PATH = os.path.join(REPO_ROOT, "out", "os-go-std.iso")
+ISO_SEC_RIGHTS_PATH = os.path.join(REPO_ROOT, "out", "os-sec-rights.iso")
+ISO_SEC_FILTER_PATH = os.path.join(REPO_ROOT, "out", "os-sec-filter.iso")
 QEMU_TIMEOUT = 10  # seconds
 NET_TIMEOUT = 15   # longer timeout for networking
 
@@ -698,3 +700,19 @@ def qemu_serial_go_std():
             f"(expected {ISO_GO_STD_PATH})"
         )
     return _boot_iso(ISO_GO_STD_PATH)
+
+
+@pytest.fixture
+def qemu_serial_sec_rights():
+    """Boot M10 security-rights test image and return serial output."""
+    if not os.path.isfile(ISO_SEC_RIGHTS_PATH):
+        pytest.skip(f"ISO not built: {ISO_SEC_RIGHTS_PATH}")
+    return _boot_iso(ISO_SEC_RIGHTS_PATH)
+
+
+@pytest.fixture
+def qemu_serial_sec_filter():
+    """Boot M10 syscall-filter test image and return serial output."""
+    if not os.path.isfile(ISO_SEC_FILTER_PATH):
+        pytest.skip(f"ISO not built: {ISO_SEC_FILTER_PATH}")
+    return _boot_iso(ISO_SEC_FILTER_PATH)

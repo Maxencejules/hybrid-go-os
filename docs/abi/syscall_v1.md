@@ -168,12 +168,27 @@ They are defined as stable in the v1.x line.
 | 22 | `sys_wait` | `rdi=pid`, `rsi=status_ptr`, `rdx=options` | child pid or `-1` | Implemented (wait baseline semantics) |
 | 23 | `sys_poll` | `rdi=pollfd_ptr`, `rsi=nfds`, `rdx=timeout_ticks` | ready count or `-1` | Implemented (poll baseline equivalent wait primitive) |
 
+## Security baseline extensions in v1 (M10)
+
+These syscall IDs add M10 least-privilege controls and are stable in v1.x.
+
+| # | Name | Args | Returns | M10 status |
+|---|------|------|---------|------------|
+| 24 | `sys_fd_rights_get` | `rdi=fd` | rights bitset or `-1` | Implemented |
+| 25 | `sys_fd_rights_reduce` | `rdi=fd`, `rsi=rights_mask` | `0` or `-1` | Implemented (monotonic reduction only) |
+| 26 | `sys_fd_rights_transfer` | `rdi=fd`, `rsi=rights_mask` | new fd or `-1` | Implemented (source fd revoked on success) |
+| 27 | `sys_sec_profile_set` | `rdi=profile_id` | `0` or `-1` | Implemented (`0=default`, `1=restricted`) |
+
 ## Related contracts
 
 - Process/thread + loader + auxv + argv/envp contract:
   `docs/abi/process_thread_model_v1.md`
 - Compatibility profile surface:
   `docs/abi/compat_profile_v1.md`
+- Rights/capability contract:
+  `docs/security/rights_capability_model_v1.md`
+- Syscall filtering contract:
+  `docs/security/syscall_filtering_v1.md`
 
 ## Conformance references
 

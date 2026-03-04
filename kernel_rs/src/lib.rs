@@ -3,11 +3,11 @@
 
 use core::panic::PanicInfo;
 
-// Shorthand for "any M3 user-mode test feature is active (includes M5 blk_test, M6 fs_test, G1 go_test, G2 spike go_std_test)"
+// Shorthand for "any M3 user-mode test feature is active (includes M5 blk_test, M6 fs_test, G1 go_test, G2 spike go_std_test, M10 security tests)"
 macro_rules! cfg_m3 {
     ($($item:item)*) => {
         $(
-            #[cfg(any(feature = "user_hello_test", feature = "syscall_test", feature = "thread_exit_test", feature = "thread_spawn_test", feature = "vm_map_test", feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test", feature = "user_fault_test", feature = "blk_test", feature = "fs_test", feature = "go_test", feature = "go_std_test"))]
+            #[cfg(any(feature = "user_hello_test", feature = "syscall_test", feature = "thread_exit_test", feature = "thread_spawn_test", feature = "vm_map_test", feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test", feature = "user_fault_test", feature = "blk_test", feature = "fs_test", feature = "go_test", feature = "go_std_test", feature = "sec_rights_test", feature = "sec_filter_test"))]
             $item
         )*
     };
@@ -20,7 +20,7 @@ macro_rules! cfg_user {
             #[cfg(any(
                 feature = "user_hello_test", feature = "syscall_test", feature = "thread_exit_test", feature = "thread_spawn_test", feature = "vm_map_test", feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test", feature = "user_fault_test",
                 feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_recv_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "ipc_waiter_busy_test", feature = "svc_overwrite_test", feature = "svc_full_test", feature = "svc_bad_endpoint_test", feature = "stress_ipc_test", feature = "quota_endpoints_test", feature = "quota_shm_test", feature = "quota_threads_test", feature = "blk_test", feature = "fs_test",
-                feature = "go_test", feature = "go_std_test",
+                feature = "go_test", feature = "go_std_test", feature = "sec_rights_test", feature = "sec_filter_test",
             ))]
             $item
         )*
@@ -722,6 +722,14 @@ unsafe fn syscall_dispatch(frame: *mut u64) {
     // M3 dispatch
     #[cfg(not(any(feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_recv_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "ipc_waiter_busy_test", feature = "svc_overwrite_test", feature = "svc_full_test", feature = "svc_bad_endpoint_test", feature = "stress_ipc_test", feature = "quota_endpoints_test", feature = "quota_shm_test", feature = "quota_threads_test")))]
     {
+        #[cfg(any(feature = "user_hello_test", feature = "syscall_test", feature = "thread_exit_test", feature = "thread_spawn_test", feature = "vm_map_test", feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test", feature = "user_fault_test", feature = "blk_test", feature = "fs_test", feature = "go_test", feature = "go_std_test", feature = "sec_rights_test", feature = "sec_filter_test"))]
+        {
+            if !m10_syscall_allowed(nr) {
+                *frame.add(14) = 0xFFFF_FFFF_FFFF_FFFF;
+                return;
+            }
+        }
+
         if nr == 2 {
             sys_thread_exit_m3(frame);
             return;
@@ -732,7 +740,9 @@ unsafe fn syscall_dispatch(frame: *mut u64) {
             feature = "stress_syscall_test",
             feature = "yield_test",
             feature = "thread_spawn_test",
-            feature = "vm_map_test"
+            feature = "vm_map_test",
+            feature = "sec_rights_test",
+            feature = "sec_filter_test"
         ))]
         {
             if nr == 98 {
@@ -743,29 +753,37 @@ unsafe fn syscall_dispatch(frame: *mut u64) {
 
         let ret: u64 = match nr {
             0  => sys_debug_write(arg1, arg2),
-            #[cfg(any(feature = "user_hello_test", feature = "syscall_test", feature = "thread_exit_test", feature = "thread_spawn_test", feature = "vm_map_test", feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test", feature = "user_fault_test", feature = "blk_test", feature = "fs_test", feature = "go_test", feature = "go_std_test"))]
+            #[cfg(any(feature = "user_hello_test", feature = "syscall_test", feature = "thread_exit_test", feature = "thread_spawn_test", feature = "vm_map_test", feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test", feature = "user_fault_test", feature = "blk_test", feature = "fs_test", feature = "go_test", feature = "go_std_test", feature = "sec_rights_test", feature = "sec_filter_test"))]
             1  => sys_thread_spawn_m3(frame, arg1),
-            #[cfg(any(feature = "user_hello_test", feature = "syscall_test", feature = "thread_exit_test", feature = "thread_spawn_test", feature = "vm_map_test", feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test", feature = "user_fault_test", feature = "blk_test", feature = "fs_test", feature = "go_test", feature = "go_std_test"))]
+            #[cfg(any(feature = "user_hello_test", feature = "syscall_test", feature = "thread_exit_test", feature = "thread_spawn_test", feature = "vm_map_test", feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test", feature = "user_fault_test", feature = "blk_test", feature = "fs_test", feature = "go_test", feature = "go_std_test", feature = "sec_rights_test", feature = "sec_filter_test"))]
             3  => sys_yield_m3(frame),
-            #[cfg(not(any(feature = "user_hello_test", feature = "syscall_test", feature = "thread_exit_test", feature = "thread_spawn_test", feature = "vm_map_test", feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test", feature = "user_fault_test", feature = "blk_test", feature = "fs_test", feature = "go_test", feature = "go_std_test")))]
+            #[cfg(not(any(feature = "user_hello_test", feature = "syscall_test", feature = "thread_exit_test", feature = "thread_spawn_test", feature = "vm_map_test", feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test", feature = "user_fault_test", feature = "blk_test", feature = "fs_test", feature = "go_test", feature = "go_std_test", feature = "sec_rights_test", feature = "sec_filter_test")))]
             3  => sys_yield(),
-            #[cfg(any(feature = "user_hello_test", feature = "syscall_test", feature = "thread_exit_test", feature = "thread_spawn_test", feature = "vm_map_test", feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test", feature = "user_fault_test", feature = "blk_test", feature = "fs_test", feature = "go_test", feature = "go_std_test"))]
+            #[cfg(any(feature = "user_hello_test", feature = "syscall_test", feature = "thread_exit_test", feature = "thread_spawn_test", feature = "vm_map_test", feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test", feature = "user_fault_test", feature = "blk_test", feature = "fs_test", feature = "go_test", feature = "go_std_test", feature = "sec_rights_test", feature = "sec_filter_test"))]
             4  => sys_vm_map_m3(arg1, arg2),
-            #[cfg(any(feature = "user_hello_test", feature = "syscall_test", feature = "thread_exit_test", feature = "thread_spawn_test", feature = "vm_map_test", feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test", feature = "user_fault_test", feature = "blk_test", feature = "fs_test", feature = "go_test", feature = "go_std_test"))]
+            #[cfg(any(feature = "user_hello_test", feature = "syscall_test", feature = "thread_exit_test", feature = "thread_spawn_test", feature = "vm_map_test", feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test", feature = "user_fault_test", feature = "blk_test", feature = "fs_test", feature = "go_test", feature = "go_std_test", feature = "sec_rights_test", feature = "sec_filter_test"))]
             5  => sys_vm_unmap_m3(arg1, arg2),
             10 => sys_time_now(),
-            #[cfg(any(feature = "user_hello_test", feature = "syscall_test", feature = "thread_exit_test", feature = "thread_spawn_test", feature = "vm_map_test", feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test", feature = "user_fault_test", feature = "blk_test", feature = "fs_test", feature = "go_test", feature = "go_std_test"))]
+            #[cfg(any(feature = "user_hello_test", feature = "syscall_test", feature = "thread_exit_test", feature = "thread_spawn_test", feature = "vm_map_test", feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test", feature = "user_fault_test", feature = "blk_test", feature = "fs_test", feature = "go_test", feature = "go_std_test", feature = "sec_rights_test", feature = "sec_filter_test"))]
             18 => sys_open_v1(arg1, arg2, arg3),
-            #[cfg(any(feature = "user_hello_test", feature = "syscall_test", feature = "thread_exit_test", feature = "thread_spawn_test", feature = "vm_map_test", feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test", feature = "user_fault_test", feature = "blk_test", feature = "fs_test", feature = "go_test", feature = "go_std_test"))]
+            #[cfg(any(feature = "user_hello_test", feature = "syscall_test", feature = "thread_exit_test", feature = "thread_spawn_test", feature = "vm_map_test", feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test", feature = "user_fault_test", feature = "blk_test", feature = "fs_test", feature = "go_test", feature = "go_std_test", feature = "sec_rights_test", feature = "sec_filter_test"))]
             19 => sys_read_v1(arg1, arg2, arg3),
-            #[cfg(any(feature = "user_hello_test", feature = "syscall_test", feature = "thread_exit_test", feature = "thread_spawn_test", feature = "vm_map_test", feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test", feature = "user_fault_test", feature = "blk_test", feature = "fs_test", feature = "go_test", feature = "go_std_test"))]
+            #[cfg(any(feature = "user_hello_test", feature = "syscall_test", feature = "thread_exit_test", feature = "thread_spawn_test", feature = "vm_map_test", feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test", feature = "user_fault_test", feature = "blk_test", feature = "fs_test", feature = "go_test", feature = "go_std_test", feature = "sec_rights_test", feature = "sec_filter_test"))]
             20 => sys_write_v1(arg1, arg2, arg3),
-            #[cfg(any(feature = "user_hello_test", feature = "syscall_test", feature = "thread_exit_test", feature = "thread_spawn_test", feature = "vm_map_test", feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test", feature = "user_fault_test", feature = "blk_test", feature = "fs_test", feature = "go_test", feature = "go_std_test"))]
+            #[cfg(any(feature = "user_hello_test", feature = "syscall_test", feature = "thread_exit_test", feature = "thread_spawn_test", feature = "vm_map_test", feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test", feature = "user_fault_test", feature = "blk_test", feature = "fs_test", feature = "go_test", feature = "go_std_test", feature = "sec_rights_test", feature = "sec_filter_test"))]
             21 => sys_close_v1(arg1),
-            #[cfg(any(feature = "user_hello_test", feature = "syscall_test", feature = "thread_exit_test", feature = "thread_spawn_test", feature = "vm_map_test", feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test", feature = "user_fault_test", feature = "blk_test", feature = "fs_test", feature = "go_test", feature = "go_std_test"))]
+            #[cfg(any(feature = "user_hello_test", feature = "syscall_test", feature = "thread_exit_test", feature = "thread_spawn_test", feature = "vm_map_test", feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test", feature = "user_fault_test", feature = "blk_test", feature = "fs_test", feature = "go_test", feature = "go_std_test", feature = "sec_rights_test", feature = "sec_filter_test"))]
             22 => sys_wait_v1(arg1, arg2, arg3),
-            #[cfg(any(feature = "user_hello_test", feature = "syscall_test", feature = "thread_exit_test", feature = "thread_spawn_test", feature = "vm_map_test", feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test", feature = "user_fault_test", feature = "blk_test", feature = "fs_test", feature = "go_test", feature = "go_std_test"))]
+            #[cfg(any(feature = "user_hello_test", feature = "syscall_test", feature = "thread_exit_test", feature = "thread_spawn_test", feature = "vm_map_test", feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test", feature = "user_fault_test", feature = "blk_test", feature = "fs_test", feature = "go_test", feature = "go_std_test", feature = "sec_rights_test", feature = "sec_filter_test"))]
             23 => sys_poll_v1(arg1, arg2, arg3),
+            #[cfg(any(feature = "user_hello_test", feature = "syscall_test", feature = "thread_exit_test", feature = "thread_spawn_test", feature = "vm_map_test", feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test", feature = "user_fault_test", feature = "blk_test", feature = "fs_test", feature = "go_test", feature = "go_std_test", feature = "sec_rights_test", feature = "sec_filter_test"))]
+            24 => sys_fd_rights_get_v1(arg1),
+            #[cfg(any(feature = "user_hello_test", feature = "syscall_test", feature = "thread_exit_test", feature = "thread_spawn_test", feature = "vm_map_test", feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test", feature = "user_fault_test", feature = "blk_test", feature = "fs_test", feature = "go_test", feature = "go_std_test", feature = "sec_rights_test", feature = "sec_filter_test"))]
+            25 => sys_fd_rights_reduce_v1(arg1, arg2),
+            #[cfg(any(feature = "user_hello_test", feature = "syscall_test", feature = "thread_exit_test", feature = "thread_spawn_test", feature = "vm_map_test", feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test", feature = "user_fault_test", feature = "blk_test", feature = "fs_test", feature = "go_test", feature = "go_std_test", feature = "sec_rights_test", feature = "sec_filter_test"))]
+            26 => sys_fd_rights_transfer_v1(arg1, arg2),
+            #[cfg(any(feature = "user_hello_test", feature = "syscall_test", feature = "thread_exit_test", feature = "thread_spawn_test", feature = "vm_map_test", feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test", feature = "user_fault_test", feature = "blk_test", feature = "fs_test", feature = "go_test", feature = "go_std_test", feature = "sec_rights_test", feature = "sec_filter_test"))]
+            27 => sys_sec_profile_set_v1(arg1),
             _  => 0xFFFF_FFFF_FFFF_FFFF,
         };
         *frame.add(14) = ret;
@@ -790,7 +808,9 @@ unsafe fn sys_time_now() -> u64 {
         feature = "syscall_test",
         feature = "stress_syscall_test",
         feature = "user_fault_test",
-        feature = "go_std_test"
+        feature = "go_std_test",
+        feature = "sec_rights_test",
+        feature = "sec_filter_test"
     ))]
     {
         let t = MONOTONIC_TICK;
@@ -802,7 +822,9 @@ unsafe fn sys_time_now() -> u64 {
         feature = "syscall_test",
         feature = "stress_syscall_test",
         feature = "user_fault_test",
-        feature = "go_std_test"
+        feature = "go_std_test",
+        feature = "sec_rights_test",
+        feature = "sec_filter_test"
     )))]
     { 0 }
 }
@@ -922,17 +944,44 @@ cfg_m3! {
         0
     }
 
-    unsafe fn sys_open_v1(path_ptr: u64, _flags: u64, _mode: u64) -> u64 {
+    unsafe fn sys_open_v1(path_ptr: u64, flags: u64, _mode: u64) -> u64 {
         let path = match copyinstr_user(path_ptr, 128) {
             Ok(v) => v,
             Err(_) => return 0xFFFF_FFFF_FFFF_FFFF,
         };
         let bytes = path.as_slice();
+        if !m10_profile_path_allowed(bytes) {
+            return 0xFFFF_FFFF_FFFF_FFFF;
+        }
+        let requested = match m10_open_requested_rights(flags) {
+            Some(v) => v,
+            None => return 0xFFFF_FFFF_FFFF_FFFF,
+        };
         if m8_path_matches(bytes, b"/dev/console") {
-            return m8_alloc_fd(M8FdKind::Console);
+            let max = m10_rights_for_kind(M8FdKind::Console);
+            let effective = requested | M10_RIGHT_POLL;
+            if effective & !max != 0 {
+                return 0xFFFF_FFFF_FFFF_FFFF;
+            }
+            let fd = m8_alloc_fd(M8FdKind::Console);
+            if fd == 0xFFFF_FFFF_FFFF_FFFF {
+                return fd;
+            }
+            M8_FD_TABLE[fd as usize].rights = effective;
+            return fd;
         }
         if m8_path_matches(bytes, b"/compat/hello.txt") {
-            return m8_alloc_fd(M8FdKind::CompatFile);
+            let max = m10_rights_for_kind(M8FdKind::CompatFile);
+            let effective = requested | M10_RIGHT_POLL;
+            if effective & !max != 0 {
+                return 0xFFFF_FFFF_FFFF_FFFF;
+            }
+            let fd = m8_alloc_fd(M8FdKind::CompatFile);
+            if fd == 0xFFFF_FFFF_FFFF_FFFF {
+                return fd;
+            }
+            M8_FD_TABLE[fd as usize].rights = effective;
+            return fd;
         }
         0xFFFF_FFFF_FFFF_FFFF
     }
@@ -942,6 +991,9 @@ cfg_m3! {
         if len > 4096 { return 0xFFFF_FFFF_FFFF_FFFF; }
         let idx = fd as usize;
         if idx >= M8_FD_MAX { return 0xFFFF_FFFF_FFFF_FFFF; }
+        if M8_FD_TABLE[idx].rights & M10_RIGHT_READ == 0 {
+            return 0xFFFF_FFFF_FFFF_FFFF;
+        }
 
         match M8_FD_TABLE[idx].kind {
             M8FdKind::Free => 0xFFFF_FFFF_FFFF_FFFF,
@@ -968,6 +1020,9 @@ cfg_m3! {
         if len > 256 { return 0xFFFF_FFFF_FFFF_FFFF; }
         let idx = fd as usize;
         if idx >= M8_FD_MAX { return 0xFFFF_FFFF_FFFF_FFFF; }
+        if M8_FD_TABLE[idx].rights & M10_RIGHT_WRITE == 0 {
+            return 0xFFFF_FFFF_FFFF_FFFF;
+        }
 
         match M8_FD_TABLE[idx].kind {
             M8FdKind::Free => 0xFFFF_FFFF_FFFF_FFFF,
@@ -1061,15 +1116,22 @@ cfg_m3! {
                 if idx >= M8_FD_MAX {
                     revents |= POLLERR;
                 } else {
+                    let rights = M8_FD_TABLE[idx].rights;
+                    if rights & M10_RIGHT_POLL == 0 {
+                        revents |= POLLERR;
+                    }
                     match M8_FD_TABLE[idx].kind {
                         M8FdKind::Free => revents |= POLLERR,
                         M8FdKind::Console => {
-                            if events & POLLOUT != 0 {
+                            if events & POLLOUT != 0 && rights & M10_RIGHT_WRITE != 0 {
                                 revents |= POLLOUT;
                             }
                         }
                         M8FdKind::CompatFile => {
-                            if events & POLLIN != 0 && M8_FD_TABLE[idx].offset < M8_COMPAT_FILE.len() {
+                            if events & POLLIN != 0
+                                && rights & M10_RIGHT_READ != 0
+                                && M8_FD_TABLE[idx].offset < M8_COMPAT_FILE.len()
+                            {
                                 revents |= POLLIN;
                             }
                         }
@@ -1092,13 +1154,13 @@ cfg_m3! {
 
 #[cfg(not(any(feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_recv_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "ipc_waiter_busy_test", feature = "svc_overwrite_test", feature = "svc_full_test", feature = "svc_bad_endpoint_test", feature = "stress_ipc_test", feature = "quota_endpoints_test", feature = "quota_shm_test", feature = "quota_threads_test")))]
 unsafe fn sys_thread_exit_m3(frame: *mut u64) {
-    #[cfg(any(feature = "user_hello_test", feature = "syscall_test", feature = "thread_exit_test", feature = "thread_spawn_test", feature = "vm_map_test", feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test", feature = "user_fault_test", feature = "blk_test", feature = "fs_test", feature = "go_test", feature = "go_std_test"))]
+    #[cfg(any(feature = "user_hello_test", feature = "syscall_test", feature = "thread_exit_test", feature = "thread_spawn_test", feature = "vm_map_test", feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test", feature = "user_fault_test", feature = "blk_test", feature = "fs_test", feature = "go_test", feature = "go_std_test", feature = "sec_rights_test", feature = "sec_filter_test"))]
     {
         // M8 PR-2: expose deterministic child-exit observation for wait semantics.
         M8_WAIT_HAS_EXIT = true;
         M8_WAIT_EXIT_STATUS = 0;
     }
-    #[cfg(any(feature = "user_hello_test", feature = "syscall_test", feature = "thread_exit_test", feature = "thread_spawn_test", feature = "vm_map_test", feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test", feature = "user_fault_test", feature = "blk_test", feature = "fs_test", feature = "go_test", feature = "go_std_test"))]
+    #[cfg(any(feature = "user_hello_test", feature = "syscall_test", feature = "thread_exit_test", feature = "thread_spawn_test", feature = "vm_map_test", feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test", feature = "user_fault_test", feature = "blk_test", feature = "fs_test", feature = "go_test", feature = "go_std_test", feature = "sec_rights_test", feature = "sec_filter_test"))]
     if M3_THREADING_ACTIVE {
         M3_THREADS[M3_CURRENT].state = M3ThreadState::Dead;
         if let Some(next) = m3_find_ready(M3_CURRENT) {
@@ -1408,6 +1470,14 @@ cfg_m3! {
     const M3_MAX_VM_MAPS: usize = 8;
     const M3_VM_PAGE_SIZE: u64 = 4096;
     const M8_FD_MAX: usize = 16;
+    const M10_RIGHT_READ: u64 = 1 << 0;
+    const M10_RIGHT_WRITE: u64 = 1 << 1;
+    const M10_RIGHT_POLL: u64 = 1 << 2;
+    const M10_RIGHT_MASK: u64 = M10_RIGHT_READ | M10_RIGHT_WRITE | M10_RIGHT_POLL;
+    const M10_OPEN_MODE_MASK: u64 = 0x3;
+    const M10_OPEN_RDONLY: u64 = 0;
+    const M10_OPEN_WRONLY: u64 = 1;
+    const M10_OPEN_RDWR: u64 = 2;
 
     #[derive(Clone, Copy, PartialEq)]
     enum M8FdKind { Free, Console, CompatFile }
@@ -1415,17 +1485,25 @@ cfg_m3! {
     #[derive(Clone, Copy)]
     struct M8FdEntry {
         kind: M8FdKind,
+        rights: u64,
         offset: usize,
     }
 
     impl M8FdEntry {
-        const EMPTY: Self = Self { kind: M8FdKind::Free, offset: 0 };
+        const EMPTY: Self = Self { kind: M8FdKind::Free, rights: 0, offset: 0 };
     }
 
     static mut M8_FD_TABLE: [M8FdEntry; M8_FD_MAX] = [M8FdEntry::EMPTY; M8_FD_MAX];
     static mut M8_WAIT_HAS_EXIT: bool = false;
     static mut M8_WAIT_EXIT_STATUS: i32 = 0;
     static M8_COMPAT_FILE: &[u8] = b"compat v1 hello\n";
+    static mut M10_SEC_PROFILE: M10SecProfile = M10SecProfile::Default;
+
+    #[derive(Clone, Copy, PartialEq)]
+    enum M10SecProfile {
+        Default,
+        Restricted,
+    }
 
     #[derive(Clone, Copy, PartialEq)]
     enum M3ThreadState { Dead, Ready, Running }
@@ -1475,6 +1553,7 @@ cfg_m3! {
         M3_THREADING_ACTIVE = false;
         M8_WAIT_HAS_EXIT = false;
         M8_WAIT_EXIT_STATUS = 0;
+        M10_SEC_PROFILE = M10SecProfile::Default;
         for i in 0..M3_MAX_THREADS {
             M3_THREADS[i] = M3Thread::EMPTY;
         }
@@ -1485,9 +1564,10 @@ cfg_m3! {
             M8_FD_TABLE[i] = M8FdEntry::EMPTY;
         }
         // Keep stdio-like descriptors deterministic across every user-mode reset.
-        M8_FD_TABLE[0] = M8FdEntry { kind: M8FdKind::Console, offset: 0 };
-        M8_FD_TABLE[1] = M8FdEntry { kind: M8FdKind::Console, offset: 0 };
-        M8_FD_TABLE[2] = M8FdEntry { kind: M8FdKind::Console, offset: 0 };
+        let console_rights = m10_rights_for_kind(M8FdKind::Console);
+        M8_FD_TABLE[0] = M8FdEntry { kind: M8FdKind::Console, rights: console_rights, offset: 0 };
+        M8_FD_TABLE[1] = M8FdEntry { kind: M8FdKind::Console, rights: console_rights, offset: 0 };
+        M8_FD_TABLE[2] = M8FdEntry { kind: M8FdKind::Console, rights: console_rights, offset: 0 };
     }
 
     unsafe fn m3_bootstrap_main_thread(frame: *mut u64) {
@@ -1566,10 +1646,120 @@ cfg_m3! {
         &buf[..path.len()] == path
     }
 
+    fn m10_rights_for_kind(kind: M8FdKind) -> u64 {
+        match kind {
+            M8FdKind::Free => 0,
+            M8FdKind::Console => M10_RIGHT_WRITE | M10_RIGHT_POLL,
+            M8FdKind::CompatFile => M10_RIGHT_READ | M10_RIGHT_POLL,
+        }
+    }
+
+    fn m10_open_requested_rights(flags: u64) -> Option<u64> {
+        if flags & !M10_OPEN_MODE_MASK != 0 {
+            return None;
+        }
+        match flags & M10_OPEN_MODE_MASK {
+            M10_OPEN_RDONLY => Some(M10_RIGHT_READ),
+            M10_OPEN_WRONLY => Some(M10_RIGHT_WRITE),
+            M10_OPEN_RDWR => Some(M10_RIGHT_READ | M10_RIGHT_WRITE),
+            _ => None,
+        }
+    }
+
+    fn m10_profile_path_allowed(path: &[u8]) -> bool {
+        match unsafe { M10_SEC_PROFILE } {
+            M10SecProfile::Default => true,
+            M10SecProfile::Restricted => m8_path_matches(path, b"/compat/hello.txt"),
+        }
+    }
+
+    unsafe fn m10_syscall_allowed(nr: u64) -> bool {
+        match M10_SEC_PROFILE {
+            M10SecProfile::Default => true,
+            M10SecProfile::Restricted => matches!(
+                nr,
+                0 | 2 | 3 | 10 | 18 | 19 | 20 | 21 | 22 | 23 | 24 | 25 | 26 | 27 | 98
+            ),
+        }
+    }
+
+    unsafe fn sys_sec_profile_set_v1(profile: u64) -> u64 {
+        match profile {
+            0 => {
+                M10_SEC_PROFILE = M10SecProfile::Default;
+                0
+            }
+            1 => {
+                M10_SEC_PROFILE = M10SecProfile::Restricted;
+                0
+            }
+            _ => 0xFFFF_FFFF_FFFF_FFFF,
+        }
+    }
+
+    unsafe fn sys_fd_rights_get_v1(fd: u64) -> u64 {
+        let idx = fd as usize;
+        if idx >= M8_FD_MAX { return 0xFFFF_FFFF_FFFF_FFFF; }
+        if M8_FD_TABLE[idx].kind == M8FdKind::Free {
+            return 0xFFFF_FFFF_FFFF_FFFF;
+        }
+        M8_FD_TABLE[idx].rights & M10_RIGHT_MASK
+    }
+
+    unsafe fn sys_fd_rights_reduce_v1(fd: u64, rights: u64) -> u64 {
+        let idx = fd as usize;
+        if idx >= M8_FD_MAX { return 0xFFFF_FFFF_FFFF_FFFF; }
+        if idx < 3 {
+            // Keep stdio fixed for deterministic startup behavior.
+            return 0xFFFF_FFFF_FFFF_FFFF;
+        }
+        if M8_FD_TABLE[idx].kind == M8FdKind::Free {
+            return 0xFFFF_FFFF_FFFF_FFFF;
+        }
+        let req = rights & M10_RIGHT_MASK;
+        if req & !M8_FD_TABLE[idx].rights != 0 {
+            return 0xFFFF_FFFF_FFFF_FFFF;
+        }
+        M8_FD_TABLE[idx].rights = req;
+        0
+    }
+
+    unsafe fn sys_fd_rights_transfer_v1(fd: u64, rights: u64) -> u64 {
+        let idx = fd as usize;
+        if idx >= M8_FD_MAX { return 0xFFFF_FFFF_FFFF_FFFF; }
+        if idx < 3 {
+            return 0xFFFF_FFFF_FFFF_FFFF;
+        }
+        let src = M8_FD_TABLE[idx];
+        if src.kind == M8FdKind::Free {
+            return 0xFFFF_FFFF_FFFF_FFFF;
+        }
+        let req = rights & M10_RIGHT_MASK;
+        if req == 0 {
+            return 0xFFFF_FFFF_FFFF_FFFF;
+        }
+        if req & !src.rights != 0 {
+            return 0xFFFF_FFFF_FFFF_FFFF;
+        }
+        for i in 3..M8_FD_MAX {
+            if M8_FD_TABLE[i].kind == M8FdKind::Free {
+                M8_FD_TABLE[i] = M8FdEntry {
+                    kind: src.kind,
+                    rights: req,
+                    offset: src.offset,
+                };
+                M8_FD_TABLE[idx] = M8FdEntry::EMPTY;
+                return i as u64;
+            }
+        }
+        0xFFFF_FFFF_FFFF_FFFF
+    }
+
     unsafe fn m8_alloc_fd(kind: M8FdKind) -> u64 {
         for i in 3..M8_FD_MAX {
             if M8_FD_TABLE[i].kind == M8FdKind::Free {
                 M8_FD_TABLE[i].kind = kind;
+                M8_FD_TABLE[i].rights = m10_rights_for_kind(kind);
                 M8_FD_TABLE[i].offset = 0;
                 return i as u64;
             }
@@ -1813,6 +2003,14 @@ static GO_USER_BIN: &[u8] = include_bytes!("../../out/gousr.bin");
 
 #[cfg(feature = "go_std_test")]
 static GO_STD_BIN: &[u8] = include_bytes!("../../out/gostd.bin");
+
+// --------------- M10: Security baseline user blobs ----------------------------
+
+#[cfg(feature = "sec_rights_test")]
+static SEC_RIGHTS_BIN: &[u8] = include_bytes!("../../out/sec-rights.bin");
+
+#[cfg(feature = "sec_filter_test")]
+static SEC_FILTER_BIN: &[u8] = include_bytes!("../../out/sec-filter.bin");
 
 // =============================================================================
 // R4: IPC + shared memory + service registry
@@ -5082,6 +5280,24 @@ pub extern "C" fn kmain() -> ! {
         enter_ring3_at(USER_CODE_VA, USER_STACK_TOP);
     }
 
+    // M10: sec_rights_test — per-handle rights reduction + transfer checks
+    #[cfg(feature = "sec_rights_test")]
+    unsafe {
+        let kstack = &stack_top as *const u8 as u64;
+        tss_init(kstack);
+        setup_user_pages(SEC_RIGHTS_BIN);
+        enter_ring3_at(USER_CODE_VA, USER_STACK_TOP);
+    }
+
+    // M10: sec_filter_test — syscall/profile sandbox checks
+    #[cfg(feature = "sec_filter_test")]
+    unsafe {
+        let kstack = &stack_top as *const u8 as u64;
+        tss_init(kstack);
+        setup_user_pages(SEC_FILTER_BIN);
+        enter_ring3_at(USER_CODE_VA, USER_STACK_TOP);
+    }
+
     // M7: net_test — VirtIO net + UDP echo
     #[cfg(feature = "net_test")]
     unsafe {
@@ -5160,6 +5376,8 @@ pub extern "C" fn kmain() -> ! {
         feature = "net_test",
         feature = "go_test",
         feature = "go_std_test",
+        feature = "sec_rights_test",
+        feature = "sec_filter_test",
     )))]
     {
         serial_write(b"RUGO: halt ok\n");

@@ -48,6 +48,9 @@ endif
        build-net image-net \
        build-go image-go \
        build-go-std image-go-std \
+       build-sec-rights image-sec-rights \
+       build-sec-filter image-sec-filter \
+       test-security-baseline \
        run test-qemu test-hw-matrix repro-check clean legacy docker-all docker-legacy
 
 # Tools
@@ -485,6 +488,26 @@ build-go-std: $(ASM_OBJS) boot/linker.ld
 image-go-std: build-go-std
 	PATH="$(WSL_PATH)" CC="$(CC)" XORRISO="$(XORRISO)" KERNEL_ELF=kernel-go-std.elf ISO_NAME=os-go-std.iso bash tools/mkimage.sh
 
+# --- M10: Security rights test kernel -----------------------------------------
+
+build-sec-rights: $(ASM_OBJS) boot/linker.ld
+	$(NASM) -f bin services/security/sec_rights.asm -o $(OUT)/sec-rights.bin
+	cd kernel_rs && $(CARGO) build --release --features sec_rights_test
+	$(LD) $(LDFLAGS) -o $(OUT)/kernel-sec-rights.elf $(ASM_OBJS) $(KERNEL_LIB)
+
+image-sec-rights: build-sec-rights
+	PATH="$(WSL_PATH)" CC="$(CC)" XORRISO="$(XORRISO)" KERNEL_ELF=kernel-sec-rights.elf ISO_NAME=os-sec-rights.iso bash tools/mkimage.sh
+
+# --- M10: Security profile filter test kernel ---------------------------------
+
+build-sec-filter: $(ASM_OBJS) boot/linker.ld
+	$(NASM) -f bin services/security/sec_filter.asm -o $(OUT)/sec-filter.bin
+	cd kernel_rs && $(CARGO) build --release --features sec_filter_test
+	$(LD) $(LDFLAGS) -o $(OUT)/kernel-sec-filter.elf $(ASM_OBJS) $(KERNEL_LIB)
+
+image-sec-filter: build-sec-filter
+	PATH="$(WSL_PATH)" CC="$(CC)" XORRISO="$(XORRISO)" KERNEL_ELF=kernel-sec-filter.elf ISO_NAME=os-sec-filter.iso bash tools/mkimage.sh
+
 run: image
 	./tools/run_qemu.sh
 
@@ -493,6 +516,9 @@ test-qemu: image image-panic image-pf image-idt image-sched image-user-hello ima
 
 test-hw-matrix: image-blk image-blk-badlen image-blk-badptr image-net
 	$(PYTHON) -m pytest tests/hw -v
+
+test-security-baseline: image-sec-rights image-sec-filter
+	$(PYTHON) -m pytest tests/security -v
 
 repro-check:
 	@set -e; \

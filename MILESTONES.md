@@ -75,6 +75,7 @@ Tests: `legacy/tests/` (boot, trap, sched, user, ipc, drivers, fs, pkg, net)
 | G2 | Full Go port | n/a | ✅ | Rugo-only milestone. Done (`tests/go/test_std_go_binary.py`, stock-Go artifact contract path). |
 | M8 | Compatibility Profile v1 | n/a | ✅ | Rugo: `tests/compat/*`, `tests/pkg/test_pkg_external_apps.py`; docs in `docs/abi/*` and `docs/M8_EXECUTION_BACKLOG.md`. |
 | M9 | Hardware enablement matrix v1 | n/a | ✅ | Rugo: `tests/hw/*`, CI hardware gate, and docs in `docs/hw/*`, `docs/M9_EXECUTION_BACKLOG.md`. |
+| M10 | Security baseline v1 | n/a | ✅ | Rugo: `tests/security/*`, security CI gate, and docs in `docs/security/*`, `docs/M10_EXECUTION_BACKLOG.md`. |
 
 Legend: ✅ = done with passing tests, ◐ = in progress (prep), — = not started, n/a = not applicable to this lane.
 
@@ -537,7 +538,58 @@ Milestone status: done (2026-03-04).
   - `docs/M9_EXECUTION_BACKLOG.md`
 - Release gating:
   - `Makefile` target `test-hw-matrix`
-  - `.github/workflows/ci.yml` step `Hardware matrix v1 gate`
+- `.github/workflows/ci.yml` step `Hardware matrix v1 gate`
+
+---
+
+## M10: Security Baseline v1
+
+Milestone status: done (2026-03-04).
+
+### Definition of done
+
+- Per-handle rights model is documented and enforced in kernel paths.
+- Restricted syscall/resource profile exists with deterministic deny behavior.
+- Boot artifact manifest signing and verification rejects tampered artifacts.
+- Continuous security fuzz gate runs and produces machine-readable reports.
+- Incident response and advisory workflow is documented.
+
+### Acceptance tests
+
+| Test | Markers/Outcome |
+|------|------------------|
+| `tests/security/test_rights_enforcement.py` | `SEC: rights ok` |
+| `tests/security/test_syscall_filter.py` | `SEC: filter ok` |
+| `tests/security/test_secure_boot_manifest_v1.py` | tamper rejection + key rotation pass |
+| `tests/security/test_security_fuzz_harness_v1.py` | fuzz report schema, `total_violations == 0` |
+
+### Rugo evidence
+
+- Kernel enforcement in `kernel_rs/src/lib.rs`:
+  - fd rights fields and checks in `sys_open_v1/sys_read_v1/sys_write_v1/sys_poll_v1`,
+  - new security syscalls:
+    - `sys_fd_rights_get_v1` (24),
+    - `sys_fd_rights_reduce_v1` (25),
+    - `sys_fd_rights_transfer_v1` (26),
+    - `sys_sec_profile_set_v1` (27),
+  - restricted profile allowlist in `m10_syscall_allowed`.
+- Security user-mode acceptance payloads:
+  - `services/security/sec_rights.asm`
+  - `services/security/sec_filter.asm`
+- Security tooling:
+  - `tools/secure_boot_manifest_v1.py`
+  - `tools/run_security_fuzz_v1.py`
+- Security contracts/process docs:
+  - `docs/security/rights_capability_model_v1.md`
+  - `docs/security/syscall_filtering_v1.md`
+  - `docs/security/secure_boot_policy_v1.md`
+  - `docs/security/fuzzing_v1.md`
+  - `docs/security/incident_response_v1.md`
+- Execution and sequencing history:
+  - `docs/M10_EXECUTION_BACKLOG.md`
+- Release gating:
+  - `Makefile` target `test-security-baseline`
+  - `.github/workflows/ci.yml` step `Security baseline v1 gate`
 
 ---
 

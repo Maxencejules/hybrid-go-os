@@ -41,6 +41,7 @@ make docker-legacy       # Legacy only (requires gccgo in Docker image)
 | **G2** Full Go port | n/a | ✅ | Rugo-only. Done: `tests/go/test_std_go_binary.py` on `go_std_test` stock-Go artifact path (`os-go-std.iso`, `GOSTD: ok`). |
 | **M8** Compatibility Profile v1 | n/a | ✅ | Rugo: `tests/compat/*`, `tests/pkg/test_pkg_external_apps.py`; docs in `docs/abi/*` and `docs/M8_EXECUTION_BACKLOG.md`. |
 | **M9** Hardware enablement matrix v1 | n/a | ✅ | Rugo: `tests/hw/*`, `make test-hw-matrix`, CI `Hardware matrix v1 gate`, docs in `docs/hw/*` and `docs/M9_EXECUTION_BACKLOG.md`. |
+| **M10** Security baseline v1 | n/a | ✅ | Rugo: `tests/security/*`, `make test-security-baseline`, CI `Security baseline v1 gate`, docs in `docs/security/*` and `docs/M10_EXECUTION_BACKLOG.md`. |
 
 ✅ done &ensp; ◐ in progress (prep) &ensp; ⬜ not started &ensp; n/a not applicable
 
@@ -143,9 +144,33 @@ M9 execution update (2026-03-04):
   - `docs/hw/bare_metal_bringup_v1.md`
 - M9 is done.
 
+M10 execution update (2026-03-04):
+- PR-1 complete (rights model + kernel enforcement):
+  - fd rights enforcement in `kernel_rs/src/lib.rs`
+  - new syscalls `24..27` (`sys_fd_rights_*`, `sys_sec_profile_set`)
+  - `services/security/sec_rights.asm`
+  - `tests/security/test_rights_enforcement.py`
+  - `docs/security/rights_capability_model_v1.md`
+- PR-2 complete (syscall filtering + secure boot manifest):
+  - restricted profile allowlist/path policy in `kernel_rs/src/lib.rs`
+  - `services/security/sec_filter.asm`
+  - `tests/security/test_syscall_filter.py`
+  - `tools/secure_boot_manifest_v1.py`
+  - `tests/security/test_secure_boot_manifest_v1.py`
+  - `docs/security/syscall_filtering_v1.md`
+  - `docs/security/secure_boot_policy_v1.md`
+- PR-3 complete (fuzz gate + incident process + CI gate):
+  - `tools/run_security_fuzz_v1.py`
+  - `tests/security/test_security_fuzz_harness_v1.py`
+  - `docs/security/fuzzing_v1.md`
+  - `docs/security/incident_response_v1.md`
+  - `Makefile` target `test-security-baseline`
+  - `.github/workflows/ci.yml` step `Security baseline v1 gate`
+- M10 is done.
+
 Post-G2 planning and execution:
 - Extended roadmap (M8-M14): `docs/POST_G2_EXTENDED_MILESTONES.md`
-- Last completed backlog (M9): `docs/M9_EXECUTION_BACKLOG.md`
-- Next execution backlog target: M10
+- Last completed backlog (M10): `docs/M10_EXECUTION_BACKLOG.md`
+- Next execution backlog target: M11
 
 
