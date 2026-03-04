@@ -32,7 +32,9 @@ compatibility.
 - `wait`/`waitpid` direct-child wait semantics.
 - Stable process identity basics (`getpid` at minimum).
 
-Conformance skeleton: `tests/compat/test_process_lifecycle.py`.
+Conformance coverage:
+- `tests/compat/test_process_lifecycle.py`
+- `tests/compat/test_process_wait.py`
 
 ### File I/O subset (`required`)
 
@@ -41,7 +43,9 @@ Conformance skeleton: `tests/compat/test_process_lifecycle.py`.
 - `fstat`/`stat` minimum metadata query behavior.
 - Deterministic file descriptor table behavior for invalid/closed descriptors.
 
-Conformance skeleton: `tests/compat/test_file_io_subset.py`.
+Conformance coverage:
+- `tests/compat/test_file_io_subset.py`
+- `tests/compat/test_fd_table.py`
 
 ### Time and signal subset (`required`)
 
@@ -50,7 +54,7 @@ Conformance skeleton: `tests/compat/test_file_io_subset.py`.
 - Minimal signal handling (`sigaction`, `kill`) for selected signals.
 - Deterministic interruption/restart behavior where documented.
 
-Conformance skeleton: `tests/compat/test_time_signal_subset.py`.
+Conformance skeleton (PR-3 target): `tests/compat/test_time_signal_subset.py`.
 
 ### Socket API subset (`required`)
 
@@ -59,7 +63,7 @@ Conformance skeleton: `tests/compat/test_time_signal_subset.py`.
 - `shutdown` baseline behavior.
 - `poll` or equivalent readiness wait primitive baseline.
 
-Conformance skeleton: `tests/compat/test_socket_api_subset.py`.
+Conformance skeleton (PR-3 target): `tests/compat/test_socket_api_subset.py`.
 
 ## Explicit unsupported list for v1
 
@@ -79,9 +83,10 @@ silently mapped to partial behavior.
 ## Conformance and CI intent
 
 - Profile conformance is tracked by `tests/compat/`.
-- M8 PR-1 delivers deterministic skeleton tests with TODO markers.
-- M8 PR-2/PR-3 will replace skeleton TODOs with executable behavior checks and
-  promote them to release-gating CI.
+- M8 PR-1 delivered deterministic skeleton tests with TODO markers.
+- M8 PR-2 replaces loader/process/fd skeletons with executable checks.
+- M8 PR-3 will close remaining time/signal/socket TODOs and promote the full
+  profile to release-gating CI.
 
 ## Relationship to syscall contract
 

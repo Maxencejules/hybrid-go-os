@@ -1,0 +1,1 @@
+"""Compatibility profile tests package."""

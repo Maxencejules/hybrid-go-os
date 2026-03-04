@@ -154,7 +154,29 @@ These IDs are carried forward unchanged into the v1 line:
 | 16 | `sys_net_recv` |
 | 17 | `sys_ipc_endpoint_create` |
 
+## Core compatibility extensions in v1 (M8 PR-2)
+
+These syscall IDs are added for the Compatibility Profile v1 baseline in PR-2.
+They are defined as stable in the v1.x line.
+
+| # | Name | Args | Returns | PR-2 status |
+|---|------|------|---------|-------------|
+| 18 | `sys_open` | `rdi=path_ptr`, `rsi=flags`, `rdx=mode` | `fd` or `-1` | Implemented (v1 baseline paths: `/dev/console`, `/compat/hello.txt`) |
+| 19 | `sys_read` | `rdi=fd`, `rsi=buf`, `rdx=len` | bytes read or `-1` | Implemented (deterministic fd-table v1 behavior) |
+| 20 | `sys_write` | `rdi=fd`, `rsi=buf`, `rdx=len` | bytes written or `-1` | Implemented (console write path; deterministic errors) |
+| 21 | `sys_close` | `rdi=fd` | `0` or `-1` | Implemented |
+| 22 | `sys_wait` | `rdi=pid`, `rsi=status_ptr`, `rdx=options` | child pid or `-1` | Implemented (wait baseline semantics) |
+| 23 | `sys_poll` | `rdi=pollfd_ptr`, `rsi=nfds`, `rdx=timeout_ticks` | ready count or `-1` | Implemented (poll baseline equivalent wait primitive) |
+
+## Related contracts
+
+- Process/thread + loader + auxv + argv/envp contract:
+  `docs/abi/process_thread_model_v1.md`
+- Compatibility profile surface:
+  `docs/abi/compat_profile_v1.md`
+
 ## Conformance references
 
+- `docs/abi/process_thread_model_v1.md`
 - `docs/abi/compat_profile_v1.md`
 - `tests/compat/`

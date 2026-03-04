@@ -37,6 +37,197 @@ macro_rules! cfg_r4 {
     };
 }
 
+// --------------- M8 PR-2: ELF loader policy helpers -------------------------
+
+const ELF_V1_MAX_PHNUM: u16 = 32;
+const ELF_V1_PHDR_SIZE: u16 = 56;
+const ELF_V1_PT_LOAD: u32 = 1;
+const ELF_V1_USER_LIMIT: u64 = 0x0000_8000_0000_0000;
+
+#[allow(dead_code)]
+const AUXV_V1_AT_NULL: u64 = 0;
+#[allow(dead_code)]
+const AUXV_V1_AT_PHDR: u64 = 3;
+#[allow(dead_code)]
+const AUXV_V1_AT_PHENT: u64 = 4;
+#[allow(dead_code)]
+const AUXV_V1_AT_PHNUM: u64 = 5;
+#[allow(dead_code)]
+const AUXV_V1_AT_PAGESZ: u64 = 6;
+#[allow(dead_code)]
+const AUXV_V1_AT_ENTRY: u64 = 9;
+
+#[allow(dead_code)]
+fn elf_v1_read_u16(buf: &[u8], off: usize) -> Option<u16> {
+    if off.checked_add(2)? > buf.len() {
+        return None;
+    }
+    Some(u16::from_le_bytes([buf[off], buf[off + 1]]))
+}
+
+#[allow(dead_code)]
+fn elf_v1_read_u32(buf: &[u8], off: usize) -> Option<u32> {
+    if off.checked_add(4)? > buf.len() {
+        return None;
+    }
+    Some(u32::from_le_bytes([
+        buf[off],
+        buf[off + 1],
+        buf[off + 2],
+        buf[off + 3],
+    ]))
+}
+
+#[allow(dead_code)]
+fn elf_v1_read_u64(buf: &[u8], off: usize) -> Option<u64> {
+    if off.checked_add(8)? > buf.len() {
+        return None;
+    }
+    Some(u64::from_le_bytes([
+        buf[off],
+        buf[off + 1],
+        buf[off + 2],
+        buf[off + 3],
+        buf[off + 4],
+        buf[off + 5],
+        buf[off + 6],
+        buf[off + 7],
+    ]))
+}
+
+#[allow(dead_code)]
+fn elf_v1_is_pow2(v: u64) -> bool {
+    v != 0 && (v & (v - 1)) == 0
+}
+
+#[allow(dead_code)]
+fn elf_v1_validate_image(image: &[u8]) -> bool {
+    if image.len() < 64 {
+        return false;
+    }
+
+    if image[0] != 0x7F || image[1] != b'E' || image[2] != b'L' || image[3] != b'F' {
+        return false;
+    }
+    // ELF64 + little-endian + current ELF version.
+    if image[4] != 2 || image[5] != 1 || image[6] != 1 {
+        return false;
+    }
+
+    let e_phoff = match elf_v1_read_u64(image, 32) {
+        Some(v) => v as usize,
+        None => return false,
+    };
+    let e_phentsize = match elf_v1_read_u16(image, 54) {
+        Some(v) => v,
+        None => return false,
+    };
+    let e_phnum = match elf_v1_read_u16(image, 56) {
+        Some(v) => v,
+        None => return false,
+    };
+    let e_entry = match elf_v1_read_u64(image, 24) {
+        Some(v) => v,
+        None => return false,
+    };
+
+    if e_entry == 0 || e_entry >= ELF_V1_USER_LIMIT {
+        return false;
+    }
+    if e_phnum == 0 || e_phnum > ELF_V1_MAX_PHNUM {
+        return false;
+    }
+    if e_phentsize < ELF_V1_PHDR_SIZE {
+        return false;
+    }
+
+    let phdr_bytes = match (e_phentsize as usize).checked_mul(e_phnum as usize) {
+        Some(v) => v,
+        None => return false,
+    };
+    let phdr_end = match e_phoff.checked_add(phdr_bytes) {
+        Some(v) => v,
+        None => return false,
+    };
+    if phdr_end > image.len() {
+        return false;
+    }
+
+    let mut load_count = 0usize;
+    for idx in 0..(e_phnum as usize) {
+        let off = e_phoff + idx * (e_phentsize as usize);
+        let p_type = match elf_v1_read_u32(image, off) {
+            Some(v) => v,
+            None => return false,
+        };
+        if p_type != ELF_V1_PT_LOAD {
+            continue;
+        }
+        load_count += 1;
+
+        let p_offset = match elf_v1_read_u64(image, off + 8) {
+            Some(v) => v,
+            None => return false,
+        };
+        let p_vaddr = match elf_v1_read_u64(image, off + 16) {
+            Some(v) => v,
+            None => return false,
+        };
+        let p_filesz = match elf_v1_read_u64(image, off + 32) {
+            Some(v) => v,
+            None => return false,
+        };
+        let p_memsz = match elf_v1_read_u64(image, off + 40) {
+            Some(v) => v,
+            None => return false,
+        };
+        let p_align = match elf_v1_read_u64(image, off + 48) {
+            Some(v) => v,
+            None => return false,
+        };
+
+        if p_memsz < p_filesz {
+            return false;
+        }
+        if p_align != 0 && !elf_v1_is_pow2(p_align) {
+            return false;
+        }
+
+        let end_file = match p_offset.checked_add(p_filesz) {
+            Some(v) => v,
+            None => return false,
+        };
+        if end_file > image.len() as u64 {
+            return false;
+        }
+
+        if p_vaddr >= ELF_V1_USER_LIMIT {
+            return false;
+        }
+        let end_vaddr = match p_vaddr.checked_add(p_memsz) {
+            Some(v) => v,
+            None => return false,
+        };
+        if end_vaddr > ELF_V1_USER_LIMIT {
+            return false;
+        }
+    }
+
+    load_count > 0
+}
+
+#[allow(dead_code)]
+fn elf_v1_build_auxv(entry: u64, phdr: u64, phent: u64, phnum: u64) -> [(u64, u64); 6] {
+    [
+        (AUXV_V1_AT_PHDR, phdr),
+        (AUXV_V1_AT_PHENT, phent),
+        (AUXV_V1_AT_PHNUM, phnum),
+        (AUXV_V1_AT_PAGESZ, 4096),
+        (AUXV_V1_AT_ENTRY, entry),
+        (AUXV_V1_AT_NULL, 0),
+    ]
+}
+
 // --------------- Port I/O ---------------
 
 #[inline(always)]
@@ -563,6 +754,18 @@ unsafe fn syscall_dispatch(frame: *mut u64) {
             #[cfg(any(feature = "user_hello_test", feature = "syscall_test", feature = "thread_exit_test", feature = "thread_spawn_test", feature = "vm_map_test", feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test", feature = "user_fault_test", feature = "blk_test", feature = "fs_test", feature = "go_test", feature = "go_std_test"))]
             5  => sys_vm_unmap_m3(arg1, arg2),
             10 => sys_time_now(),
+            #[cfg(any(feature = "user_hello_test", feature = "syscall_test", feature = "thread_exit_test", feature = "thread_spawn_test", feature = "vm_map_test", feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test", feature = "user_fault_test", feature = "blk_test", feature = "fs_test", feature = "go_test", feature = "go_std_test"))]
+            18 => sys_open_v1(arg1, arg2, arg3),
+            #[cfg(any(feature = "user_hello_test", feature = "syscall_test", feature = "thread_exit_test", feature = "thread_spawn_test", feature = "vm_map_test", feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test", feature = "user_fault_test", feature = "blk_test", feature = "fs_test", feature = "go_test", feature = "go_std_test"))]
+            19 => sys_read_v1(arg1, arg2, arg3),
+            #[cfg(any(feature = "user_hello_test", feature = "syscall_test", feature = "thread_exit_test", feature = "thread_spawn_test", feature = "vm_map_test", feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test", feature = "user_fault_test", feature = "blk_test", feature = "fs_test", feature = "go_test", feature = "go_std_test"))]
+            20 => sys_write_v1(arg1, arg2, arg3),
+            #[cfg(any(feature = "user_hello_test", feature = "syscall_test", feature = "thread_exit_test", feature = "thread_spawn_test", feature = "vm_map_test", feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test", feature = "user_fault_test", feature = "blk_test", feature = "fs_test", feature = "go_test", feature = "go_std_test"))]
+            21 => sys_close_v1(arg1),
+            #[cfg(any(feature = "user_hello_test", feature = "syscall_test", feature = "thread_exit_test", feature = "thread_spawn_test", feature = "vm_map_test", feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test", feature = "user_fault_test", feature = "blk_test", feature = "fs_test", feature = "go_test", feature = "go_std_test"))]
+            22 => sys_wait_v1(arg1, arg2, arg3),
+            #[cfg(any(feature = "user_hello_test", feature = "syscall_test", feature = "thread_exit_test", feature = "thread_spawn_test", feature = "vm_map_test", feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test", feature = "user_fault_test", feature = "blk_test", feature = "fs_test", feature = "go_test", feature = "go_std_test"))]
+            23 => sys_poll_v1(arg1, arg2, arg3),
             _  => 0xFFFF_FFFF_FFFF_FFFF,
         };
         *frame.add(14) = ret;
@@ -718,10 +921,183 @@ cfg_m3! {
         M3_VM_MAPS[idx] = M3VmMap::EMPTY;
         0
     }
+
+    unsafe fn sys_open_v1(path_ptr: u64, _flags: u64, _mode: u64) -> u64 {
+        let path = match copyinstr_user(path_ptr, 128) {
+            Ok(v) => v,
+            Err(_) => return 0xFFFF_FFFF_FFFF_FFFF,
+        };
+        let bytes = path.as_slice();
+        if m8_path_matches(bytes, b"/dev/console") {
+            return m8_alloc_fd(M8FdKind::Console);
+        }
+        if m8_path_matches(bytes, b"/compat/hello.txt") {
+            return m8_alloc_fd(M8FdKind::CompatFile);
+        }
+        0xFFFF_FFFF_FFFF_FFFF
+    }
+
+    unsafe fn sys_read_v1(fd: u64, buf: u64, len: u64) -> u64 {
+        if len == 0 { return 0; }
+        if len > 4096 { return 0xFFFF_FFFF_FFFF_FFFF; }
+        let idx = fd as usize;
+        if idx >= M8_FD_MAX { return 0xFFFF_FFFF_FFFF_FFFF; }
+
+        match M8_FD_TABLE[idx].kind {
+            M8FdKind::Free => 0xFFFF_FFFF_FFFF_FFFF,
+            M8FdKind::Console => 0xFFFF_FFFF_FFFF_FFFF,
+            M8FdKind::CompatFile => {
+                let off = M8_FD_TABLE[idx].offset;
+                if off >= M8_COMPAT_FILE.len() {
+                    return 0;
+                }
+                let remaining = M8_COMPAT_FILE.len() - off;
+                let req = len as usize;
+                let n = if req < remaining { req } else { remaining };
+                if copyout_user(buf, &M8_COMPAT_FILE[off..off + n], n).is_err() {
+                    return 0xFFFF_FFFF_FFFF_FFFF;
+                }
+                M8_FD_TABLE[idx].offset += n;
+                n as u64
+            }
+        }
+    }
+
+    unsafe fn sys_write_v1(fd: u64, buf: u64, len: u64) -> u64 {
+        if len == 0 { return 0; }
+        if len > 256 { return 0xFFFF_FFFF_FFFF_FFFF; }
+        let idx = fd as usize;
+        if idx >= M8_FD_MAX { return 0xFFFF_FFFF_FFFF_FFFF; }
+
+        match M8_FD_TABLE[idx].kind {
+            M8FdKind::Free => 0xFFFF_FFFF_FFFF_FFFF,
+            M8FdKind::CompatFile => 0xFFFF_FFFF_FFFF_FFFF,
+            M8FdKind::Console => {
+                let n = len as usize;
+                let mut kbuf = [0u8; 256];
+                if copyin_user(&mut kbuf[..n], buf, n).is_err() {
+                    return 0xFFFF_FFFF_FFFF_FFFF;
+                }
+                serial_write(&kbuf[..n]);
+                len
+            }
+        }
+    }
+
+    unsafe fn sys_close_v1(fd: u64) -> u64 {
+        let idx = fd as usize;
+        if idx >= M8_FD_MAX { return 0xFFFF_FFFF_FFFF_FFFF; }
+        if idx < 3 {
+            // Keep stdio descriptors stable for compatibility-profile startup.
+            return 0xFFFF_FFFF_FFFF_FFFF;
+        }
+        if M8_FD_TABLE[idx].kind == M8FdKind::Free {
+            return 0xFFFF_FFFF_FFFF_FFFF;
+        }
+        M8_FD_TABLE[idx] = M8FdEntry::EMPTY;
+        0
+    }
+
+    unsafe fn sys_wait_v1(pid: u64, status_ptr: u64, options: u64) -> u64 {
+        if options != 0 {
+            return 0xFFFF_FFFF_FFFF_FFFF;
+        }
+        // v1 baseline: waitpid(-1, ...) and waitpid(1, ...) are accepted.
+        if pid != u64::MAX && pid != 1 {
+            return 0xFFFF_FFFF_FFFF_FFFF;
+        }
+        if !M8_WAIT_HAS_EXIT {
+            return 0xFFFF_FFFF_FFFF_FFFF;
+        }
+        if status_ptr != 0 {
+            let st = M8_WAIT_EXIT_STATUS.to_le_bytes();
+            if copyout_user(status_ptr, &st, st.len()).is_err() {
+                return 0xFFFF_FFFF_FFFF_FFFF;
+            }
+        }
+        M8_WAIT_HAS_EXIT = false;
+        1
+    }
+
+    unsafe fn sys_poll_v1(fds_ptr: u64, nfds: u64, _timeout_ticks: u64) -> u64 {
+        const POLLFD_SIZE: usize = 8;
+        const POLLIN: u16 = 0x0001;
+        const POLLOUT: u16 = 0x0004;
+        const POLLERR: u16 = 0x0008;
+
+        if nfds == 0 {
+            return 0;
+        }
+        if nfds > M8_FD_MAX as u64 {
+            return 0xFFFF_FFFF_FFFF_FFFF;
+        }
+
+        let total = match (nfds as usize).checked_mul(POLLFD_SIZE) {
+            Some(v) => v,
+            None => return 0xFFFF_FFFF_FFFF_FFFF,
+        };
+        if !user_range_ok(fds_ptr, total)
+            || !user_pages_ok(fds_ptr, total, USER_PERM_READ | USER_PERM_WRITE)
+        {
+            return 0xFFFF_FFFF_FFFF_FFFF;
+        }
+
+        let mut ready = 0u64;
+        for i in 0..(nfds as usize) {
+            let slot_ptr = fds_ptr + (i * POLLFD_SIZE) as u64;
+            let mut slot = [0u8; POLLFD_SIZE];
+            if copyin_user(&mut slot, slot_ptr, POLLFD_SIZE).is_err() {
+                return 0xFFFF_FFFF_FFFF_FFFF;
+            }
+
+            let fd = i32::from_le_bytes([slot[0], slot[1], slot[2], slot[3]]);
+            let events = u16::from_le_bytes([slot[4], slot[5]]);
+            let mut revents: u16 = 0;
+
+            if fd < 0 {
+                revents |= POLLERR;
+            } else {
+                let idx = fd as usize;
+                if idx >= M8_FD_MAX {
+                    revents |= POLLERR;
+                } else {
+                    match M8_FD_TABLE[idx].kind {
+                        M8FdKind::Free => revents |= POLLERR,
+                        M8FdKind::Console => {
+                            if events & POLLOUT != 0 {
+                                revents |= POLLOUT;
+                            }
+                        }
+                        M8FdKind::CompatFile => {
+                            if events & POLLIN != 0 && M8_FD_TABLE[idx].offset < M8_COMPAT_FILE.len() {
+                                revents |= POLLIN;
+                            }
+                        }
+                    }
+                }
+            }
+
+            if revents != 0 {
+                ready += 1;
+            }
+
+            let rv = revents.to_le_bytes();
+            if copyout_user(slot_ptr + 6, &rv, rv.len()).is_err() {
+                return 0xFFFF_FFFF_FFFF_FFFF;
+            }
+        }
+        ready
+    }
 }
 
 #[cfg(not(any(feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_recv_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "ipc_waiter_busy_test", feature = "svc_overwrite_test", feature = "svc_full_test", feature = "svc_bad_endpoint_test", feature = "stress_ipc_test", feature = "quota_endpoints_test", feature = "quota_shm_test", feature = "quota_threads_test")))]
 unsafe fn sys_thread_exit_m3(frame: *mut u64) {
+    #[cfg(any(feature = "user_hello_test", feature = "syscall_test", feature = "thread_exit_test", feature = "thread_spawn_test", feature = "vm_map_test", feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test", feature = "user_fault_test", feature = "blk_test", feature = "fs_test", feature = "go_test", feature = "go_std_test"))]
+    {
+        // M8 PR-2: expose deterministic child-exit observation for wait semantics.
+        M8_WAIT_HAS_EXIT = true;
+        M8_WAIT_EXIT_STATUS = 0;
+    }
     #[cfg(any(feature = "user_hello_test", feature = "syscall_test", feature = "thread_exit_test", feature = "thread_spawn_test", feature = "vm_map_test", feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test", feature = "user_fault_test", feature = "blk_test", feature = "fs_test", feature = "go_test", feature = "go_std_test"))]
     if M3_THREADING_ACTIVE {
         M3_THREADS[M3_CURRENT].state = M3ThreadState::Dead;
@@ -1031,6 +1407,25 @@ cfg_m3! {
     const M3_MAX_THREADS: usize = 4;
     const M3_MAX_VM_MAPS: usize = 8;
     const M3_VM_PAGE_SIZE: u64 = 4096;
+    const M8_FD_MAX: usize = 16;
+
+    #[derive(Clone, Copy, PartialEq)]
+    enum M8FdKind { Free, Console, CompatFile }
+
+    #[derive(Clone, Copy)]
+    struct M8FdEntry {
+        kind: M8FdKind,
+        offset: usize,
+    }
+
+    impl M8FdEntry {
+        const EMPTY: Self = Self { kind: M8FdKind::Free, offset: 0 };
+    }
+
+    static mut M8_FD_TABLE: [M8FdEntry; M8_FD_MAX] = [M8FdEntry::EMPTY; M8_FD_MAX];
+    static mut M8_WAIT_HAS_EXIT: bool = false;
+    static mut M8_WAIT_EXIT_STATUS: i32 = 0;
+    static M8_COMPAT_FILE: &[u8] = b"compat v1 hello\n";
 
     #[derive(Clone, Copy, PartialEq)]
     enum M3ThreadState { Dead, Ready, Running }
@@ -1078,12 +1473,21 @@ cfg_m3! {
     unsafe fn m3_reset_state() {
         M3_CURRENT = 0;
         M3_THREADING_ACTIVE = false;
+        M8_WAIT_HAS_EXIT = false;
+        M8_WAIT_EXIT_STATUS = 0;
         for i in 0..M3_MAX_THREADS {
             M3_THREADS[i] = M3Thread::EMPTY;
         }
         for i in 0..M3_MAX_VM_MAPS {
             M3_VM_MAPS[i] = M3VmMap::EMPTY;
         }
+        for i in 0..M8_FD_MAX {
+            M8_FD_TABLE[i] = M8FdEntry::EMPTY;
+        }
+        // Keep stdio-like descriptors deterministic across every user-mode reset.
+        M8_FD_TABLE[0] = M8FdEntry { kind: M8FdKind::Console, offset: 0 };
+        M8_FD_TABLE[1] = M8FdEntry { kind: M8FdKind::Console, offset: 0 };
+        M8_FD_TABLE[2] = M8FdEntry { kind: M8FdKind::Console, offset: 0 };
     }
 
     unsafe fn m3_bootstrap_main_thread(frame: *mut u64) {
@@ -1150,6 +1554,27 @@ cfg_m3! {
         let kphys = (*kaddr_resp_ptr).physical_base;
         let kvirt = (*kaddr_resp_ptr).virtual_base;
         va - kvirt + kphys
+    }
+
+    fn m8_path_matches(buf: &[u8], path: &[u8]) -> bool {
+        if buf.len() != path.len() + 1 {
+            return false;
+        }
+        if buf[buf.len() - 1] != 0 {
+            return false;
+        }
+        &buf[..path.len()] == path
+    }
+
+    unsafe fn m8_alloc_fd(kind: M8FdKind) -> u64 {
+        for i in 3..M8_FD_MAX {
+            if M8_FD_TABLE[i].kind == M8FdKind::Free {
+                M8_FD_TABLE[i].kind = kind;
+                M8_FD_TABLE[i].offset = 0;
+                return i as u64;
+            }
+        }
+        0xFFFF_FFFF_FFFF_FFFF
     }
 }
 

@@ -102,8 +102,16 @@ M8 execution update (2026-03-04):
 - PR-1 complete (contract-first deliverables):
   - `docs/abi/syscall_v1.md`
   - `docs/abi/compat_profile_v1.md`
-  - `tests/compat/` skeleton suite with deterministic TODO skip/fail semantics
-- PR-2 and PR-3 remain pending.
+  - `tests/compat/` initial suite scaffolding
+- PR-2 complete (loader/process/fd core compatibility primitives):
+  - `docs/abi/process_thread_model_v1.md`
+  - `kernel_rs/src/lib.rs` v1 syscall additions (`sys_open/sys_read/sys_write/sys_close/sys_wait/sys_poll`)
+  - executable compat checks:
+    - `tests/compat/test_loader_contract.py`
+    - `tests/compat/test_process_lifecycle.py`
+    - `tests/compat/test_process_wait.py`
+    - `tests/compat/test_fd_table.py`
+- PR-3 remains pending.
 - M8 remains in progress (not done).
 
 Post-G2 planning and execution:
