@@ -82,6 +82,7 @@ Tests: `legacy/tests/` (boot, trap, sched, user, ipc, drivers, fs, pkg, net)
 | M14 | Productization + release engineering v1 | n/a | done | Rugo: `tests/build/*`, update attack/metadata tests in `tests/pkg/*`, `make test-release-engineering-v1`, CI release-engineering gate, docs in `docs/build/*`, `docs/pkg/*`, `docs/M14_EXECUTION_BACKLOG.md`. |
 | M15 | Hardware Enablement Matrix v2 | n/a | done | Rugo: `tests/hw/*_v2`, `make test-hw-matrix-v2`, CI `Hardware matrix v2 gate`, docs in `docs/hw/*_v2`, `docs/M15_EXECUTION_BACKLOG.md`. |
 | M16 | Process + Scheduler Model v2 | n/a | done | Rugo: `tests/sched/*_v2`, `tests/user/*_v2`, `make test-process-scheduler-v2`, CI `Process scheduler v2 gate`, docs in `docs/abi/*_v2`, `docs/M16_EXECUTION_BACKLOG.md`. |
+| M17 | Compatibility Profile v2 | n/a | done | Rugo: `tests/compat/*_v2` + tier gate tests, `make test-compat-v2`, CI `Compatibility profile v2 gate`, docs in `docs/abi/*_v2`, `docs/runtime/syscall_coverage_matrix_v2.md`, `docs/M17_EXECUTION_BACKLOG.md`. |
 Legend: ✅ = done with passing tests, ◐ = in progress (prep), — = not started, n/a = not applicable to this lane.
 
 ---
@@ -878,6 +879,49 @@ Milestone status: done (2026-03-06).
 - Release gating:
   - `Makefile` target `test-process-scheduler-v2`
   - `.github/workflows/ci.yml` step `Process scheduler v2 gate`
+
+---
+
+## M17: Compatibility Profile v2
+
+Milestone status: done (2026-03-06).
+
+### Definition of done
+
+- ABI/loader v2 contracts are versioned and executable-check referenced.
+- Supported vs unsupported compatibility surfaces are explicit.
+- External app tier thresholds are deterministic and release-gated.
+
+### Acceptance tests
+
+| Test | Markers/Outcome |
+|------|------------------|
+| `tests/compat/test_abi_profile_v2_docs.py` | v2 ABI/profile/loader doc contracts + kernel dispatch wiring |
+| `tests/compat/test_elf_loader_dynamic_v2.py` | deterministic static/dynamic loader acceptance and rejection rules |
+| `tests/compat/test_posix_profile_v2.py` | required/optional/unsupported profile surface model checks |
+| `tests/compat/test_external_apps_tier_v2.py` | signed artifact tier thresholds + Tier B runtime marker checks |
+| `tests/compat/test_compat_gate_v2.py` | make/ci/docs gate wiring and closure |
+
+### Rugo evidence
+
+- Contract docs:
+  - `docs/abi/syscall_v2.md`
+  - `docs/abi/compat_profile_v2.md`
+  - `docs/abi/elf_loader_contract_v2.md`
+  - `docs/runtime/syscall_coverage_matrix_v2.md`
+- Compatibility model:
+  - `tests/compat/v2_model.py`
+- Test gate:
+  - `tests/compat/test_abi_profile_v2_docs.py`
+  - `tests/compat/test_elf_loader_dynamic_v2.py`
+  - `tests/compat/test_posix_profile_v2.py`
+  - `tests/compat/test_external_apps_tier_v2.py`
+  - `tests/compat/test_compat_gate_v2.py`
+- Execution history:
+  - `docs/M17_EXECUTION_BACKLOG.md`
+- Release gating:
+  - `Makefile` target `test-compat-v2`
+  - `.github/workflows/ci.yml` step `Compatibility profile v2 gate`
 
 ---
 

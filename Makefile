@@ -50,7 +50,7 @@ endif
        build-go-std image-go-std \
        build-sec-rights image-sec-rights \
        build-sec-filter image-sec-filter \
-       test-security-baseline test-runtime-maturity test-process-scheduler-v2 test-network-stack-v1 \
+       test-security-baseline test-runtime-maturity test-process-scheduler-v2 test-compat-v2 test-network-stack-v1 \
        test-storage-reliability-v1 test-release-engineering-v1 \
        test-firmware-attestation-v1 test-update-trust-v1 test-vuln-response-v1 \
        test-crash-dump-v1 test-supply-chain-revalidation-v1 test-fleet-rollout-safety-v1 \
@@ -525,6 +525,9 @@ test-hw-matrix-v2: image-blk image-blk-badlen image-blk-badptr image-net
 
 test-process-scheduler-v2: image-thread-spawn image-thread-exit image-yield image-user-fault
 	$(PYTHON) -m pytest tests/sched/test_preempt_timer_quantum_v2.py tests/sched/test_priority_fairness_v2.py tests/sched/test_scheduler_soak_v2.py tests/user/test_process_wait_kill_v2.py tests/user/test_signal_delivery_v2.py tests/sched/test_scheduler_gate_v2.py -v --junitxml=$(OUT)/pytest-process-scheduler-v2.xml
+
+test-compat-v2: image-go-std image-pkg-hash
+	$(PYTHON) -m pytest tests/compat/test_abi_profile_v2_docs.py tests/compat/test_elf_loader_dynamic_v2.py tests/compat/test_posix_profile_v2.py tests/compat/test_external_apps_tier_v2.py tests/compat/test_compat_gate_v2.py -v --junitxml=$(OUT)/pytest-compat-v2.xml
 
 test-security-baseline: image-sec-rights image-sec-filter
 	$(PYTHON) -m pytest tests/security -v

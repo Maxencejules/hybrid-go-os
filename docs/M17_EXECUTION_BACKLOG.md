@@ -2,7 +2,7 @@
 
 Date: 2026-03-06  
 Lane: Rugo (Rust kernel + Go user space)  
-Status: planned
+Status: done
 
 ## Goal
 
@@ -14,15 +14,15 @@ M17 source of truth remains `docs/M15_M20_MULTIPURPOSE_PLAN.md`,
 
 ## Current State Summary
 
-- Compatibility profile v1 exists and is gate-backed.
-- ABI and loader contracts are already documented at v1.
-- M17 closes v2 profile scope and deterministic external app tier behavior.
+- Compatibility profile v1 and package external-app lane are already complete.
+- ABI + loader v1 contracts are stable and test-backed.
+- M17 closes v2 profile scope, deterministic tier thresholds, and release gates.
 
 ## Execution Result
 
-- PR-1: planned
-- PR-2: planned
-- PR-3: planned
+- PR-1: complete (2026-03-06)
+- PR-2: complete (2026-03-06)
+- PR-3: complete (2026-03-06)
 
 ## PR-1: ABI + Loader Contract v2
 
@@ -57,6 +57,14 @@ Freeze ABI and loader v2 expectations before expanding POSIX/profile coverage.
 - ABI/profile docs are versioned and executable-check referenced.
 - Loader contract behavior is deterministic for covered profiles.
 
+### PR-1 completion summary
+
+- Added v2 ABI/profile/loader contracts with explicit IDs, freeze/deprecation
+  policy, dynamic loader constraints, and deterministic failure classes.
+- Added executable checks for:
+  - v2 doc contract tokens + kernel dispatch wiring,
+  - deterministic static/dynamic loader model behavior.
+
 ## PR-2: POSIX Subset Expansion + External App Tier
 
 ### Objective
@@ -88,6 +96,16 @@ Define v2 syscall coverage and external app tier pass thresholds.
 
 - Supported/unsupported profile surfaces are explicit.
 - External app tier thresholds are deterministic and repeatable.
+
+### PR-2 completion summary
+
+- Added runtime syscall coverage matrix v2 with owner/target evidence rows.
+- Added deterministic v2 model for:
+  - dynamic loader acceptance/rejection,
+  - POSIX surface required/optional/unsupported classification,
+  - external app tier threshold evaluation and digest output.
+- Added signed metadata + threshold tests for tiered external app behavior and
+  QEMU runtime marker checks for Tier B (`GOSTD: ok`).
 
 ## PR-3: Compatibility Gate + CI Promotion
 
@@ -121,8 +139,18 @@ Make compatibility profile v2 a release-blocking gate.
 - Compatibility profile v2 gate is required in local and CI release lanes.
 - M17 status can be marked done with evidence pointers.
 
+### PR-3 completion summary
+
+- Added aggregate gate test for M17 artifact + wiring closure.
+- Added local gate:
+  - `make test-compat-v2`
+  - JUnit output: `out/pytest-compat-v2.xml`
+- Added CI gate step + artifact upload:
+  - step: `Compatibility profile v2 gate`
+  - artifact: `compat-v2-junit`
+- Updated milestone/status documents to mark M17 done with evidence links.
+
 ## Non-goals for M17 backlog
 
 - Full Linux distribution compatibility parity.
 - Broad GUI/desktop runtime compatibility scope.
-

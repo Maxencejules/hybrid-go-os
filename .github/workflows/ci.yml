@@ -111,6 +111,17 @@ jobs:
           name: process-scheduler-v2-junit
           path: out/pytest-process-scheduler-v2.xml
 
+      - name: Compatibility profile v2 gate
+        run: |
+          make test-compat-v2
+
+      - name: Upload compatibility profile v2 JUnit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: compat-v2-junit
+          path: out/pytest-compat-v2.xml
+
       - name: Security baseline v1 gate
         run: |
           make image-sec-rights image-sec-filter

@@ -17,6 +17,7 @@ Full milestone definitions and acceptance criteria live in
 make test-qemu
 make test-runtime-maturity
 make test-process-scheduler-v2
+make test-compat-v2
 make test-network-stack-v1
 make test-storage-reliability-v1
 make test-release-engineering-v1
@@ -53,6 +54,7 @@ make docker-legacy       # Legacy only (requires gccgo in Docker image)
 | **M14** Productization + release engineering v1 | n/a | done | Rugo: `tests/build/*`, update tests in `tests/pkg/*`, `make test-release-engineering-v1`, CI `Release engineering v1 gate`, docs in `docs/build/*`, `docs/pkg/*`, and `docs/M14_EXECUTION_BACKLOG.md`. |
 | **M15** Hardware Enablement Matrix v2 | n/a | done | Rugo: `tests/hw/*_v2`, `make test-hw-matrix-v2`, CI `Hardware matrix v2 gate`, docs in `docs/hw/*_v2` and `docs/M15_EXECUTION_BACKLOG.md`. |
 | **M16** Process + Scheduler Model v2 | n/a | done | Rugo: `tests/sched/*_v2`, `tests/user/*_v2`, `make test-process-scheduler-v2`, CI `Process scheduler v2 gate`, docs in `docs/abi/*_v2` and `docs/M16_EXECUTION_BACKLOG.md`. |
+| **M17** Compatibility Profile v2 | n/a | done | Rugo: `tests/compat/*_v2` + tier gate tests, `make test-compat-v2`, CI `Compatibility profile v2 gate`, docs in `docs/abi/*_v2`, `docs/runtime/syscall_coverage_matrix_v2.md`, and `docs/M17_EXECUTION_BACKLOG.md`. |
 
 ✅ done &ensp; ◐ in progress (prep) &ensp; ⬜ not started &ensp; n/a not applicable
 
@@ -312,9 +314,27 @@ M16 execution update (2026-03-06):
   - `.github/workflows/ci.yml` step `Process scheduler v2 gate`
 - M16 is done.
 
+M17 execution update (2026-03-06):
+- PR-1 complete (ABI/profile/loader contract v2):
+  - `docs/abi/syscall_v2.md`
+  - `docs/abi/compat_profile_v2.md`
+  - `docs/abi/elf_loader_contract_v2.md`
+  - `tests/compat/test_abi_profile_v2_docs.py`
+  - `tests/compat/test_elf_loader_dynamic_v2.py`
+- PR-2 complete (POSIX subset expansion + external app tier model):
+  - `docs/runtime/syscall_coverage_matrix_v2.md`
+  - `tests/compat/v2_model.py`
+  - `tests/compat/test_posix_profile_v2.py`
+  - `tests/compat/test_external_apps_tier_v2.py`
+- PR-3 complete (compatibility v2 gate + closure wiring):
+  - `tests/compat/test_compat_gate_v2.py`
+  - `Makefile` target `test-compat-v2`
+  - `.github/workflows/ci.yml` step `Compatibility profile v2 gate`
+- M17 is done.
+
 Post-G2 planning and execution:
 - Extended roadmap (M15-M20): `docs/M15_M20_MULTIPURPOSE_PLAN.md`
-- Last completed backlog (M16): `docs/M16_EXECUTION_BACKLOG.md`
-- Post-M16 focus: keep process/scheduler v2 gate stable before starting M17.
+- Last completed backlog (M17): `docs/M17_EXECUTION_BACKLOG.md`
+- Post-M17 focus: keep compatibility profile v2 gate stable before starting M18.
 
 
