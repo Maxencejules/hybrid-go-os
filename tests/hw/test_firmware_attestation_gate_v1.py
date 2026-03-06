@@ -1,0 +1,38 @@
+"""M23 aggregate gate: firmware attestation artifacts and report are valid."""
+
+import json
+from pathlib import Path
+import sys
+
+ROOT = Path(__file__).resolve().parents[2]
+sys.path.append(str(ROOT / "tools"))
+
+import collect_measured_boot_report_v1 as measured_boot  # noqa: E402
+
+
+def _read(relpath: str) -> str:
+    return (ROOT / relpath).read_text(encoding="utf-8")
+
+
+def test_firmware_attestation_gate_v1(tmp_path: Path):
+    required = [
+        "docs/hw/firmware_resiliency_policy_v1.md",
+        "docs/security/measured_boot_attestation_v1.md",
+        "tools/collect_measured_boot_report_v1.py",
+        "tests/hw/test_firmware_resiliency_docs_v1.py",
+        "tests/hw/test_measured_boot_attestation_v1.py",
+        "tests/hw/test_tpm_eventlog_schema_v1.py",
+    ]
+    for rel in required:
+        assert (ROOT / rel).is_file(), f"missing gate artifact: {rel}"
+
+    roadmap = _read("docs/M21_M34_MATURITY_PARITY_ROADMAP.md")
+    assert "test-firmware-attestation-v1" in roadmap
+
+    out = tmp_path / "measured-boot-v1.json"
+    rc = measured_boot.main(["--out", str(out)])
+    assert rc == 0
+    data = json.loads(out.read_text(encoding="utf-8"))
+    assert data["schema"] == "rugo.measured_boot_report.v1"
+    assert data["policy_pass"] is True
+

@@ -52,6 +52,8 @@ endif
        build-sec-filter image-sec-filter \
        test-security-baseline test-runtime-maturity test-network-stack-v1 \
        test-storage-reliability-v1 test-release-engineering-v1 \
+       test-firmware-attestation-v1 test-update-trust-v1 test-vuln-response-v1 \
+       test-crash-dump-v1 test-supply-chain-revalidation-v1 test-fleet-rollout-safety-v1 \
        run test-qemu test-hw-matrix repro-check clean legacy docker-all docker-legacy
 
 # Tools
@@ -546,6 +548,37 @@ test-release-engineering-v1: image
 	$(PYTHON) tools/generate_provenance_v1.py --out $(OUT)/provenance-v1.json
 	$(PYTHON) tools/collect_support_bundle_v1.py --out $(OUT)/support-bundle-v1.json
 	$(PYTHON) -m pytest tests/build tests/pkg/test_update_metadata_v1.py tests/pkg/test_update_rollback_protection_v1.py tests/pkg/test_update_attack_suite_v1.py -v
+
+test-firmware-attestation-v1:
+	$(PYTHON) tools/collect_measured_boot_report_v1.py --out $(OUT)/measured-boot-v1.json
+	$(PYTHON) -m pytest tests/hw/test_firmware_resiliency_docs_v1.py tests/hw/test_measured_boot_attestation_v1.py tests/hw/test_tpm_eventlog_schema_v1.py tests/hw/test_firmware_attestation_gate_v1.py -v
+
+test-update-trust-v1:
+	$(PYTHON) tools/check_update_trust_v1.py --out $(OUT)/update-trust-v1.json
+	$(PYTHON) tools/run_update_key_rotation_drill_v1.py --out $(OUT)/update-key-rotation-drill-v1.json
+	$(PYTHON) -m pytest tests/pkg/test_update_trust_docs_v1.py tests/pkg/test_update_metadata_expiry_v1.py tests/pkg/test_update_freeze_attack_v1.py tests/pkg/test_update_mix_and_match_v1.py tests/pkg/test_update_key_rotation_v1.py tests/pkg/test_update_trust_gate_v1.py -v
+
+test-vuln-response-v1:
+	$(PYTHON) tools/security_advisory_lint_v1.py --out $(OUT)/security-advisory-lint-v1.json
+	$(PYTHON) tools/security_embargo_drill_v1.py --out $(OUT)/security-embargo-drill-v1.json
+	$(PYTHON) -m pytest tests/security/test_vuln_response_docs_v1.py tests/security/test_vuln_triage_sla_v1.py tests/security/test_embargo_workflow_v1.py tests/security/test_advisory_schema_v1.py tests/security/test_vuln_response_gate_v1.py -v
+
+test-crash-dump-v1:
+	$(PYTHON) tools/collect_crash_dump_v1.py --out $(OUT)/crash-dump-v1.json
+	$(PYTHON) tools/symbolize_crash_dump_v1.py --dump $(OUT)/crash-dump-v1.json --out $(OUT)/crash-dump-symbolized-v1.json
+	$(PYTHON) -m pytest tests/runtime/test_crash_dump_docs_v1.py tests/runtime/test_crash_dump_capture_v1.py tests/runtime/test_crash_dump_symbolization_v1.py tests/runtime/test_crash_dump_gate_v1.py -v
+
+test-supply-chain-revalidation-v1:
+	$(PYTHON) tools/generate_sbom_v1.py --out $(OUT)/sbom-v1.spdx.json
+	$(PYTHON) tools/generate_provenance_v1.py --out $(OUT)/provenance-v1.json
+	$(PYTHON) tools/verify_sbom_provenance_v2.py --sbom $(OUT)/sbom-v1.spdx.json --provenance $(OUT)/provenance-v1.json --out $(OUT)/supply-chain-revalidation-v1.json
+	$(PYTHON) tools/verify_release_attestations_v1.py --out $(OUT)/release-attestation-verification-v1.json
+	$(PYTHON) -m pytest tests/build/test_supply_chain_revalidation_docs_v1.py tests/build/test_sbom_revalidation_v1.py tests/build/test_provenance_verification_v1.py tests/build/test_attestation_drift_v1.py tests/build/test_supply_chain_revalidation_gate_v1.py -v
+
+test-fleet-rollout-safety-v1:
+	$(PYTHON) tools/run_canary_rollout_sim_v1.py --out $(OUT)/canary-rollout-sim-v1.json
+	$(PYTHON) tools/run_rollout_abort_drill_v1.py --out $(OUT)/rollout-abort-drill-v1.json
+	$(PYTHON) -m pytest tests/pkg/test_rollout_policy_docs_v1.py tests/pkg/test_canary_rollout_sim_v1.py tests/runtime/test_rollout_abort_policy_v1.py tests/runtime/test_fleet_rollout_safety_gate_v1.py -v
 
 repro-check:
 	@set -e; \
