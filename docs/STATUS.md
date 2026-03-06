@@ -16,6 +16,7 @@ Full milestone definitions and acceptance criteria live in
 # Rugo (build + full QEMU smoke-test suite)
 make test-qemu
 make test-runtime-maturity
+make test-process-scheduler-v2
 make test-network-stack-v1
 make test-storage-reliability-v1
 make test-release-engineering-v1
@@ -50,6 +51,8 @@ make docker-legacy       # Legacy only (requires gccgo in Docker image)
 | **M12** Network stack v1 | n/a | ✅ | Rugo: `tests/net/*`, `make test-network-stack-v1`, CI `Network stack v1 gate`, docs in `docs/net/*` and `docs/M12_EXECUTION_BACKLOG.md`. |
 | **M13** Storage reliability v1 | n/a | ✅ | Rugo: `tests/storage/*`, `make test-storage-reliability-v1`, CI `Storage reliability v1 gate`, docs in `docs/storage/*` and `docs/M13_EXECUTION_BACKLOG.md`. |
 | **M14** Productization + release engineering v1 | n/a | done | Rugo: `tests/build/*`, update tests in `tests/pkg/*`, `make test-release-engineering-v1`, CI `Release engineering v1 gate`, docs in `docs/build/*`, `docs/pkg/*`, and `docs/M14_EXECUTION_BACKLOG.md`. |
+| **M15** Hardware Enablement Matrix v2 | n/a | done | Rugo: `tests/hw/*_v2`, `make test-hw-matrix-v2`, CI `Hardware matrix v2 gate`, docs in `docs/hw/*_v2` and `docs/M15_EXECUTION_BACKLOG.md`. |
+| **M16** Process + Scheduler Model v2 | n/a | done | Rugo: `tests/sched/*_v2`, `tests/user/*_v2`, `make test-process-scheduler-v2`, CI `Process scheduler v2 gate`, docs in `docs/abi/*_v2` and `docs/M16_EXECUTION_BACKLOG.md`. |
 
 ✅ done &ensp; ◐ in progress (prep) &ensp; ⬜ not started &ensp; n/a not applicable
 
@@ -273,9 +276,45 @@ M14 execution update (2026-03-04):
   - `.github/workflows/ci.yml` step `Release engineering v1 gate`
 - M14 is done.
 
+M15 execution update (2026-03-06):
+- PR-1 complete (matrix v2 contract + target classes):
+  - `docs/hw/support_matrix_v2.md`
+  - `docs/hw/device_profile_contract_v2.md`
+  - `tests/hw/test_hardware_matrix_v2.py`
+  - `tests/hw/test_probe_negative_paths_v2.py`
+- PR-2 complete (driver lifecycle + firmware hardening docs/tests):
+  - `docs/hw/dma_iommu_strategy_v2.md`
+  - `docs/hw/acpi_uefi_hardening_v2.md`
+  - `tests/hw/test_dma_iommu_policy_v2.py`
+  - `tests/hw/test_acpi_boot_paths_v2.py`
+- PR-3 complete (bare-metal lane + gate promotion):
+  - `docs/hw/bare_metal_bringup_v2.md`
+  - `tests/hw/test_bare_metal_smoke_v2.py`
+  - `tests/hw/test_hw_gate_v2.py`
+  - `Makefile` target `test-hw-matrix-v2`
+  - `.github/workflows/ci.yml` step `Hardware matrix v2 gate`
+- M15 is done.
+
+M16 execution update (2026-03-06):
+- PR-1 complete (process/thread contract v2):
+  - `docs/abi/process_thread_model_v2.md`
+  - `docs/abi/scheduling_policy_v2.md`
+  - `tests/user/test_process_wait_kill_v2.py`
+  - `tests/user/test_signal_delivery_v2.py`
+- PR-2 complete (scheduler behavior/fairness + soak model):
+  - `tests/sched/v2_model.py`
+  - `tests/sched/test_preempt_timer_quantum_v2.py`
+  - `tests/sched/test_priority_fairness_v2.py`
+  - `tests/sched/test_scheduler_soak_v2.py`
+- PR-3 complete (scheduler v2 gate + closure wiring):
+  - `tests/sched/test_scheduler_gate_v2.py`
+  - `Makefile` target `test-process-scheduler-v2`
+  - `.github/workflows/ci.yml` step `Process scheduler v2 gate`
+- M16 is done.
+
 Post-G2 planning and execution:
-- Extended roadmap (M8-M14): `docs/POST_G2_EXTENDED_MILESTONES.md`
-- Last completed backlog (M14): `docs/M14_EXECUTION_BACKLOG.md`
-- Post-M14 focus: keep release-engineering gates stable and evidence trendable.
+- Extended roadmap (M15-M20): `docs/M15_M20_MULTIPURPOSE_PLAN.md`
+- Last completed backlog (M16): `docs/M16_EXECUTION_BACKLOG.md`
+- Post-M16 focus: keep process/scheduler v2 gate stable before starting M17.
 
 

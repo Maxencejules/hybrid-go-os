@@ -50,11 +50,11 @@ endif
        build-go-std image-go-std \
        build-sec-rights image-sec-rights \
        build-sec-filter image-sec-filter \
-       test-security-baseline test-runtime-maturity test-network-stack-v1 \
+       test-security-baseline test-runtime-maturity test-process-scheduler-v2 test-network-stack-v1 \
        test-storage-reliability-v1 test-release-engineering-v1 \
        test-firmware-attestation-v1 test-update-trust-v1 test-vuln-response-v1 \
        test-crash-dump-v1 test-supply-chain-revalidation-v1 test-fleet-rollout-safety-v1 \
-       run test-qemu test-hw-matrix repro-check clean legacy docker-all docker-legacy
+       run test-qemu test-hw-matrix test-hw-matrix-v2 repro-check clean legacy docker-all docker-legacy
 
 # Tools
 NASM    ?= nasm
@@ -518,7 +518,13 @@ test-qemu: image image-panic image-pf image-idt image-sched image-user-hello ima
 	$(PYTHON) -m pytest tests/ -v
 
 test-hw-matrix: image-blk image-blk-badlen image-blk-badptr image-net
-	$(PYTHON) -m pytest tests/hw -v
+	$(PYTHON) -m pytest tests/hw/test_hardware_matrix_v1.py tests/hw/test_probe_negative_paths_v1.py tests/hw/test_dma_safety_v1.py -v
+
+test-hw-matrix-v2: image-blk image-blk-badlen image-blk-badptr image-net
+	$(PYTHON) -m pytest tests/hw/test_hardware_matrix_v2.py tests/hw/test_probe_negative_paths_v2.py tests/hw/test_dma_iommu_policy_v2.py tests/hw/test_acpi_boot_paths_v2.py tests/hw/test_bare_metal_smoke_v2.py tests/hw/test_hw_gate_v2.py -v --junitxml=$(OUT)/pytest-hw-matrix-v2.xml
+
+test-process-scheduler-v2: image-thread-spawn image-thread-exit image-yield image-user-fault
+	$(PYTHON) -m pytest tests/sched/test_preempt_timer_quantum_v2.py tests/sched/test_priority_fairness_v2.py tests/sched/test_scheduler_soak_v2.py tests/user/test_process_wait_kill_v2.py tests/user/test_signal_delivery_v2.py tests/sched/test_scheduler_gate_v2.py -v --junitxml=$(OUT)/pytest-process-scheduler-v2.xml
 
 test-security-baseline: image-sec-rights image-sec-filter
 	$(PYTHON) -m pytest tests/security -v

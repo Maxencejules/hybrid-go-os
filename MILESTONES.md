@@ -80,6 +80,8 @@ Tests: `legacy/tests/` (boot, trap, sched, user, ipc, drivers, fs, pkg, net)
 | M12 | Network stack v1 | n/a | ✅ | Rugo: `tests/net/*`, `make test-network-stack-v1`, CI network gate, docs in `docs/net/*`, `docs/M12_EXECUTION_BACKLOG.md`. |
 | M13 | Storage reliability v1 | n/a | ✅ | Rugo: `tests/storage/*`, `make test-storage-reliability-v1`, CI storage gate, docs in `docs/storage/*`, `docs/M13_EXECUTION_BACKLOG.md`. |
 | M14 | Productization + release engineering v1 | n/a | done | Rugo: `tests/build/*`, update attack/metadata tests in `tests/pkg/*`, `make test-release-engineering-v1`, CI release-engineering gate, docs in `docs/build/*`, `docs/pkg/*`, `docs/M14_EXECUTION_BACKLOG.md`. |
+| M15 | Hardware Enablement Matrix v2 | n/a | done | Rugo: `tests/hw/*_v2`, `make test-hw-matrix-v2`, CI `Hardware matrix v2 gate`, docs in `docs/hw/*_v2`, `docs/M15_EXECUTION_BACKLOG.md`. |
+| M16 | Process + Scheduler Model v2 | n/a | done | Rugo: `tests/sched/*_v2`, `tests/user/*_v2`, `make test-process-scheduler-v2`, CI `Process scheduler v2 gate`, docs in `docs/abi/*_v2`, `docs/M16_EXECUTION_BACKLOG.md`. |
 Legend: ✅ = done with passing tests, ◐ = in progress (prep), — = not started, n/a = not applicable to this lane.
 
 ---
@@ -789,6 +791,93 @@ Milestone status: done (2026-03-04).
 - Release gating:
   - `Makefile` target `test-release-engineering-v1`
   - `.github/workflows/ci.yml` step `Release engineering v1 gate`
+
+---
+
+## M15: Hardware Enablement Matrix v2
+
+Milestone status: done (2026-03-06).
+
+### Definition of done
+
+- Tiered hardware matrix v2 criteria are versioned and executable.
+- Tier 0/Tier 1 checks are release-gated in local and CI lanes.
+- Bare-metal promotion policy is evidence-bound and deterministic.
+
+### Acceptance tests
+
+| Test | Markers/Outcome |
+|------|------------------|
+| `tests/hw/test_hardware_matrix_v2.py` | Tier 0/Tier 1 storage/network marker parity |
+| `tests/hw/test_probe_negative_paths_v2.py` | deterministic probe-missing baseline |
+| `tests/hw/test_dma_iommu_policy_v2.py` | DMA invalid input rejection baseline |
+| `tests/hw/test_acpi_boot_paths_v2.py` | deterministic firmware boot/halt markers |
+| `tests/hw/test_bare_metal_smoke_v2.py` | runbook evidence bundle + smoke markers |
+| `tests/hw/test_hw_gate_v2.py` | make/ci/backlog gate wiring |
+
+### Rugo evidence
+
+- Contract docs:
+  - `docs/hw/support_matrix_v2.md`
+  - `docs/hw/device_profile_contract_v2.md`
+  - `docs/hw/dma_iommu_strategy_v2.md`
+  - `docs/hw/acpi_uefi_hardening_v2.md`
+  - `docs/hw/bare_metal_bringup_v2.md`
+- Test gate:
+  - `tests/hw/test_hardware_matrix_v2.py`
+  - `tests/hw/test_probe_negative_paths_v2.py`
+  - `tests/hw/test_dma_iommu_policy_v2.py`
+  - `tests/hw/test_acpi_boot_paths_v2.py`
+  - `tests/hw/test_bare_metal_smoke_v2.py`
+  - `tests/hw/test_hw_gate_v2.py`
+- Execution history:
+  - `docs/M15_EXECUTION_BACKLOG.md`
+- Release gating:
+  - `Makefile` target `test-hw-matrix-v2`
+  - `.github/workflows/ci.yml` step `Hardware matrix v2 gate`
+
+---
+
+## M16: Process + Scheduler Model v2
+
+Milestone status: done (2026-03-06).
+
+### Definition of done
+
+- Process/thread lifecycle semantics are versioned in v2 ABI docs.
+- Preemption and fairness regressions are deterministic and gate-blocking.
+- Faulted user tasks are contained without scheduler collapse.
+
+### Acceptance tests
+
+| Test | Markers/Outcome |
+|------|------------------|
+| `tests/user/test_process_wait_kill_v2.py` | wait/kill lifecycle contract + fault/exit markers |
+| `tests/user/test_signal_delivery_v2.py` | deterministic signal delivery and queue bounds |
+| `tests/sched/test_preempt_timer_quantum_v2.py` | timer quantum preemption determinism |
+| `tests/sched/test_priority_fairness_v2.py` | equal-priority and weighted fairness checks |
+| `tests/sched/test_scheduler_soak_v2.py` | seeded soak determinism + machine-readable failures |
+| `tests/sched/test_scheduler_gate_v2.py` | make/ci/docs gate wiring and closure |
+
+### Rugo evidence
+
+- Contract docs:
+  - `docs/abi/process_thread_model_v2.md`
+  - `docs/abi/scheduling_policy_v2.md`
+- Scheduler/process model:
+  - `tests/sched/v2_model.py`
+- Test gate:
+  - `tests/user/test_process_wait_kill_v2.py`
+  - `tests/user/test_signal_delivery_v2.py`
+  - `tests/sched/test_preempt_timer_quantum_v2.py`
+  - `tests/sched/test_priority_fairness_v2.py`
+  - `tests/sched/test_scheduler_soak_v2.py`
+  - `tests/sched/test_scheduler_gate_v2.py`
+- Execution history:
+  - `docs/M16_EXECUTION_BACKLOG.md`
+- Release gating:
+  - `Makefile` target `test-process-scheduler-v2`
+  - `.github/workflows/ci.yml` step `Process scheduler v2 gate`
 
 ---
 

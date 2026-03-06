@@ -2,7 +2,7 @@
 
 Date: 2026-03-06  
 Lane: Rugo (Rust kernel + Go user space)  
-Status: planned
+Status: done
 
 ## Goal
 
@@ -20,9 +20,9 @@ M15 source of truth remains `docs/M15_M20_MULTIPURPOSE_PLAN.md`,
 
 ## Execution Result
 
-- PR-1: planned
-- PR-2: planned
-- PR-3: planned
+- PR-1: complete (2026-03-06)
+- PR-2: complete (2026-03-06)
+- PR-3: complete (2026-03-06)
 
 ## PR-1: Matrix v2 Contract + Target Classes
 
@@ -127,4 +127,3 @@ Promote M15 checks to required local and CI gates.
 
 - Immediate broad non-x86 architecture expansion.
 - Hardware claims outside tiered matrix pass history.
-

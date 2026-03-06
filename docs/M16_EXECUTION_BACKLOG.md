@@ -2,7 +2,7 @@
 
 Date: 2026-03-06  
 Lane: Rugo (Rust kernel + Go user space)  
-Status: planned
+Status: done
 
 ## Goal
 
@@ -16,13 +16,13 @@ M16 source of truth remains `docs/M15_M20_MULTIPURPOSE_PLAN.md`,
 
 - Core scheduling and user-mode milestones are already complete.
 - M16 is the v2 stabilization point for process/thread semantics.
-- No dedicated v2 scheduler gate exists yet.
+- Scheduler v2 gate is now wired in local and CI release lanes.
 
 ## Execution Result
 
-- PR-1: planned
-- PR-2: planned
-- PR-3: planned
+- PR-1: complete (2026-03-06)
+- PR-2: complete (2026-03-06)
+- PR-3: complete (2026-03-06)
 
 ## PR-1: Process/Thread Contract v2
 
@@ -123,4 +123,3 @@ Promote scheduler v2 checks to required local and CI gates.
 
 - Full scheduler class parity with large production kernels.
 - NUMA-aware scheduling unless explicitly re-scoped.
-

@@ -80,7 +80,7 @@ jobs:
       - name: Hardware matrix v1 gate
         run: |
           make image-blk image-blk-badlen image-blk-badptr image-net
-          python3 -m pytest tests/hw -v --junitxml=out/pytest-hw-matrix.xml
+          python3 -m pytest tests/hw/test_hardware_matrix_v1.py tests/hw/test_probe_negative_paths_v1.py tests/hw/test_dma_safety_v1.py -v --junitxml=out/pytest-hw-matrix.xml
 
       - name: Upload hardware matrix JUnit report
         if: always()
@@ -88,6 +88,28 @@ jobs:
         with:
           name: hw-matrix-junit
           path: out/pytest-hw-matrix.xml
+
+      - name: Hardware matrix v2 gate
+        run: |
+          make test-hw-matrix-v2
+
+      - name: Upload hardware matrix v2 JUnit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hw-matrix-v2-junit
+          path: out/pytest-hw-matrix-v2.xml
+
+      - name: Process scheduler v2 gate
+        run: |
+          make test-process-scheduler-v2
+
+      - name: Upload process scheduler v2 JUnit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: process-scheduler-v2-junit
+          path: out/pytest-process-scheduler-v2.xml
 
       - name: Security baseline v1 gate
         run: |
