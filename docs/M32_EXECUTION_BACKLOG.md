@@ -2,7 +2,7 @@
 
 Date: 2026-03-06  
 Lane: Rugo (Rust kernel + Go user space)  
-Status: planned
+Status: done
 
 ## Goal
 
@@ -14,15 +14,15 @@ M32 source of truth remains `docs/M21_M34_MATURITY_PARITY_ROADMAP.md`,
 
 ## Current State Summary
 
-- Maturity program has subsystem gates, but profile-level qualification is missing.
-- M32 adds server/developer/appliance profile conformance framework.
-- Release artifacts currently lack formal profile qualification reports.
+- Profile conformance requirements are explicit, versioned, and test-referenced.
+- Conformance suite outputs deterministic, machine-readable qualification artifacts.
+- Profile qualification is wired as a required local and CI release gate.
 
 ## Execution Result
 
-- PR-1: planned
-- PR-2: planned
-- PR-3: planned
+- PR-1: complete (2026-03-09)
+- PR-2: complete (2026-03-09)
+- PR-3: complete (2026-03-09)
 
 ## PR-1: Profile Conformance Contract
 
@@ -49,6 +49,13 @@ Freeze profile definitions and qualification criteria for v1.
 ### Done criteria for PR-1
 
 - Profile requirements are explicit, versioned, and test-referenced.
+
+### PR-1 completion summary
+
+- Added profile conformance contract doc:
+  - `docs/runtime/profile_conformance_v1.md`
+- Added executable doc contract checks:
+  - `tests/runtime/test_profile_conformance_docs_v1.py`
 
 ## PR-2: Conformance Suite + Profile Tests
 
@@ -80,6 +87,14 @@ Implement profile qualification tooling and executable checks.
 - Conformance artifacts are deterministic and machine-readable.
 - Profile checks are reproducible across release lanes.
 
+### PR-2 completion summary
+
+- Added deterministic conformance suite tooling:
+  - `tools/run_conformance_suite_v1.py`
+- Added executable profile qualification checks:
+  - `tests/runtime/test_server_profile_v1.py`
+  - `tests/runtime/test_dev_profile_v1.py`
+
 ## PR-3: Conformance Gate + Closure
 
 ### Objective
@@ -102,6 +117,7 @@ Make profile qualification release-blocking.
 - `tests/runtime/test_conformance_gate_v1.py`
 - `MILESTONES.md`
 - `docs/STATUS.md`
+- `README.md`
 
 ### Acceptance checks
 
@@ -112,8 +128,22 @@ Make profile qualification release-blocking.
 - Conformance gate is required in local and CI release lanes.
 - M32 can be marked done with profile qualification artifacts.
 
+### PR-3 completion summary
+
+- Added aggregate gate test:
+  - `tests/runtime/test_conformance_gate_v1.py`
+- Added local gate:
+  - `make test-conformance-v1`
+  - JUnit output: `out/pytest-conformance-v1.xml`
+- Added CI gate and artifacts:
+  - step: `Conformance v1 gate`
+  - artifact: `conformance-v1-artifacts`
+- Updated closure docs:
+  - `MILESTONES.md`
+  - `docs/STATUS.md`
+  - `README.md`
+
 ## Non-goals for M32 backlog
 
 - Immediate expansion to many profile variants without owner assignments.
 - Certification claims beyond declared conformance scope.
-

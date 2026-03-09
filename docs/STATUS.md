@@ -86,6 +86,7 @@ make docker-legacy       # Legacy only (requires gccgo in Docker image)
 | **M29** Observability + Diagnostics v2 | n/a | done | Rugo: observability/crash contracts + deterministic trace/diagnostic/crash artifacts, `make test-observability-v2`, `make test-crash-dump-v1`, CI `Observability v2 gate` + `Crash dump v1 gate`, docs in `docs/runtime/observability_contract_v2.md`, `docs/runtime/crash_dump_contract_v1.md`, and `docs/M29_EXECUTION_BACKLOG.md`. |
 | **M30** Installer/Upgrade/Recovery UX v3 | n/a | done | Rugo: installer/recovery v3 contracts + deterministic upgrade/recovery rollback-safety artifacts, `make test-ops-ux-v3`, CI `Ops UX v3 gate`, docs in `docs/build/installer_ux_v3.md`, `docs/build/recovery_workflow_v3.md`, and `docs/M30_EXECUTION_BACKLOG.md`. |
 | **M31** Release Engineering + Support Lifecycle v2 | n/a | done | Rugo: release/support/revalidation policy contracts + deterministic branch/support/supply-chain audits, `make test-release-lifecycle-v2`, `make test-supply-chain-revalidation-v1`, CI `Release lifecycle v2 gate` + `Supply-chain revalidation v1 gate`, docs in `docs/build/release_policy_v2.md`, `docs/build/support_lifecycle_policy_v1.md`, and `docs/M31_EXECUTION_BACKLOG.md`. |
+| **M32** Conformance + Profile Qualification v1 | n/a | done | Rugo: profile conformance contract + deterministic profile qualification suite artifacts, `make test-conformance-v1`, CI `Conformance v1 gate`, docs in `docs/runtime/profile_conformance_v1.md`, and `docs/M32_EXECUTION_BACKLOG.md`. |
 
 ✅ done &ensp; ◐ in progress (prep) &ensp; ⬜ not started &ensp; n/a not applicable
 
@@ -636,9 +637,23 @@ M31 execution update (2026-03-09):
   - `.github/workflows/ci.yml` steps `Release lifecycle v2 gate`, `Supply-chain revalidation v1 gate`
 - M31 is done.
 
+M32 execution update (2026-03-09):
+- PR-1 complete (profile conformance contract freeze):
+  - `docs/runtime/profile_conformance_v1.md`
+  - `tests/runtime/test_profile_conformance_docs_v1.py`
+- PR-2 complete (deterministic profile qualification tooling + checks):
+  - `tools/run_conformance_suite_v1.py`
+  - `tests/runtime/test_server_profile_v1.py`
+  - `tests/runtime/test_dev_profile_v1.py`
+- PR-3 complete (conformance v1 gate + closure wiring):
+  - `tests/runtime/test_conformance_gate_v1.py`
+  - `Makefile` target `test-conformance-v1`
+  - `.github/workflows/ci.yml` step `Conformance v1 gate`
+- M32 is done.
+
 Post-G2 planning and execution:
 - Extended roadmap (M21-M34): `docs/M21_M34_MATURITY_PARITY_ROADMAP.md`
-- Last completed backlog (M31): `docs/M31_EXECUTION_BACKLOG.md`
-- Post-M31 focus: start M32 conformance + profile qualification v1 execution backlog.
+- Last completed backlog (M32): `docs/M32_EXECUTION_BACKLOG.md`
+- Post-M32 focus: start M33 fleet-scale operations baseline v1 execution backlog.
 
 

@@ -97,6 +97,7 @@ Tests: `legacy/tests/` (boot, trap, sched, user, ipc, drivers, fs, pkg, net)
 | M29 | Observability + Diagnostics v2 | n/a | done | Rugo: observability/crash contracts + deterministic trace/diagnostic/crash artifacts, `make test-observability-v2`, `make test-crash-dump-v1`, CI `Observability v2 gate` + `Crash dump v1 gate`, docs in `docs/runtime/observability_contract_v2.md`, `docs/runtime/crash_dump_contract_v1.md`, and `docs/M29_EXECUTION_BACKLOG.md`. |
 | M30 | Installer/Upgrade/Recovery UX v3 | n/a | done | Rugo: installer/recovery v3 contracts + deterministic upgrade/recovery rollback-safety artifacts, `make test-ops-ux-v3`, CI `Ops UX v3 gate`, docs in `docs/build/installer_ux_v3.md`, `docs/build/recovery_workflow_v3.md`, and `docs/M30_EXECUTION_BACKLOG.md`. |
 | M31 | Release Engineering + Support Lifecycle v2 | n/a | done | Rugo: release/support/revalidation policy contracts + deterministic branch/support/supply-chain audits, `make test-release-lifecycle-v2`, `make test-supply-chain-revalidation-v1`, CI `Release lifecycle v2 gate` + `Supply-chain revalidation v1 gate`, docs in `docs/build/release_policy_v2.md`, `docs/build/support_lifecycle_policy_v1.md`, and `docs/M31_EXECUTION_BACKLOG.md`. |
+| M32 | Conformance + Profile Qualification v1 | n/a | done | Rugo: profile conformance contract + deterministic profile qualification suite artifacts, `make test-conformance-v1`, CI `Conformance v1 gate`, docs in `docs/runtime/profile_conformance_v1.md` and `docs/M32_EXECUTION_BACKLOG.md`. |
 Legend: ✅ = done with passing tests, ◐ = in progress (prep), — = not started, n/a = not applicable to this lane.
 
 ---
@@ -1590,6 +1591,44 @@ Milestone status: done (2026-03-09).
     `test-supply-chain-revalidation-v1`
   - `.github/workflows/ci.yml` steps `Release lifecycle v2 gate`,
     `Supply-chain revalidation v1 gate`
+
+---
+
+## M32: Conformance + Profile Qualification v1
+
+Milestone status: done (2026-03-09).
+
+### Definition of done
+
+- Profile conformance requirements are explicit, versioned, and test-backed.
+- Profile qualification artifacts are deterministic and machine-readable.
+- Conformance v1 gate is required in local and CI release lanes.
+
+### Acceptance tests
+
+| Test | Markers/Outcome |
+|------|------------------|
+| `tests/runtime/test_profile_conformance_docs_v1.py` | profile conformance docs include required policy IDs, profile IDs, thresholds, and gate anchors |
+| `tests/runtime/test_server_profile_v1.py` | deterministic server profile qualification and targeted failure-path enforcement |
+| `tests/runtime/test_dev_profile_v1.py` | deterministic developer profile qualification and regression-failure enforcement |
+| `tests/runtime/test_conformance_gate_v1.py` | make/ci/docs gate wiring, closure checks, and conformance artifact pass |
+
+### Rugo evidence
+
+- Contract docs:
+  - `docs/runtime/profile_conformance_v1.md`
+- Tooling:
+  - `tools/run_conformance_suite_v1.py`
+- Test gate:
+  - `tests/runtime/test_profile_conformance_docs_v1.py`
+  - `tests/runtime/test_server_profile_v1.py`
+  - `tests/runtime/test_dev_profile_v1.py`
+  - `tests/runtime/test_conformance_gate_v1.py`
+- Execution history:
+  - `docs/M32_EXECUTION_BACKLOG.md`
+- Release gating:
+  - `Makefile` target `test-conformance-v1`
+  - `.github/workflows/ci.yml` step `Conformance v1 gate`
 
 ---
 

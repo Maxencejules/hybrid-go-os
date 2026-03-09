@@ -474,3 +474,16 @@ jobs:
             out/release-attestation-verification-v1.json
             out/sbom-v1.spdx.json
             out/provenance-v1.json
+
+      - name: Conformance v1 gate
+        run: |
+          make test-conformance-v1
+
+      - name: Upload conformance v1 artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: conformance-v1-artifacts
+          path: |
+            out/pytest-conformance-v1.xml
+            out/conformance-v1.json

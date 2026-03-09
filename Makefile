@@ -53,7 +53,7 @@ endif
        test-security-baseline test-runtime-maturity test-process-scheduler-v2 test-compat-v2 test-network-stack-v1 test-network-stack-v2 \
        test-storage-reliability-v1 test-storage-reliability-v2 test-release-engineering-v1 test-release-ops-v2 test-abi-stability-v3 test-kernel-reliability-v1 \
        test-firmware-attestation-v1 test-perf-regression-v1 test-userspace-model-v2 test-pkg-ecosystem-v3 test-update-trust-v1 test-app-compat-v3 test-security-hardening-v3 test-vuln-response-v1 \
-       test-observability-v2 test-crash-dump-v1 test-ops-ux-v3 test-release-lifecycle-v2 test-supply-chain-revalidation-v1 test-fleet-rollout-safety-v1 \
+       test-observability-v2 test-crash-dump-v1 test-ops-ux-v3 test-release-lifecycle-v2 test-supply-chain-revalidation-v1 test-conformance-v1 test-fleet-rollout-safety-v1 \
        run test-qemu test-hw-matrix test-hw-matrix-v2 test-hw-matrix-v3 repro-check clean legacy docker-all docker-legacy
 
 # Tools
@@ -659,6 +659,10 @@ test-supply-chain-revalidation-v1:
 	$(PYTHON) tools/verify_sbom_provenance_v2.py --sbom $(OUT)/sbom-v1.spdx.json --provenance $(OUT)/provenance-v1.json --out $(OUT)/supply-chain-revalidation-v1.json
 	$(PYTHON) tools/verify_release_attestations_v1.py --out $(OUT)/release-attestation-verification-v1.json
 	$(PYTHON) -m pytest tests/build/test_supply_chain_revalidation_docs_v1.py tests/build/test_sbom_revalidation_v1.py tests/build/test_provenance_verification_v1.py tests/build/test_attestation_drift_v1.py tests/build/test_supply_chain_revalidation_gate_v1.py -v --junitxml=$(OUT)/pytest-supply-chain-revalidation-v1.xml
+
+test-conformance-v1:
+	$(PYTHON) tools/run_conformance_suite_v1.py --seed 20260309 --out $(OUT)/conformance-v1.json
+	$(PYTHON) -m pytest tests/runtime/test_profile_conformance_docs_v1.py tests/runtime/test_server_profile_v1.py tests/runtime/test_dev_profile_v1.py tests/runtime/test_conformance_gate_v1.py -v --junitxml=$(OUT)/pytest-conformance-v1.xml
 
 test-fleet-rollout-safety-v1:
 	$(PYTHON) tools/run_canary_rollout_sim_v1.py --out $(OUT)/canary-rollout-sim-v1.json

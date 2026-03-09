@@ -78,13 +78,13 @@ Source of truth: [MILESTONES.md](MILESTONES.md)
 | Lane | Kernel milestones | Go milestones |
 |------|-------------------|---------------|
 | Legacy (`legacy/`) | M0-M7: done | G0: done |
-| Rugo (repo root) | M0-M31: done | G1: done, G2: done |
+| Rugo (repo root) | M0-M32: done | G1: done, G2: done |
 
 Tiny visual summary:
 
 ```text
 Legacy: [M0 M1 M2 M3 M4 M5 M6 M7] [G0] complete
-Rugo:   [M0 M1 M2 M3 M4 M5 M6 M7 M8 M9 M10 M11 M12 M13 M14 M15 M16 M17 M18 M19 M20 M21 M22 M23 M24 M25 M26 M27 M28 M29 M30 M31] [G1] complete  [G2] complete
+Rugo:   [M0 M1 M2 M3 M4 M5 M6 M7 M8 M9 M10 M11 M12 M13 M14 M15 M16 M17 M18 M19 M20 M21 M22 M23 M24 M25 M26 M27 M28 M29 M30 M31 M32] [G1] complete  [G2] complete
 ```
 
 ## Post-G2 roadmap
@@ -114,6 +114,7 @@ Rugo:   [M0 M1 M2 M3 M4 M5 M6 M7 M8 M9 M10 M11 M12 M13 M14 M15 M16 M17 M18 M19 M
 - M29 execution backlog (completed): `docs/M29_EXECUTION_BACKLOG.md`
 - M30 execution backlog (completed): `docs/M30_EXECUTION_BACKLOG.md`
 - M31 execution backlog (completed): `docs/M31_EXECUTION_BACKLOG.md`
+- M32 execution backlog (completed): `docs/M32_EXECUTION_BACKLOG.md`
 - Hardware support matrix v1: [docs/hw/support_matrix_v1.md](docs/hw/support_matrix_v1.md)
 - Security baseline docs: [docs/security/rights_capability_model_v1.md](docs/security/rights_capability_model_v1.md)
 - Compatibility profile v1 contract: [docs/abi/compat_profile_v1.md](docs/abi/compat_profile_v1.md)
