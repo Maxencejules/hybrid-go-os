@@ -87,6 +87,7 @@ make docker-legacy       # Legacy only (requires gccgo in Docker image)
 | **M30** Installer/Upgrade/Recovery UX v3 | n/a | done | Rugo: installer/recovery v3 contracts + deterministic upgrade/recovery rollback-safety artifacts, `make test-ops-ux-v3`, CI `Ops UX v3 gate`, docs in `docs/build/installer_ux_v3.md`, `docs/build/recovery_workflow_v3.md`, and `docs/M30_EXECUTION_BACKLOG.md`. |
 | **M31** Release Engineering + Support Lifecycle v2 | n/a | done | Rugo: release/support/revalidation policy contracts + deterministic branch/support/supply-chain audits, `make test-release-lifecycle-v2`, `make test-supply-chain-revalidation-v1`, CI `Release lifecycle v2 gate` + `Supply-chain revalidation v1 gate`, docs in `docs/build/release_policy_v2.md`, `docs/build/support_lifecycle_policy_v1.md`, and `docs/M31_EXECUTION_BACKLOG.md`. |
 | **M32** Conformance + Profile Qualification v1 | n/a | done | Rugo: profile conformance contract + deterministic profile qualification suite artifacts, `make test-conformance-v1`, CI `Conformance v1 gate`, docs in `docs/runtime/profile_conformance_v1.md`, and `docs/M32_EXECUTION_BACKLOG.md`. |
+| **M33** Fleet-Scale Operations Baseline v1 | n/a | done | Rugo: fleet update/health and rollout-safety policy contracts + deterministic fleet/canary/abort simulations, `make test-fleet-ops-v1`, `make test-fleet-rollout-safety-v1`, CI `Fleet ops v1 gate` + `Fleet rollout safety v1 gate`, docs in `docs/pkg/fleet_update_policy_v1.md`, `docs/runtime/fleet_health_policy_v1.md`, and `docs/M33_EXECUTION_BACKLOG.md`. |
 
 ✅ done &ensp; ◐ in progress (prep) &ensp; ⬜ not started &ensp; n/a not applicable
 
@@ -651,9 +652,33 @@ M32 execution update (2026-03-09):
   - `.github/workflows/ci.yml` step `Conformance v1 gate`
 - M32 is done.
 
+M33 execution update (2026-03-09):
+- PR-1 complete (fleet and rollout policy contract freeze):
+  - `docs/pkg/fleet_update_policy_v1.md`
+  - `docs/runtime/fleet_health_policy_v1.md`
+  - `docs/pkg/staged_rollout_policy_v1.md`
+  - `docs/runtime/canary_slo_policy_v1.md`
+  - `tests/pkg/test_fleet_policy_docs_v1.py`
+  - `tests/pkg/test_rollout_policy_docs_v1.py`
+- PR-2 complete (deterministic fleet/rollout simulation tooling + checks):
+  - `tools/run_fleet_update_sim_v1.py`
+  - `tools/run_fleet_health_sim_v1.py`
+  - `tools/run_canary_rollout_sim_v1.py`
+  - `tools/run_rollout_abort_drill_v1.py`
+  - `tests/pkg/test_fleet_update_sim_v1.py`
+  - `tests/runtime/test_fleet_health_sim_v1.py`
+  - `tests/pkg/test_canary_rollout_sim_v1.py`
+  - `tests/runtime/test_rollout_abort_policy_v1.py`
+- PR-3 complete (fleet ops gate + rollout-safety sub-gate wiring):
+  - `tests/runtime/test_fleet_ops_gate_v1.py`
+  - `tests/runtime/test_fleet_rollout_safety_gate_v1.py`
+  - `Makefile` targets `test-fleet-ops-v1`, `test-fleet-rollout-safety-v1`
+  - `.github/workflows/ci.yml` steps `Fleet ops v1 gate`, `Fleet rollout safety v1 gate`
+- M33 is done.
+
 Post-G2 planning and execution:
 - Extended roadmap (M21-M34): `docs/M21_M34_MATURITY_PARITY_ROADMAP.md`
-- Last completed backlog (M32): `docs/M32_EXECUTION_BACKLOG.md`
-- Post-M32 focus: start M33 fleet-scale operations baseline v1 execution backlog.
+- Last completed backlog (M33): `docs/M33_EXECUTION_BACKLOG.md`
+- Post-M33 focus: start M34 maturity qualification + LTS declaration execution backlog.
 
 

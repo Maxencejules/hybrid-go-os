@@ -53,7 +53,7 @@ endif
        test-security-baseline test-runtime-maturity test-process-scheduler-v2 test-compat-v2 test-network-stack-v1 test-network-stack-v2 \
        test-storage-reliability-v1 test-storage-reliability-v2 test-release-engineering-v1 test-release-ops-v2 test-abi-stability-v3 test-kernel-reliability-v1 \
        test-firmware-attestation-v1 test-perf-regression-v1 test-userspace-model-v2 test-pkg-ecosystem-v3 test-update-trust-v1 test-app-compat-v3 test-security-hardening-v3 test-vuln-response-v1 \
-       test-observability-v2 test-crash-dump-v1 test-ops-ux-v3 test-release-lifecycle-v2 test-supply-chain-revalidation-v1 test-conformance-v1 test-fleet-rollout-safety-v1 \
+       test-observability-v2 test-crash-dump-v1 test-ops-ux-v3 test-release-lifecycle-v2 test-supply-chain-revalidation-v1 test-conformance-v1 test-fleet-ops-v1 test-fleet-rollout-safety-v1 \
        run test-qemu test-hw-matrix test-hw-matrix-v2 test-hw-matrix-v3 repro-check clean legacy docker-all docker-legacy
 
 # Tools
@@ -664,10 +664,16 @@ test-conformance-v1:
 	$(PYTHON) tools/run_conformance_suite_v1.py --seed 20260309 --out $(OUT)/conformance-v1.json
 	$(PYTHON) -m pytest tests/runtime/test_profile_conformance_docs_v1.py tests/runtime/test_server_profile_v1.py tests/runtime/test_dev_profile_v1.py tests/runtime/test_conformance_gate_v1.py -v --junitxml=$(OUT)/pytest-conformance-v1.xml
 
+test-fleet-ops-v1:
+	$(PYTHON) tools/run_fleet_update_sim_v1.py --seed 20260309 --out $(OUT)/fleet-update-sim-v1.json
+	$(PYTHON) tools/run_fleet_health_sim_v1.py --seed 20260309 --out $(OUT)/fleet-health-sim-v1.json
+	$(MAKE) test-fleet-rollout-safety-v1
+	$(PYTHON) -m pytest tests/pkg/test_fleet_policy_docs_v1.py tests/pkg/test_fleet_update_sim_v1.py tests/runtime/test_fleet_health_sim_v1.py tests/runtime/test_fleet_ops_gate_v1.py -v --junitxml=$(OUT)/pytest-fleet-ops-v1.xml
+
 test-fleet-rollout-safety-v1:
-	$(PYTHON) tools/run_canary_rollout_sim_v1.py --out $(OUT)/canary-rollout-sim-v1.json
+	$(PYTHON) tools/run_canary_rollout_sim_v1.py --seed 20260309 --out $(OUT)/canary-rollout-sim-v1.json
 	$(PYTHON) tools/run_rollout_abort_drill_v1.py --out $(OUT)/rollout-abort-drill-v1.json
-	$(PYTHON) -m pytest tests/pkg/test_rollout_policy_docs_v1.py tests/pkg/test_canary_rollout_sim_v1.py tests/runtime/test_rollout_abort_policy_v1.py tests/runtime/test_fleet_rollout_safety_gate_v1.py -v
+	$(PYTHON) -m pytest tests/pkg/test_rollout_policy_docs_v1.py tests/pkg/test_canary_rollout_sim_v1.py tests/runtime/test_rollout_abort_policy_v1.py tests/runtime/test_fleet_rollout_safety_gate_v1.py -v --junitxml=$(OUT)/pytest-fleet-rollout-safety-v1.xml
 
 repro-check:
 	@set -e; \

@@ -2,7 +2,7 @@
 
 Date: 2026-03-06  
 Lane: Rugo (Rust kernel + Go user space)  
-Status: planned
+Status: done
 
 ## Goal
 
@@ -14,15 +14,15 @@ M33 source of truth remains `docs/M21_M34_MATURITY_PARITY_ROADMAP.md`,
 
 ## Current State Summary
 
-- Update/rollback fundamentals exist from prior milestones.
-- M33 introduces multi-node policy simulation and rollout-safety sub-gate.
-- Blast-radius and SLO auto-halt policies are not yet gate-enforced.
+- Fleet update and health policy contracts are explicit and versioned.
+- Fleet and rollout simulations emit deterministic, machine-readable artifacts.
+- Fleet ops and rollout-safety checks are required local and CI release gates.
 
 ## Execution Result
 
-- PR-1: planned
-- PR-2: planned
-- PR-3: planned
+- PR-1: complete (2026-03-09)
+- PR-2: complete (2026-03-09)
+- PR-3: complete (2026-03-09)
 
 ## PR-1: Fleet + Staged Rollout Contracts
 
@@ -57,6 +57,17 @@ Freeze fleet health/update policy and canary rollout SLO criteria.
 ### Done criteria for PR-1
 
 - Fleet and rollout-safety policies are explicit, versioned, and test-referenced.
+
+### PR-1 completion summary
+
+- Added docs:
+  - `docs/pkg/fleet_update_policy_v1.md`
+  - `docs/runtime/fleet_health_policy_v1.md`
+  - `docs/pkg/staged_rollout_policy_v1.md`
+  - `docs/runtime/canary_slo_policy_v1.md`
+- Added executable doc contract checks:
+  - `tests/pkg/test_fleet_policy_docs_v1.py`
+  - `tests/pkg/test_rollout_policy_docs_v1.py`
 
 ## PR-2: Fleet Simulation + Rollout Safety Drills
 
@@ -97,6 +108,19 @@ Operationalize multi-node simulation and SLO-triggered rollback behavior.
 - Fleet/rollout simulations are deterministic and machine-readable.
 - SLO-triggered abort and rollback behavior is auditable.
 
+### PR-2 completion summary
+
+- Added deterministic simulation tooling:
+  - `tools/run_fleet_update_sim_v1.py`
+  - `tools/run_fleet_health_sim_v1.py`
+  - `tools/run_canary_rollout_sim_v1.py`
+  - `tools/run_rollout_abort_drill_v1.py`
+- Added executable simulation and rollback checks:
+  - `tests/pkg/test_fleet_update_sim_v1.py`
+  - `tests/runtime/test_fleet_health_sim_v1.py`
+  - `tests/pkg/test_canary_rollout_sim_v1.py`
+  - `tests/runtime/test_rollout_abort_policy_v1.py`
+
 ## PR-3: Fleet Ops Gate + Rollout Safety Sub-gate
 
 ### Objective
@@ -134,8 +158,30 @@ Make fleet operations and rollout-safety checks release-blocking.
 - Fleet ops and rollout-safety gates are required in local and CI lanes.
 - M33 can be marked done with deterministic simulation evidence.
 
+### PR-3 completion summary
+
+- Added aggregate gate tests:
+  - `tests/runtime/test_fleet_ops_gate_v1.py`
+  - `tests/runtime/test_fleet_rollout_safety_gate_v1.py`
+- Added local gates:
+  - `make test-fleet-ops-v1`
+  - `make test-fleet-rollout-safety-v1`
+  - JUnit output:
+    - `out/pytest-fleet-ops-v1.xml`
+    - `out/pytest-fleet-rollout-safety-v1.xml`
+- Added CI gates and artifacts:
+  - steps:
+    - `Fleet ops v1 gate`
+    - `Fleet rollout safety v1 gate`
+  - artifacts:
+    - `fleet-ops-v1-artifacts`
+    - `fleet-rollout-safety-v1-artifacts`
+- Updated closure docs:
+  - `MILESTONES.md`
+  - `docs/STATUS.md`
+  - `README.md`
+
 ## Non-goals for M33 backlog
 
 - Full production fleet control-plane implementation.
 - Global rollout automation outside scoped simulation contracts.
-

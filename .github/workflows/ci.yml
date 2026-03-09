@@ -487,3 +487,31 @@ jobs:
           path: |
             out/pytest-conformance-v1.xml
             out/conformance-v1.json
+
+      - name: Fleet ops v1 gate
+        run: |
+          make test-fleet-ops-v1
+
+      - name: Upload fleet ops v1 artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fleet-ops-v1-artifacts
+          path: |
+            out/pytest-fleet-ops-v1.xml
+            out/fleet-update-sim-v1.json
+            out/fleet-health-sim-v1.json
+
+      - name: Fleet rollout safety v1 gate
+        run: |
+          make test-fleet-rollout-safety-v1
+
+      - name: Upload fleet rollout safety v1 artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fleet-rollout-safety-v1-artifacts
+          path: |
+            out/pytest-fleet-rollout-safety-v1.xml
+            out/canary-rollout-sim-v1.json
+            out/rollout-abort-drill-v1.json

@@ -1,22 +1,49 @@
 # Staged Rollout Policy v1
 
-Status: draft  
-Version: v1
+Date: 2026-03-09  
+Milestone: M33 Fleet-Scale Operations Baseline v1  
+Status: active rollout safety gate
 
-## Rollout Stages
+## Objective
 
-- canary
-- small-batch
-- broad
+Define deterministic stage progression, blast-radius controls, and
+promotion/abort criteria for fleet rollouts.
 
-## Safety Rules
+## Policy identifiers
 
-- Blast-radius budget is defined per stage.
-- Stage promotion requires health and error-rate criteria.
-- Failed criteria triggers automatic halt.
+- Staged rollout policy ID: `rugo.staged_rollout_policy.v1`
+- Report schema: `rugo.canary_rollout_report.v1`
+- Abort drill schema: `rugo.rollout_abort_drill_report.v1`
 
-## Evidence
+## Stage budgets
 
-- Artifact schema: `rugo.canary_rollout_report.v1`.
-- Gate: `test-fleet-rollout-safety-v1`.
+- Stage: `canary`
+  - blast-radius budget: `1%`
+- Stage: `small_batch`
+  - blast-radius budget: `10%`
+- Stage: `broad`
+  - blast-radius budget: `100%`
 
+## Promotion and halt criteria
+
+- maximum canary error rate: `0.02`
+- maximum canary latency p95: `120 ms`
+- Each stage must pass health and SLO checks before promotion.
+- Any breach requires automatic halt and rollback coordination.
+- Promotion must stop after first failed stage.
+
+## Required report fields
+
+- `stage`
+- `blast_radius_budget_pct`
+- `observed_error_rate`
+- `observed_latency_p95_ms`
+- `promoted`
+- `auto_halt`
+- `rollback_recommended`
+
+## Required gates
+
+- Local sub-gate: `make test-fleet-rollout-safety-v1`
+- Parent gate: `make test-fleet-ops-v1`
+- CI sub-gate: `Fleet rollout safety v1 gate`
