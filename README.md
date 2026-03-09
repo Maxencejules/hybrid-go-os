@@ -90,6 +90,7 @@ Rugo:   [M0 M1 M2 M3 M4 M5 M6 M7 M8 M9 M10 M11 M12 M13 M14 M15 M16 M17 M18 M19 M
 ## Post-G2 roadmap
 
 - Research roadmap (M8-M14): [docs/POST_G2_EXTENDED_MILESTONES.md](docs/POST_G2_EXTENDED_MILESTONES.md)
+- Next roadmap (M35-M39, proposed): [docs/M35_M39_GENERAL_PURPOSE_EXPANSION_ROADMAP.md](docs/M35_M39_GENERAL_PURPOSE_EXPANSION_ROADMAP.md)
 - M8 execution backlog (completed): `docs/M8_EXECUTION_BACKLOG.md`
 - M9 execution backlog (completed): `docs/M9_EXECUTION_BACKLOG.md`
 - M10 execution backlog (completed): `docs/M10_EXECUTION_BACKLOG.md`
@@ -117,6 +118,11 @@ Rugo:   [M0 M1 M2 M3 M4 M5 M6 M7 M8 M9 M10 M11 M12 M13 M14 M15 M16 M17 M18 M19 M
 - M32 execution backlog (completed): `docs/M32_EXECUTION_BACKLOG.md`
 - M33 execution backlog (completed): `docs/M33_EXECUTION_BACKLOG.md`
 - M34 execution backlog (completed): `docs/M34_EXECUTION_BACKLOG.md`
+- M35 execution backlog (proposed): `docs/M35_EXECUTION_BACKLOG.md`
+- M36 execution backlog (proposed): `docs/M36_EXECUTION_BACKLOG.md`
+- M37 execution backlog (proposed): `docs/M37_EXECUTION_BACKLOG.md`
+- M38 execution backlog (proposed): `docs/M38_EXECUTION_BACKLOG.md`
+- M39 execution backlog (proposed): `docs/M39_EXECUTION_BACKLOG.md`
 - Hardware support matrix v1: [docs/hw/support_matrix_v1.md](docs/hw/support_matrix_v1.md)
 - Security baseline docs: [docs/security/rights_capability_model_v1.md](docs/security/rights_capability_model_v1.md)
 - Compatibility profile v1 contract: [docs/abi/compat_profile_v1.md](docs/abi/compat_profile_v1.md)

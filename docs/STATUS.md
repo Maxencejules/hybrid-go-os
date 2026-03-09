@@ -697,6 +697,13 @@ M34 execution update (2026-03-09):
 
 Post-G2 planning and execution:
 - Extended roadmap (M21-M34): `docs/M21_M34_MATURITY_PARITY_ROADMAP.md`
+- Next roadmap (M35-M39, proposed): `docs/M35_M39_GENERAL_PURPOSE_EXPANSION_ROADMAP.md`
+- Planned backlogs (M35-M39):
+  - `docs/M35_EXECUTION_BACKLOG.md`
+  - `docs/M36_EXECUTION_BACKLOG.md`
+  - `docs/M37_EXECUTION_BACKLOG.md`
+  - `docs/M38_EXECUTION_BACKLOG.md`
+  - `docs/M39_EXECUTION_BACKLOG.md`
 - Last completed backlog (M34): `docs/M34_EXECUTION_BACKLOG.md`
 - M21-M34 roadmap execution is complete with the M34 maturity qualification + LTS baseline.
 
