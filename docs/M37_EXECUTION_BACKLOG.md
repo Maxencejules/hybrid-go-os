@@ -2,7 +2,7 @@
 
 Date: 2026-03-09  
 Lane: Rugo (Rust kernel + Go user space)  
-Status: proposed
+Status: done
 
 ## Goal
 
@@ -18,11 +18,11 @@ M37 source of truth remains `docs/M35_M39_GENERAL_PURPOSE_EXPANSION_ROADMAP.md`,
 - Bare-metal evidence remains promotion-gated and policy-bounded.
 - M37 introduces matrix v4 and explicit bare-metal promotion controls.
 
-## Execution Plan
+## Execution Result
 
-- PR-1: contract freeze
-- PR-2: implementation and diagnostics
-- PR-3: release-gate wiring and closure
+- PR-1: complete (2026-03-09)
+- PR-2: complete (2026-03-09)
+- PR-3: complete (2026-03-09)
 
 ## PR-1: Matrix v4 Contract Freeze
 
@@ -53,6 +53,15 @@ Define hardware matrix v4 and driver lifecycle expectations for broader coverage
 ### Done criteria for PR-1
 
 - Matrix v4 tiers and promotion policy are explicit, versioned, and test-backed.
+
+### PR-1 completion summary
+
+- Added matrix v4 contract docs:
+  - `docs/hw/support_matrix_v4.md`
+  - `docs/hw/driver_lifecycle_contract_v4.md`
+  - `docs/hw/bare_metal_promotion_policy_v1.md`
+- Added executable contract checks:
+  - `tests/hw/test_hw_matrix_docs_v4.py`
 
 ## PR-2: Matrix v4 Diagnostics + Campaigns
 
@@ -91,6 +100,17 @@ Implement deterministic matrix v4 checks and bare-metal promotion evidence flow.
 - Matrix v4 and promotion artifacts are deterministic and machine-readable.
 - Driver lifecycle and negative-path behavior are executable and auditable.
 
+### PR-2 completion summary
+
+- Added deterministic matrix and promotion tooling:
+  - `tools/run_hw_matrix_v4.py`
+  - `tools/collect_hw_promotion_evidence_v1.py`
+- Added executable matrix/promotion checks:
+  - `tests/hw/test_hw_matrix_v4.py`
+  - `tests/hw/test_driver_lifecycle_v4.py`
+  - `tests/hw/test_baremetal_promotion_v1.py`
+  - `tests/hw/test_hw_negative_paths_v4.py`
+
 ## PR-3: Matrix v4 Gate + Bare-Metal Sub-gate
 
 ### Objective
@@ -128,6 +148,22 @@ Make expanded hardware and promotion checks release-blocking.
 
 - Hardware v4 and bare-metal promotion sub-gates are required in local and CI.
 - M37 can be marked done with deterministic promotion evidence.
+
+### PR-3 completion summary
+
+- Added aggregate gate checks:
+  - `tests/hw/test_hw_gate_v4.py`
+  - `tests/hw/test_hw_baremetal_promotion_gate_v1.py`
+- Added local gates:
+  - `make test-hw-matrix-v4`
+  - `make test-hw-baremetal-promotion-v1`
+- Added CI gates and artifacts:
+  - `Hardware matrix v4 gate`
+  - `Hardware bare-metal promotion v1 gate`
+- Updated closure docs:
+  - `MILESTONES.md`
+  - `docs/STATUS.md`
+  - `README.md`
 
 ## Non-goals for M37 backlog
 

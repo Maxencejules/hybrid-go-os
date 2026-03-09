@@ -54,8 +54,8 @@ endif
        test-storage-reliability-v1 test-storage-reliability-v2 test-release-engineering-v1 test-release-ops-v2 test-abi-stability-v3 test-kernel-reliability-v1 \
        test-firmware-attestation-v1 test-perf-regression-v1 test-userspace-model-v2 test-pkg-ecosystem-v3 test-update-trust-v1 test-app-compat-v3 test-security-hardening-v3 test-vuln-response-v1 \
        test-observability-v2 test-crash-dump-v1 test-ops-ux-v3 test-release-lifecycle-v2 test-supply-chain-revalidation-v1 test-conformance-v1 test-fleet-ops-v1 test-fleet-rollout-safety-v1 test-maturity-qual-v1 test-desktop-stack-v1 test-gui-app-compat-v1 \
-       test-compat-surface-v1 test-posix-gap-closure-v1 \
-       run test-qemu test-hw-matrix test-hw-matrix-v2 test-hw-matrix-v3 repro-check clean legacy docker-all docker-legacy
+       test-compat-surface-v1 test-posix-gap-closure-v1 test-hw-matrix-v4 test-hw-baremetal-promotion-v1 \
+       run test-qemu test-hw-matrix test-hw-matrix-v2 test-hw-matrix-v3 test-hw-matrix-v4 repro-check clean legacy docker-all docker-legacy
 
 # Tools
 NASM    ?= nasm
@@ -697,6 +697,15 @@ test-compat-surface-v1:
 test-posix-gap-closure-v1:
 	$(PYTHON) tools/run_posix_gap_report_v1.py --out $(OUT)/posix-gap-report-v1.json
 	$(PYTHON) -m pytest tests/compat/test_posix_gap_closure_v1.py tests/compat/test_deferred_surface_behavior_v1.py tests/compat/test_posix_gap_closure_gate_v1.py -v --junitxml=$(OUT)/pytest-posix-gap-closure-v1.xml
+
+test-hw-matrix-v4: image-blk image-blk-badlen image-blk-badptr image-net
+	$(PYTHON) tools/run_hw_matrix_v4.py --out $(OUT)/hw-matrix-v4.json
+	$(MAKE) test-hw-baremetal-promotion-v1
+	$(PYTHON) -m pytest tests/hw/test_hw_matrix_docs_v4.py tests/hw/test_hw_matrix_v4.py tests/hw/test_driver_lifecycle_v4.py tests/hw/test_baremetal_promotion_v1.py tests/hw/test_hw_negative_paths_v4.py tests/hw/test_hw_gate_v4.py -v --junitxml=$(OUT)/pytest-hw-matrix-v4.xml
+
+test-hw-baremetal-promotion-v1:
+	$(PYTHON) tools/collect_hw_promotion_evidence_v1.py --out $(OUT)/hw-promotion-v1.json
+	$(PYTHON) -m pytest tests/hw/test_baremetal_promotion_v1.py tests/hw/test_hw_baremetal_promotion_gate_v1.py -v --junitxml=$(OUT)/pytest-hw-baremetal-promotion-v1.xml
 
 repro-check:
 	@set -e; \

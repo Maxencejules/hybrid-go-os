@@ -580,3 +580,29 @@ jobs:
           path: |
             out/pytest-posix-gap-closure-v1.xml
             out/posix-gap-report-v1.json
+
+      - name: Hardware matrix v4 gate
+        run: |
+          make test-hw-matrix-v4
+
+      - name: Upload hardware matrix v4 artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hw-matrix-v4-artifacts
+          path: |
+            out/pytest-hw-matrix-v4.xml
+            out/hw-matrix-v4.json
+
+      - name: Hardware bare-metal promotion v1 gate
+        run: |
+          make test-hw-baremetal-promotion-v1
+
+      - name: Upload hardware bare-metal promotion v1 artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hw-baremetal-promotion-v1-artifacts
+          path: |
+            out/pytest-hw-baremetal-promotion-v1.xml
+            out/hw-promotion-v1.json

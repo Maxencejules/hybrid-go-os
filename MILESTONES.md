@@ -102,6 +102,7 @@ Tests: `legacy/tests/` (boot, trap, sched, user, ipc, drivers, fs, pkg, net)
 | M34 | Maturity Qualification + LTS Declaration | n/a | done | Rugo: maturity qualification/LTS declaration contracts + deterministic cross-domain qualification bundle, `make test-maturity-qual-v1`, CI `Maturity qualification v1 gate`, docs in `docs/build/maturity_qualification_v1.md`, `docs/build/lts_declaration_policy_v1.md`, and `docs/M34_EXECUTION_BACKLOG.md`. |
 | M35 | Desktop + Interactive UX Baseline v1 | n/a | done | Rugo: desktop/display/input contracts + deterministic desktop/gui artifacts, `make test-desktop-stack-v1`, `make test-gui-app-compat-v1`, CI `Desktop stack v1 gate` + `GUI app compatibility v1 gate`, docs in `docs/desktop/*` and `docs/M35_EXECUTION_BACKLOG.md`. |
 | M36 | Compatibility Surface Expansion v1 | n/a | done | Rugo: compatibility/process/socket contracts + deterministic compatibility/POSIX artifacts, `make test-compat-surface-v1`, `make test-posix-gap-closure-v1`, CI `Compatibility surface v1 gate` + `POSIX gap closure v1 gate`, docs in `docs/abi/compat_profile_v4.md`, `docs/runtime/syscall_coverage_matrix_v3.md`, and `docs/M36_EXECUTION_BACKLOG.md`. |
+| M37 | Hardware Breadth + Driver Matrix v4 | n/a | done | Rugo: matrix v4/driver-lifecycle/promotion contracts + deterministic hardware/promotion artifacts, `make test-hw-matrix-v4`, `make test-hw-baremetal-promotion-v1`, CI `Hardware matrix v4 gate` + `Hardware bare-metal promotion v1 gate`, docs in `docs/hw/support_matrix_v4.md`, `docs/hw/driver_lifecycle_contract_v4.md`, and `docs/M37_EXECUTION_BACKLOG.md`. |
 Legend: ✅ = done with passing tests, ◐ = in progress (prep), — = not started, n/a = not applicable to this lane.
 
 ---
@@ -1838,6 +1839,56 @@ Milestone status: done (2026-03-09).
   - `Makefile` targets `test-compat-surface-v1`, `test-posix-gap-closure-v1`
   - `.github/workflows/ci.yml` steps `Compatibility surface v1 gate`,
     `POSIX gap closure v1 gate`
+
+---
+
+## M37: Hardware Breadth + Driver Matrix v4
+
+Milestone status: done (2026-03-09).
+
+### Definition of done
+
+- Matrix v4, driver lifecycle v4, and bare-metal promotion policy contracts are
+  explicit, versioned, and test-backed.
+- Matrix and promotion artifacts are deterministic and machine-readable.
+- Hardware matrix v4 gate and bare-metal promotion sub-gate are required in
+  local and CI release lanes.
+
+### Acceptance tests
+
+| Test | Markers/Outcome |
+|------|------------------|
+| `tests/hw/test_hw_matrix_docs_v4.py` | matrix/lifecycle/promotion docs include required IDs, tiers, thresholds, and gate anchors |
+| `tests/hw/test_hw_matrix_v4.py` | deterministic matrix v4 schema and device-class coverage checks with tier smoke markers |
+| `tests/hw/test_driver_lifecycle_v4.py` | deterministic lifecycle v4 state coverage and injected runtime regression rejection |
+| `tests/hw/test_baremetal_promotion_v1.py` | deterministic promotion report schema and artifact/threshold policy enforcement |
+| `tests/hw/test_hw_negative_paths_v4.py` | deterministic `BLK: not found` / `NET: not found` negative-path checks and regression rejection |
+| `tests/hw/test_hw_baremetal_promotion_gate_v1.py` | promotion sub-gate make/ci/docs wiring and promotion artifact pass |
+| `tests/hw/test_hw_gate_v4.py` | hardware gate wiring, sub-gate integration, closure checks, and deterministic artifacts |
+
+### Rugo evidence
+
+- Contract docs:
+  - `docs/hw/support_matrix_v4.md`
+  - `docs/hw/driver_lifecycle_contract_v4.md`
+  - `docs/hw/bare_metal_promotion_policy_v1.md`
+- Tooling:
+  - `tools/run_hw_matrix_v4.py`
+  - `tools/collect_hw_promotion_evidence_v1.py`
+- Test gate:
+  - `tests/hw/test_hw_matrix_docs_v4.py`
+  - `tests/hw/test_hw_matrix_v4.py`
+  - `tests/hw/test_driver_lifecycle_v4.py`
+  - `tests/hw/test_baremetal_promotion_v1.py`
+  - `tests/hw/test_hw_negative_paths_v4.py`
+  - `tests/hw/test_hw_baremetal_promotion_gate_v1.py`
+  - `tests/hw/test_hw_gate_v4.py`
+- Execution history:
+  - `docs/M37_EXECUTION_BACKLOG.md`
+- Release gating:
+  - `Makefile` targets `test-hw-matrix-v4`, `test-hw-baremetal-promotion-v1`
+  - `.github/workflows/ci.yml` steps `Hardware matrix v4 gate`,
+    `Hardware bare-metal promotion v1 gate`
 
 ---
 
