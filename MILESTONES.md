@@ -85,6 +85,7 @@ Tests: `legacy/tests/` (boot, trap, sched, user, ipc, drivers, fs, pkg, net)
 | M17 | Compatibility Profile v2 | n/a | done | Rugo: `tests/compat/*_v2` + tier gate tests, `make test-compat-v2`, CI `Compatibility profile v2 gate`, docs in `docs/abi/*_v2`, `docs/runtime/syscall_coverage_matrix_v2.md`, `docs/M17_EXECUTION_BACKLOG.md`. |
 | M18 | Storage Reliability v2 | n/a | done | Rugo: `tests/storage/*_v2` + storage gate tests, `make test-storage-reliability-v2`, CI `Storage reliability v2 gate`, docs in `docs/storage/*_v2`, `docs/M18_EXECUTION_BACKLOG.md`. |
 | M19 | Network Stack v2 | n/a | done | Rugo: `tests/net/*_v2` + network gate tests, `make test-network-stack-v2`, CI `Network stack v2 gate`, docs in `docs/net/*_v2`, `docs/M19_EXECUTION_BACKLOG.md`. |
+| M20 | Operability + Release UX v2 | n/a | done | Rugo: `tests/build/*_v2` + operability gate tests, `make test-release-ops-v2`, CI `Operability and release UX v2 gate`, docs in `docs/build/*_v2`, `docs/pkg/*_v2`, `docs/M20_EXECUTION_BACKLOG.md`. |
 Legend: ✅ = done with passing tests, ◐ = in progress (prep), — = not started, n/a = not applicable to this lane.
 
 ---
@@ -1009,6 +1010,51 @@ Milestone status: done (2026-03-08).
 - Release gating:
   - `Makefile` target `test-network-stack-v2`
   - `.github/workflows/ci.yml` step `Network stack v2 gate`
+
+---
+
+## M20: Operability + Release UX v2
+
+Milestone status: done (2026-03-09).
+
+### Definition of done
+
+- Installer/recovery and operations runbook contracts are versioned and
+  executable-check referenced.
+- Upgrade/rollback/recovery and support-bundle artifacts are deterministic and
+  machine-readable.
+- Operability v2 gate is release-blocking in local and CI lanes.
+
+### Acceptance tests
+
+| Test | Markers/Outcome |
+|------|------------------|
+| `tests/build/test_installer_recovery_v2.py` | installer/recovery contract docs and installer artifact schema checks |
+| `tests/build/test_upgrade_rollback_v2.py` | deterministic upgrade/rollback stage contract and drill report schema |
+| `tests/build/test_support_bundle_v2.py` | support-bundle v2 schema and evidence collection checks |
+| `tests/build/test_operability_gate_v2.py` | make/ci/docs gate wiring and closure |
+
+### Rugo evidence
+
+- Contract docs:
+  - `docs/build/installer_recovery_baseline_v2.md`
+  - `docs/build/operations_runbook_v2.md`
+  - `docs/pkg/update_protocol_v2.md`
+  - `docs/pkg/rollback_policy_v2.md`
+- Tooling:
+  - `tools/build_installer_v2.py`
+  - `tools/run_upgrade_recovery_drill_v2.py`
+  - `tools/collect_support_bundle_v2.py`
+- Test gate:
+  - `tests/build/test_installer_recovery_v2.py`
+  - `tests/build/test_upgrade_rollback_v2.py`
+  - `tests/build/test_support_bundle_v2.py`
+  - `tests/build/test_operability_gate_v2.py`
+- Execution history:
+  - `docs/M20_EXECUTION_BACKLOG.md`
+- Release gating:
+  - `Makefile` target `test-release-ops-v2`
+  - `.github/workflows/ci.yml` step `Operability and release UX v2 gate`
 
 ---
 

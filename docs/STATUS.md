@@ -23,6 +23,7 @@ make test-network-stack-v2
 make test-storage-reliability-v1
 make test-storage-reliability-v2
 make test-release-engineering-v1
+make test-release-ops-v2
 
 # Legacy (build + QEMU smoke tests, 16 tests)
 make -C legacy build && make -C legacy image && make -C legacy test-qemu
@@ -59,6 +60,7 @@ make docker-legacy       # Legacy only (requires gccgo in Docker image)
 | **M17** Compatibility Profile v2 | n/a | done | Rugo: `tests/compat/*_v2` + tier gate tests, `make test-compat-v2`, CI `Compatibility profile v2 gate`, docs in `docs/abi/*_v2`, `docs/runtime/syscall_coverage_matrix_v2.md`, and `docs/M17_EXECUTION_BACKLOG.md`. |
 | **M18** Storage Reliability v2 | n/a | done | Rugo: `tests/storage/*_v2` + storage gate tests, `make test-storage-reliability-v2`, CI `Storage reliability v2 gate`, docs in `docs/storage/*_v2`, and `docs/M18_EXECUTION_BACKLOG.md`. |
 | **M19** Network Stack v2 | n/a | done | Rugo: `tests/net/*_v2` + network gate tests, `make test-network-stack-v2`, CI `Network stack v2 gate`, docs in `docs/net/*_v2`, and `docs/M19_EXECUTION_BACKLOG.md`. |
+| **M20** Operability + Release UX v2 | n/a | done | Rugo: `tests/build/*_v2` + operability gate tests, `make test-release-ops-v2`, CI `Operability and release UX v2 gate`, docs in `docs/build/*_v2`, `docs/pkg/*_v2`, and `docs/M20_EXECUTION_BACKLOG.md`. |
 
 ✅ done &ensp; ◐ in progress (prep) &ensp; ⬜ not started &ensp; n/a not applicable
 
@@ -373,9 +375,28 @@ M19 execution update (2026-03-08):
   - `.github/workflows/ci.yml` step `Network stack v2 gate`
 - M19 is done.
 
+M20 execution update (2026-03-09):
+- PR-1 complete (installer + operational contract v2):
+  - `docs/build/installer_recovery_baseline_v2.md`
+  - `docs/build/operations_runbook_v2.md`
+  - `tools/build_installer_v2.py`
+  - `tests/build/test_installer_recovery_v2.py`
+- PR-2 complete (upgrade/rollback drill + support bundle v2):
+  - `docs/pkg/update_protocol_v2.md`
+  - `docs/pkg/rollback_policy_v2.md`
+  - `tools/run_upgrade_recovery_drill_v2.py`
+  - `tools/collect_support_bundle_v2.py`
+  - `tests/build/test_upgrade_rollback_v2.py`
+  - `tests/build/test_support_bundle_v2.py`
+- PR-3 complete (operability v2 gate + closure wiring):
+  - `tests/build/test_operability_gate_v2.py`
+  - `Makefile` target `test-release-ops-v2`
+  - `.github/workflows/ci.yml` step `Operability and release UX v2 gate`
+- M20 is done.
+
 Post-G2 planning and execution:
 - Extended roadmap (M15-M20): `docs/M15_M20_MULTIPURPOSE_PLAN.md`
-- Last completed backlog (M19): `docs/M19_EXECUTION_BACKLOG.md`
-- Post-M19 focus: start operability + release UX v2 execution backlog (M20).
+- Last completed backlog (M20): `docs/M20_EXECUTION_BACKLOG.md`
+- Post-M20 focus: start M21 ABI/API stability v3 execution backlog.
 
 

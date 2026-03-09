@@ -236,3 +236,18 @@ jobs:
             out/sbom-v1.spdx.json
             out/provenance-v1.json
             out/support-bundle-v1.json
+
+      - name: Operability and release UX v2 gate
+        run: |
+          make test-release-ops-v2
+
+      - name: Upload release ops v2 artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-ops-v2-artifacts
+          path: |
+            out/pytest-release-ops-v2.xml
+            out/installer-v2.json
+            out/upgrade-recovery-v2.json
+            out/support-bundle-v2.json

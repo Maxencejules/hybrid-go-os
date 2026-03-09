@@ -51,7 +51,7 @@ endif
        build-sec-rights image-sec-rights \
        build-sec-filter image-sec-filter \
        test-security-baseline test-runtime-maturity test-process-scheduler-v2 test-compat-v2 test-network-stack-v1 test-network-stack-v2 \
-       test-storage-reliability-v1 test-storage-reliability-v2 test-release-engineering-v1 \
+       test-storage-reliability-v1 test-storage-reliability-v2 test-release-engineering-v1 test-release-ops-v2 \
        test-firmware-attestation-v1 test-update-trust-v1 test-vuln-response-v1 \
        test-crash-dump-v1 test-supply-chain-revalidation-v1 test-fleet-rollout-safety-v1 \
        run test-qemu test-hw-matrix test-hw-matrix-v2 repro-check clean legacy docker-all docker-legacy
@@ -567,6 +567,12 @@ test-release-engineering-v1: image
 	$(PYTHON) tools/generate_provenance_v1.py --out $(OUT)/provenance-v1.json
 	$(PYTHON) tools/collect_support_bundle_v1.py --out $(OUT)/support-bundle-v1.json
 	$(PYTHON) -m pytest tests/build tests/pkg/test_update_metadata_v1.py tests/pkg/test_update_rollback_protection_v1.py tests/pkg/test_update_attack_suite_v1.py -v
+
+test-release-ops-v2: image
+	$(PYTHON) tools/build_installer_v2.py --out $(OUT)/installer-v2.json
+	$(PYTHON) tools/run_upgrade_recovery_drill_v2.py --out $(OUT)/upgrade-recovery-v2.json
+	$(PYTHON) tools/collect_support_bundle_v2.py --artifacts $(OUT)/installer-v2.json $(OUT)/upgrade-recovery-v2.json --out $(OUT)/support-bundle-v2.json
+	$(PYTHON) -m pytest tests/build/test_installer_recovery_v2.py tests/build/test_upgrade_rollback_v2.py tests/build/test_support_bundle_v2.py tests/build/test_operability_gate_v2.py -v --junitxml=$(OUT)/pytest-release-ops-v2.xml
 
 test-firmware-attestation-v1:
 	$(PYTHON) tools/collect_measured_boot_report_v1.py --out $(OUT)/measured-boot-v1.json

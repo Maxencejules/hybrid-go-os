@@ -78,13 +78,13 @@ Source of truth: [MILESTONES.md](MILESTONES.md)
 | Lane | Kernel milestones | Go milestones |
 |------|-------------------|---------------|
 | Legacy (`legacy/`) | M0-M7: done | G0: done |
-| Rugo (repo root) | M0-M14: done | G1: done, G2: done |
+| Rugo (repo root) | M0-M20: done | G1: done, G2: done |
 
 Tiny visual summary:
 
 ```text
 Legacy: [M0 M1 M2 M3 M4 M5 M6 M7] [G0] complete
-Rugo:   [M0 M1 M2 M3 M4 M5 M6 M7 M8 M9 M10 M11 M12 M13 M14] [G1] complete  [G2] complete
+Rugo:   [M0 M1 M2 M3 M4 M5 M6 M7 M8 M9 M10 M11 M12 M13 M14 M15 M16 M17 M18 M19 M20] [G1] complete  [G2] complete
 ```
 
 ## Post-G2 roadmap
@@ -97,6 +97,12 @@ Rugo:   [M0 M1 M2 M3 M4 M5 M6 M7 M8 M9 M10 M11 M12 M13 M14] [G1] complete  [G2] 
 - M12 execution backlog (completed): `docs/M12_EXECUTION_BACKLOG.md`
 - M13 execution backlog (completed): `docs/M13_EXECUTION_BACKLOG.md`
 - M14 execution backlog (completed): `docs/M14_EXECUTION_BACKLOG.md`
+- M15 execution backlog (completed): `docs/M15_EXECUTION_BACKLOG.md`
+- M16 execution backlog (completed): `docs/M16_EXECUTION_BACKLOG.md`
+- M17 execution backlog (completed): `docs/M17_EXECUTION_BACKLOG.md`
+- M18 execution backlog (completed): `docs/M18_EXECUTION_BACKLOG.md`
+- M19 execution backlog (completed): `docs/M19_EXECUTION_BACKLOG.md`
+- M20 execution backlog (completed): `docs/M20_EXECUTION_BACKLOG.md`
 - Hardware support matrix v1: [docs/hw/support_matrix_v1.md](docs/hw/support_matrix_v1.md)
 - Security baseline docs: [docs/security/rights_capability_model_v1.md](docs/security/rights_capability_model_v1.md)
 - Compatibility profile v1 contract: [docs/abi/compat_profile_v1.md](docs/abi/compat_profile_v1.md)
@@ -132,9 +138,14 @@ make test-qemu
 make test-hw-matrix
 make test-security-baseline
 make test-runtime-maturity
+make test-process-scheduler-v2
+make test-compat-v2
+make test-network-stack-v2
+make test-storage-reliability-v2
 make test-network-stack-v1
 make test-storage-reliability-v1
 make test-release-engineering-v1
+make test-release-ops-v2
 
 # Compatibility Profile v1 + external package bootstrap lane
 python3 tools/pkg_bootstrap_v1.py --disk-out out/fs-external.img
