@@ -372,3 +372,31 @@ jobs:
           path: |
             out/pytest-app-compat-v3.xml
             out/app-compat-matrix-v3.json
+
+      - name: Security hardening v3 gate
+        run: |
+          make test-security-hardening-v3
+
+      - name: Upload security hardening v3 artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-hardening-v3-artifacts
+          path: |
+            out/pytest-security-hardening-v3.xml
+            out/security-attack-suite-v3.json
+            out/security-fuzz-v2.json
+
+      - name: Vulnerability response v1 gate
+        run: |
+          make test-vuln-response-v1
+
+      - name: Upload vulnerability response v1 artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vuln-response-v1-artifacts
+          path: |
+            out/pytest-vuln-response-v1.xml
+            out/security-advisory-lint-v1.json
+            out/security-embargo-drill-v1.json

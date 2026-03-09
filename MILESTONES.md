@@ -93,6 +93,7 @@ Tests: `legacy/tests/` (boot, trap, sched, user, ipc, drivers, fs, pkg, net)
 | M25 | Userspace Service Model + Init v2 | n/a | done | Rugo: service/init v2 contract docs and deterministic lifecycle/dependency/restart checks, `make test-userspace-model-v2`, CI `Userspace model v2 gate`, docs in `docs/runtime/service_model_v2.md`, `docs/runtime/init_contract_v2.md`, and `docs/M25_EXECUTION_BACKLOG.md`. |
 | M26 | Package/Repo Ecosystem v3 | n/a | done | Rugo: package/repo v3 contracts and deterministic policy/rebuild/update-trust artifacts, `make test-pkg-ecosystem-v3`, `make test-update-trust-v1`, CI `Package ecosystem v3 gate` + `Update trust v1 gate`, docs in `docs/pkg/*_v3`, `docs/pkg/update_trust_model_v1.md`, and `docs/M26_EXECUTION_BACKLOG.md`. |
 | M27 | External App Compatibility Program v3 | n/a | done | Rugo: compatibility profile/tier contracts + deterministic class matrix artifacts, `make test-app-compat-v3`, CI `App compatibility v3 gate`, docs in `docs/abi/compat_profile_v3.md`, `docs/abi/app_compat_tiers_v1.md`, and `docs/M27_EXECUTION_BACKLOG.md`. |
+| M28 | Security Hardening Program v3 | n/a | done | Rugo: hardening profile/threat model contracts + deterministic attack/fuzz and vulnerability-response artifacts, `make test-security-hardening-v3`, `make test-vuln-response-v1`, CI `Security hardening v3 gate` + `Vulnerability response v1 gate`, docs in `docs/security/hardening_profile_v3.md`, `docs/security/threat_model_v2.md`, and `docs/M28_EXECUTION_BACKLOG.md`. |
 Legend: ✅ = done with passing tests, ◐ = in progress (prep), — = not started, n/a = not applicable to this lane.
 
 ---
@@ -1373,6 +1374,64 @@ Milestone status: done (2026-03-09).
 - Release gating:
   - `Makefile` target `test-app-compat-v3`
   - `.github/workflows/ci.yml` step `App compatibility v3 gate`
+
+---
+
+## M28: Security Hardening Program v3
+
+Milestone status: done (2026-03-09).
+
+### Definition of done
+
+- Hardening profile v3 and threat model v2 are versioned and test-backed.
+- Attack-suite and fuzz v2 artifacts are deterministic and machine-readable.
+- Vulnerability response v1 is integrated as a required sub-gate in local and
+  CI release lanes.
+
+### Acceptance tests
+
+| Test | Markers/Outcome |
+|------|------------------|
+| `tests/security/test_hardening_docs_v3.py` | hardening profile and threat model contracts include required gate and schema tokens |
+| `tests/security/test_attack_suite_v3.py` | deterministic attack-suite report schema and injected-failure detection checks |
+| `tests/security/test_fuzz_gate_v2.py` | deterministic fuzz v2 campaign schema and injected-violation rejection checks |
+| `tests/security/test_policy_enforcement_v3.py` | policy identifier alignment and advisory/embargo negative-path enforcement checks |
+| `tests/security/test_vuln_response_docs_v1.py` | response/advisory policy contracts expose required IDs and gate wiring |
+| `tests/security/test_vuln_triage_sla_v1.py` | triage SLA remains enforced in embargo drill output |
+| `tests/security/test_embargo_workflow_v1.py` | embargo workflow stages complete with required success markers |
+| `tests/security/test_advisory_schema_v1.py` | advisory lint schema remains valid with zero errors for baseline advisory |
+| `tests/security/test_security_hardening_gate_v3.py` | hardening gate make/ci/docs wiring, closure checks, and tool artifact pass |
+| `tests/security/test_vuln_response_gate_v1.py` | sub-gate make/ci/docs wiring and advisory/embargo artifact checks |
+
+### Rugo evidence
+
+- Contract docs:
+  - `docs/security/hardening_profile_v3.md`
+  - `docs/security/threat_model_v2.md`
+  - `docs/security/vulnerability_response_policy_v1.md`
+  - `docs/security/security_advisory_policy_v1.md`
+- Tooling:
+  - `tools/run_security_attack_suite_v3.py`
+  - `tools/run_security_fuzz_v2.py`
+  - `tools/security_advisory_lint_v1.py`
+  - `tools/security_embargo_drill_v1.py`
+- Test gate:
+  - `tests/security/test_hardening_docs_v3.py`
+  - `tests/security/test_attack_suite_v3.py`
+  - `tests/security/test_fuzz_gate_v2.py`
+  - `tests/security/test_policy_enforcement_v3.py`
+  - `tests/security/test_vuln_response_docs_v1.py`
+  - `tests/security/test_vuln_triage_sla_v1.py`
+  - `tests/security/test_embargo_workflow_v1.py`
+  - `tests/security/test_advisory_schema_v1.py`
+  - `tests/security/test_security_hardening_gate_v3.py`
+  - `tests/security/test_vuln_response_gate_v1.py`
+- Execution history:
+  - `docs/M28_EXECUTION_BACKLOG.md`
+- Release gating:
+  - `Makefile` targets `test-security-hardening-v3`, `test-vuln-response-v1`
+  - `.github/workflows/ci.yml` steps `Security hardening v3 gate`,
+    `Vulnerability response v1 gate`
 
 ---
 

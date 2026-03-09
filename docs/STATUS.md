@@ -33,6 +33,8 @@ make test-userspace-model-v2
 make test-pkg-ecosystem-v3
 make test-update-trust-v1
 make test-app-compat-v3
+make test-security-hardening-v3
+make test-vuln-response-v1
 
 # Legacy (build + QEMU smoke tests, 16 tests)
 make -C legacy build && make -C legacy image && make -C legacy test-qemu
@@ -77,6 +79,7 @@ make docker-legacy       # Legacy only (requires gccgo in Docker image)
 | **M25** Userspace Service Model + Init v2 | n/a | done | Rugo: service/init v2 contract docs + deterministic lifecycle/dependency/restart checks, `make test-userspace-model-v2`, CI `Userspace model v2 gate`, docs in `docs/runtime/service_model_v2.md`, `docs/runtime/init_contract_v2.md`, and `docs/M25_EXECUTION_BACKLOG.md`. |
 | **M26** Package/Repo Ecosystem v3 | n/a | done | Rugo: package/repo v3 contracts + deterministic policy/rebuild/update-trust artifacts, `make test-pkg-ecosystem-v3`, `make test-update-trust-v1`, CI `Package ecosystem v3 gate` + `Update trust v1 gate`, docs in `docs/pkg/*_v3`, `docs/pkg/update_trust_model_v1.md`, and `docs/M26_EXECUTION_BACKLOG.md`. |
 | **M27** External App Compatibility Program v3 | n/a | done | Rugo: compatibility profile/tier contracts + deterministic class matrix artifacts, `make test-app-compat-v3`, CI `App compatibility v3 gate`, docs in `docs/abi/compat_profile_v3.md`, `docs/abi/app_compat_tiers_v1.md`, and `docs/M27_EXECUTION_BACKLOG.md`. |
+| **M28** Security Hardening Program v3 | n/a | done | Rugo: hardening profile/threat model contracts + deterministic attack/fuzz and vulnerability-response artifacts, `make test-security-hardening-v3`, `make test-vuln-response-v1`, CI `Security hardening v3 gate` + `Vulnerability response v1 gate`, docs in `docs/security/hardening_profile_v3.md`, `docs/security/threat_model_v2.md`, and `docs/M28_EXECUTION_BACKLOG.md`. |
 
 ✅ done &ensp; ◐ in progress (prep) &ensp; ⬜ not started &ensp; n/a not applicable
 
@@ -537,9 +540,35 @@ M27 execution update (2026-03-09):
   - `.github/workflows/ci.yml` step `App compatibility v3 gate`
 - M27 is done.
 
+M28 execution update (2026-03-09):
+- PR-1 complete (hardening v3 + vulnerability-response contracts):
+  - `docs/security/hardening_profile_v3.md`
+  - `docs/security/threat_model_v2.md`
+  - `docs/security/vulnerability_response_policy_v1.md`
+  - `docs/security/security_advisory_policy_v1.md`
+  - `tests/security/test_hardening_docs_v3.py`
+  - `tests/security/test_vuln_response_docs_v1.py`
+- PR-2 complete (deterministic hardening enforcement + response tooling):
+  - `tools/run_security_attack_suite_v3.py`
+  - `tools/run_security_fuzz_v2.py`
+  - `tools/security_advisory_lint_v1.py`
+  - `tools/security_embargo_drill_v1.py`
+  - `tests/security/test_attack_suite_v3.py`
+  - `tests/security/test_fuzz_gate_v2.py`
+  - `tests/security/test_policy_enforcement_v3.py`
+  - `tests/security/test_vuln_triage_sla_v1.py`
+  - `tests/security/test_embargo_workflow_v1.py`
+  - `tests/security/test_advisory_schema_v1.py`
+- PR-3 complete (security hardening v3 gate + vuln-response sub-gate):
+  - `tests/security/test_security_hardening_gate_v3.py`
+  - `tests/security/test_vuln_response_gate_v1.py`
+  - `Makefile` targets `test-security-hardening-v3`, `test-vuln-response-v1`
+  - `.github/workflows/ci.yml` steps `Security hardening v3 gate`, `Vulnerability response v1 gate`
+- M28 is done.
+
 Post-G2 planning and execution:
 - Extended roadmap (M21-M34): `docs/M21_M34_MATURITY_PARITY_ROADMAP.md`
-- Last completed backlog (M27): `docs/M27_EXECUTION_BACKLOG.md`
-- Post-M27 focus: start M28 security hardening v3 execution backlog.
+- Last completed backlog (M28): `docs/M28_EXECUTION_BACKLOG.md`
+- Post-M28 focus: start M29 observability and diagnostics v2 execution backlog.
 
 

@@ -52,7 +52,7 @@ endif
        build-sec-filter image-sec-filter \
        test-security-baseline test-runtime-maturity test-process-scheduler-v2 test-compat-v2 test-network-stack-v1 test-network-stack-v2 \
        test-storage-reliability-v1 test-storage-reliability-v2 test-release-engineering-v1 test-release-ops-v2 test-abi-stability-v3 test-kernel-reliability-v1 \
-       test-firmware-attestation-v1 test-perf-regression-v1 test-userspace-model-v2 test-pkg-ecosystem-v3 test-update-trust-v1 test-app-compat-v3 test-vuln-response-v1 \
+       test-firmware-attestation-v1 test-perf-regression-v1 test-userspace-model-v2 test-pkg-ecosystem-v3 test-update-trust-v1 test-app-compat-v3 test-security-hardening-v3 test-vuln-response-v1 \
        test-crash-dump-v1 test-supply-chain-revalidation-v1 test-fleet-rollout-safety-v1 \
        run test-qemu test-hw-matrix test-hw-matrix-v2 test-hw-matrix-v3 repro-check clean legacy docker-all docker-legacy
 
@@ -617,10 +617,18 @@ test-app-compat-v3:
 	$(PYTHON) tools/run_app_compat_matrix_v3.py --seed 20260309 --out $(OUT)/app-compat-matrix-v3.json
 	$(PYTHON) -m pytest tests/compat/test_app_tier_docs_v1.py tests/compat/test_cli_suite_v3.py tests/compat/test_runtime_suite_v3.py tests/compat/test_service_suite_v3.py tests/compat/test_app_compat_gate_v3.py -v --junitxml=$(OUT)/pytest-app-compat-v3.xml
 
+test-security-hardening-v3:
+	$(PYTHON) tools/run_security_attack_suite_v3.py --seed 20260309 --out $(OUT)/security-attack-suite-v3.json
+	$(PYTHON) tools/run_security_fuzz_v2.py --seed 20260309 --iterations 1600 --cases 5 --out $(OUT)/security-fuzz-v2.json
+	$(PYTHON) -m pytest tests/security/test_hardening_docs_v3.py tests/security/test_attack_suite_v3.py tests/security/test_fuzz_gate_v2.py tests/security/test_policy_enforcement_v3.py tests/security/test_security_hardening_gate_v3.py -v --junitxml=$(OUT)/pytest-security-hardening-v3.xml
+	$(PYTHON) tools/security_advisory_lint_v1.py --out $(OUT)/security-advisory-lint-v1.json
+	$(PYTHON) tools/security_embargo_drill_v1.py --out $(OUT)/security-embargo-drill-v1.json
+	$(PYTHON) -m pytest tests/security/test_vuln_response_docs_v1.py tests/security/test_vuln_triage_sla_v1.py tests/security/test_embargo_workflow_v1.py tests/security/test_advisory_schema_v1.py tests/security/test_vuln_response_gate_v1.py -v --junitxml=$(OUT)/pytest-vuln-response-v1.xml
+
 test-vuln-response-v1:
 	$(PYTHON) tools/security_advisory_lint_v1.py --out $(OUT)/security-advisory-lint-v1.json
 	$(PYTHON) tools/security_embargo_drill_v1.py --out $(OUT)/security-embargo-drill-v1.json
-	$(PYTHON) -m pytest tests/security/test_vuln_response_docs_v1.py tests/security/test_vuln_triage_sla_v1.py tests/security/test_embargo_workflow_v1.py tests/security/test_advisory_schema_v1.py tests/security/test_vuln_response_gate_v1.py -v
+	$(PYTHON) -m pytest tests/security/test_vuln_response_docs_v1.py tests/security/test_vuln_triage_sla_v1.py tests/security/test_embargo_workflow_v1.py tests/security/test_advisory_schema_v1.py tests/security/test_vuln_response_gate_v1.py -v --junitxml=$(OUT)/pytest-vuln-response-v1.xml
 
 test-crash-dump-v1:
 	$(PYTHON) tools/collect_crash_dump_v1.py --out $(OUT)/crash-dump-v1.json
