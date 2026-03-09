@@ -815,12 +815,14 @@ M39 execution update (2026-03-09):
 Post-G2 planning and execution:
 - Extended roadmap (M21-M34): `docs/M21_M34_MATURITY_PARITY_ROADMAP.md`
 - Next roadmap (M35-M39): `docs/M35_M39_GENERAL_PURPOSE_EXPANSION_ROADMAP.md`
+- Next roadmap (M40-M44, proposed): `docs/M40_M44_GENERAL_PURPOSE_PARITY_ROADMAP.md`
 - Completed backlogs (M35-M39):
   - `docs/M35_EXECUTION_BACKLOG.md`
   - `docs/M36_EXECUTION_BACKLOG.md`
   - `docs/M37_EXECUTION_BACKLOG.md`
   - `docs/M38_EXECUTION_BACKLOG.md`
   - `docs/M39_EXECUTION_BACKLOG.md`
+- Next backlog (M40, proposed): `docs/M40_EXECUTION_BACKLOG.md`
 - Last completed backlog (M39): `docs/M39_EXECUTION_BACKLOG.md`
 - M35-M39 roadmap execution is complete with M35 desktop baseline closure,
   M36 compatibility-surface closure, M37 hardware matrix v4 closure, M38
