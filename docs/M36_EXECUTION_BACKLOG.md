@@ -2,7 +2,7 @@
 
 Date: 2026-03-09  
 Lane: Rugo (Rust kernel + Go user space)  
-Status: proposed
+Status: done
 
 ## Goal
 
@@ -20,11 +20,11 @@ M36 source of truth remains `docs/M35_M39_GENERAL_PURPOSE_EXPANSION_ROADMAP.md`,
 - M36 introduces compatibility profile v4 planning and deterministic closure of
   prioritized gaps.
 
-## Execution Plan
+## Execution Result
 
-- PR-1: contract freeze
-- PR-2: implementation and compatibility campaigns
-- PR-3: release-gate wiring and closure
+- PR-1: complete (2026-03-09)
+- PR-2: complete (2026-03-09)
+- PR-3: complete (2026-03-09)
 
 ## PR-1: Compatibility Contract Freeze
 
@@ -58,6 +58,16 @@ surfaces.
 ### Done criteria for PR-1
 
 - Compatibility profile v4 boundaries are explicit, versioned, and test-backed.
+
+### PR-1 completion summary
+
+- Added compatibility contract docs:
+  - `docs/abi/compat_profile_v4.md`
+  - `docs/runtime/syscall_coverage_matrix_v3.md`
+  - `docs/abi/process_model_v3.md`
+  - `docs/abi/socket_family_expansion_v1.md`
+- Added executable contract checks:
+  - `tests/compat/test_compat_docs_v4.py`
 
 ## PR-2: Compatibility Closure Campaign
 
@@ -97,6 +107,17 @@ checks.
 - Expanded compatibility behavior is deterministic and machine-verifiable.
 - Deferred surfaces remain explicit with deterministic unsupported outcomes.
 
+### PR-2 completion summary
+
+- Added deterministic compatibility campaign tooling:
+  - `tools/run_compat_surface_campaign_v1.py`
+  - `tools/run_posix_gap_report_v1.py`
+- Added executable compatibility checks:
+  - `tests/compat/test_posix_gap_closure_v1.py`
+  - `tests/compat/test_process_model_v3.py`
+  - `tests/compat/test_socket_family_expansion_v1.py`
+  - `tests/compat/test_deferred_surface_behavior_v1.py`
+
 ## PR-3: Compatibility Surface Gate + POSIX Sub-gate
 
 ### Objective
@@ -134,6 +155,22 @@ Make compatibility expansion release-blocking.
 
 - Compatibility surface and POSIX closure sub-gates are required in local and CI.
 - M36 can be marked done with deterministic campaign artifacts.
+
+### PR-3 completion summary
+
+- Added aggregate gate checks:
+  - `tests/compat/test_compat_surface_gate_v1.py`
+  - `tests/compat/test_posix_gap_closure_gate_v1.py`
+- Added local gates:
+  - `make test-compat-surface-v1`
+  - `make test-posix-gap-closure-v1`
+- Added CI gates and artifacts:
+  - `Compatibility surface v1 gate`
+  - `POSIX gap closure v1 gate`
+- Updated closure docs:
+  - `MILESTONES.md`
+  - `docs/STATUS.md`
+  - `README.md`
 
 ## Non-goals for M36 backlog
 

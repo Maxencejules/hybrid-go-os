@@ -554,3 +554,29 @@ jobs:
           path: |
             out/pytest-gui-app-compat-v1.xml
             out/gui-app-matrix-v1.json
+
+      - name: Compatibility surface v1 gate
+        run: |
+          make test-compat-surface-v1
+
+      - name: Upload compatibility surface v1 artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: compat-surface-v1-artifacts
+          path: |
+            out/pytest-compat-surface-v1.xml
+            out/compat-surface-v1.json
+
+      - name: POSIX gap closure v1 gate
+        run: |
+          make test-posix-gap-closure-v1
+
+      - name: Upload POSIX gap closure v1 artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: posix-gap-closure-v1-artifacts
+          path: |
+            out/pytest-posix-gap-closure-v1.xml
+            out/posix-gap-report-v1.json

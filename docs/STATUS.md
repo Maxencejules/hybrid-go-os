@@ -40,6 +40,8 @@ make test-crash-dump-v1
 make test-ops-ux-v3
 make test-desktop-stack-v1
 make test-gui-app-compat-v1
+make test-compat-surface-v1
+make test-posix-gap-closure-v1
 
 # Legacy (build + QEMU smoke tests, 16 tests)
 make -C legacy build && make -C legacy image && make -C legacy test-qemu
@@ -92,6 +94,7 @@ make docker-legacy       # Legacy only (requires gccgo in Docker image)
 | **M33** Fleet-Scale Operations Baseline v1 | n/a | done | Rugo: fleet update/health and rollout-safety policy contracts + deterministic fleet/canary/abort simulations, `make test-fleet-ops-v1`, `make test-fleet-rollout-safety-v1`, CI `Fleet ops v1 gate` + `Fleet rollout safety v1 gate`, docs in `docs/pkg/fleet_update_policy_v1.md`, `docs/runtime/fleet_health_policy_v1.md`, and `docs/M33_EXECUTION_BACKLOG.md`. |
 | **M34** Maturity Qualification + LTS Declaration | n/a | done | Rugo: maturity qualification/LTS declaration contracts + deterministic cross-domain qualification bundle, `make test-maturity-qual-v1`, CI `Maturity qualification v1 gate`, docs in `docs/build/maturity_qualification_v1.md`, `docs/build/lts_declaration_policy_v1.md`, and `docs/M34_EXECUTION_BACKLOG.md`. |
 | **M35** Desktop + Interactive UX Baseline v1 | n/a | done | Rugo: desktop/display/input contracts + deterministic desktop/gui artifacts, `make test-desktop-stack-v1`, `make test-gui-app-compat-v1`, CI `Desktop stack v1 gate` + `GUI app compatibility v1 gate`, docs in `docs/desktop/*`, and `docs/M35_EXECUTION_BACKLOG.md`. |
+| **M36** Compatibility Surface Expansion v1 | n/a | done | Rugo: compatibility/process/socket contracts + deterministic compatibility/POSIX artifacts, `make test-compat-surface-v1`, `make test-posix-gap-closure-v1`, CI `Compatibility surface v1 gate` + `POSIX gap closure v1 gate`, docs in `docs/abi/compat_profile_v4.md`, `docs/runtime/syscall_coverage_matrix_v3.md`, and `docs/M36_EXECUTION_BACKLOG.md`. |
 
 ✅ done &ensp; ◐ in progress (prep) &ensp; ⬜ not started &ensp; n/a not applicable
 
@@ -719,15 +722,36 @@ M35 execution update (2026-03-09):
   - `.github/workflows/ci.yml` steps `Desktop stack v1 gate`, `GUI app compatibility v1 gate`
 - M35 is done.
 
+M36 execution update (2026-03-09):
+- PR-1 complete (compatibility/process/socket contract freeze):
+  - `docs/abi/compat_profile_v4.md`
+  - `docs/runtime/syscall_coverage_matrix_v3.md`
+  - `docs/abi/process_model_v3.md`
+  - `docs/abi/socket_family_expansion_v1.md`
+  - `tests/compat/test_compat_docs_v4.py`
+- PR-2 complete (deterministic compatibility campaign tooling + checks):
+  - `tools/run_compat_surface_campaign_v1.py`
+  - `tools/run_posix_gap_report_v1.py`
+  - `tests/compat/test_posix_gap_closure_v1.py`
+  - `tests/compat/test_process_model_v3.py`
+  - `tests/compat/test_socket_family_expansion_v1.py`
+  - `tests/compat/test_deferred_surface_behavior_v1.py`
+- PR-3 complete (compatibility gate + POSIX sub-gate wiring):
+  - `tests/compat/test_compat_surface_gate_v1.py`
+  - `tests/compat/test_posix_gap_closure_gate_v1.py`
+  - `Makefile` targets `test-compat-surface-v1`, `test-posix-gap-closure-v1`
+  - `.github/workflows/ci.yml` steps `Compatibility surface v1 gate`, `POSIX gap closure v1 gate`
+- M36 is done.
+
 Post-G2 planning and execution:
 - Extended roadmap (M21-M34): `docs/M21_M34_MATURITY_PARITY_ROADMAP.md`
 - Next roadmap (M35-M39): `docs/M35_M39_GENERAL_PURPOSE_EXPANSION_ROADMAP.md`
-- Planned backlogs (M36-M39):
-  - `docs/M36_EXECUTION_BACKLOG.md`
+- Planned backlogs (M37-M39):
   - `docs/M37_EXECUTION_BACKLOG.md`
   - `docs/M38_EXECUTION_BACKLOG.md`
   - `docs/M39_EXECUTION_BACKLOG.md`
-- Last completed backlog (M35): `docs/M35_EXECUTION_BACKLOG.md`
-- M35-M39 roadmap execution has started with M35 desktop baseline closure.
+- Last completed backlog (M36): `docs/M36_EXECUTION_BACKLOG.md`
+- M35-M39 roadmap execution has started with M35 desktop baseline closure and
+  M36 compatibility-surface closure.
 
 

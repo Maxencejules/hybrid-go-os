@@ -101,6 +101,7 @@ Tests: `legacy/tests/` (boot, trap, sched, user, ipc, drivers, fs, pkg, net)
 | M33 | Fleet-Scale Operations Baseline v1 | n/a | done | Rugo: fleet update/health and rollout-safety policy contracts + deterministic fleet/canary/abort simulations, `make test-fleet-ops-v1`, `make test-fleet-rollout-safety-v1`, CI `Fleet ops v1 gate` + `Fleet rollout safety v1 gate`, docs in `docs/pkg/fleet_update_policy_v1.md`, `docs/runtime/fleet_health_policy_v1.md`, and `docs/M33_EXECUTION_BACKLOG.md`. |
 | M34 | Maturity Qualification + LTS Declaration | n/a | done | Rugo: maturity qualification/LTS declaration contracts + deterministic cross-domain qualification bundle, `make test-maturity-qual-v1`, CI `Maturity qualification v1 gate`, docs in `docs/build/maturity_qualification_v1.md`, `docs/build/lts_declaration_policy_v1.md`, and `docs/M34_EXECUTION_BACKLOG.md`. |
 | M35 | Desktop + Interactive UX Baseline v1 | n/a | done | Rugo: desktop/display/input contracts + deterministic desktop/gui artifacts, `make test-desktop-stack-v1`, `make test-gui-app-compat-v1`, CI `Desktop stack v1 gate` + `GUI app compatibility v1 gate`, docs in `docs/desktop/*` and `docs/M35_EXECUTION_BACKLOG.md`. |
+| M36 | Compatibility Surface Expansion v1 | n/a | done | Rugo: compatibility/process/socket contracts + deterministic compatibility/POSIX artifacts, `make test-compat-surface-v1`, `make test-posix-gap-closure-v1`, CI `Compatibility surface v1 gate` + `POSIX gap closure v1 gate`, docs in `docs/abi/compat_profile_v4.md`, `docs/runtime/syscall_coverage_matrix_v3.md`, and `docs/M36_EXECUTION_BACKLOG.md`. |
 Legend: ✅ = done with passing tests, ◐ = in progress (prep), — = not started, n/a = not applicable to this lane.
 
 ---
@@ -1785,6 +1786,58 @@ Milestone status: done (2026-03-09).
   - `Makefile` targets `test-desktop-stack-v1`, `test-gui-app-compat-v1`
   - `.github/workflows/ci.yml` steps `Desktop stack v1 gate`,
     `GUI app compatibility v1 gate`
+
+---
+
+## M36: Compatibility Surface Expansion v1
+
+Milestone status: done (2026-03-09).
+
+### Definition of done
+
+- Compatibility profile v4 and related process/socket contracts are explicit,
+  versioned, and test-backed.
+- Compatibility surface and POSIX gap artifacts are deterministic and
+  machine-readable.
+- Compatibility surface gate and POSIX sub-gate are required in local and CI
+  release lanes.
+
+### Acceptance tests
+
+| Test | Markers/Outcome |
+|------|------------------|
+| `tests/compat/test_compat_docs_v4.py` | compatibility/process/socket docs include required IDs, schemas, and gate anchors |
+| `tests/compat/test_posix_gap_closure_v1.py` | deterministic POSIX gap report schema and required/deferred pass-fail behavior |
+| `tests/compat/test_process_model_v3.py` | deterministic process model v3 campaign semantics and regression rejection |
+| `tests/compat/test_socket_family_expansion_v1.py` | deterministic socket-family expansion checks and required API coverage |
+| `tests/compat/test_deferred_surface_behavior_v1.py` | deterministic deferred-surface unsupported behavior and violation rejection |
+| `tests/compat/test_posix_gap_closure_gate_v1.py` | POSIX sub-gate make/ci/docs wiring and artifact checks |
+| `tests/compat/test_compat_surface_gate_v1.py` | compatibility gate wiring, sub-gate integration, closure checks, and deterministic artifacts |
+
+### Rugo evidence
+
+- Contract docs:
+  - `docs/abi/compat_profile_v4.md`
+  - `docs/runtime/syscall_coverage_matrix_v3.md`
+  - `docs/abi/process_model_v3.md`
+  - `docs/abi/socket_family_expansion_v1.md`
+- Tooling:
+  - `tools/run_compat_surface_campaign_v1.py`
+  - `tools/run_posix_gap_report_v1.py`
+- Test gate:
+  - `tests/compat/test_compat_docs_v4.py`
+  - `tests/compat/test_posix_gap_closure_v1.py`
+  - `tests/compat/test_process_model_v3.py`
+  - `tests/compat/test_socket_family_expansion_v1.py`
+  - `tests/compat/test_deferred_surface_behavior_v1.py`
+  - `tests/compat/test_posix_gap_closure_gate_v1.py`
+  - `tests/compat/test_compat_surface_gate_v1.py`
+- Execution history:
+  - `docs/M36_EXECUTION_BACKLOG.md`
+- Release gating:
+  - `Makefile` targets `test-compat-surface-v1`, `test-posix-gap-closure-v1`
+  - `.github/workflows/ci.yml` steps `Compatibility surface v1 gate`,
+    `POSIX gap closure v1 gate`
 
 ---
 
