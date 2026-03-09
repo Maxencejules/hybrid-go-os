@@ -38,6 +38,8 @@ make test-vuln-response-v1
 make test-observability-v2
 make test-crash-dump-v1
 make test-ops-ux-v3
+make test-desktop-stack-v1
+make test-gui-app-compat-v1
 
 # Legacy (build + QEMU smoke tests, 16 tests)
 make -C legacy build && make -C legacy image && make -C legacy test-qemu
@@ -89,6 +91,7 @@ make docker-legacy       # Legacy only (requires gccgo in Docker image)
 | **M32** Conformance + Profile Qualification v1 | n/a | done | Rugo: profile conformance contract + deterministic profile qualification suite artifacts, `make test-conformance-v1`, CI `Conformance v1 gate`, docs in `docs/runtime/profile_conformance_v1.md`, and `docs/M32_EXECUTION_BACKLOG.md`. |
 | **M33** Fleet-Scale Operations Baseline v1 | n/a | done | Rugo: fleet update/health and rollout-safety policy contracts + deterministic fleet/canary/abort simulations, `make test-fleet-ops-v1`, `make test-fleet-rollout-safety-v1`, CI `Fleet ops v1 gate` + `Fleet rollout safety v1 gate`, docs in `docs/pkg/fleet_update_policy_v1.md`, `docs/runtime/fleet_health_policy_v1.md`, and `docs/M33_EXECUTION_BACKLOG.md`. |
 | **M34** Maturity Qualification + LTS Declaration | n/a | done | Rugo: maturity qualification/LTS declaration contracts + deterministic cross-domain qualification bundle, `make test-maturity-qual-v1`, CI `Maturity qualification v1 gate`, docs in `docs/build/maturity_qualification_v1.md`, `docs/build/lts_declaration_policy_v1.md`, and `docs/M34_EXECUTION_BACKLOG.md`. |
+| **M35** Desktop + Interactive UX Baseline v1 | n/a | done | Rugo: desktop/display/input contracts + deterministic desktop/gui artifacts, `make test-desktop-stack-v1`, `make test-gui-app-compat-v1`, CI `Desktop stack v1 gate` + `GUI app compatibility v1 gate`, docs in `docs/desktop/*`, and `docs/M35_EXECUTION_BACKLOG.md`. |
 
 ✅ done &ensp; ◐ in progress (prep) &ensp; ⬜ not started &ensp; n/a not applicable
 
@@ -695,16 +698,36 @@ M34 execution update (2026-03-09):
   - `.github/workflows/ci.yml` step `Maturity qualification v1 gate`
 - M34 is done.
 
+M35 execution update (2026-03-09):
+- PR-1 complete (desktop/display/window/input contract freeze):
+  - `docs/desktop/display_stack_contract_v1.md`
+  - `docs/desktop/window_manager_contract_v1.md`
+  - `docs/desktop/input_stack_contract_v1.md`
+  - `docs/desktop/desktop_profile_v1.md`
+  - `tests/desktop/test_desktop_docs_v1.py`
+- PR-2 complete (deterministic desktop and GUI baseline tooling + checks):
+  - `tools/run_desktop_smoke_v1.py`
+  - `tools/run_gui_app_matrix_v1.py`
+  - `tests/desktop/test_display_session_v1.py`
+  - `tests/desktop/test_input_baseline_v1.py`
+  - `tests/desktop/test_window_lifecycle_v1.py`
+  - `tests/desktop/test_gui_app_compat_v1.py`
+- PR-3 complete (desktop gate + GUI sub-gate wiring):
+  - `tests/desktop/test_desktop_gate_v1.py`
+  - `tests/desktop/test_gui_app_compat_gate_v1.py`
+  - `Makefile` targets `test-desktop-stack-v1`, `test-gui-app-compat-v1`
+  - `.github/workflows/ci.yml` steps `Desktop stack v1 gate`, `GUI app compatibility v1 gate`
+- M35 is done.
+
 Post-G2 planning and execution:
 - Extended roadmap (M21-M34): `docs/M21_M34_MATURITY_PARITY_ROADMAP.md`
-- Next roadmap (M35-M39, proposed): `docs/M35_M39_GENERAL_PURPOSE_EXPANSION_ROADMAP.md`
-- Planned backlogs (M35-M39):
-  - `docs/M35_EXECUTION_BACKLOG.md`
+- Next roadmap (M35-M39): `docs/M35_M39_GENERAL_PURPOSE_EXPANSION_ROADMAP.md`
+- Planned backlogs (M36-M39):
   - `docs/M36_EXECUTION_BACKLOG.md`
   - `docs/M37_EXECUTION_BACKLOG.md`
   - `docs/M38_EXECUTION_BACKLOG.md`
   - `docs/M39_EXECUTION_BACKLOG.md`
-- Last completed backlog (M34): `docs/M34_EXECUTION_BACKLOG.md`
-- M21-M34 roadmap execution is complete with the M34 maturity qualification + LTS baseline.
+- Last completed backlog (M35): `docs/M35_EXECUTION_BACKLOG.md`
+- M35-M39 roadmap execution has started with M35 desktop baseline closure.
 
 

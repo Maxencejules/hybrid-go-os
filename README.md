@@ -78,19 +78,19 @@ Source of truth: [MILESTONES.md](MILESTONES.md)
 | Lane | Kernel milestones | Go milestones |
 |------|-------------------|---------------|
 | Legacy (`legacy/`) | M0-M7: done | G0: done |
-| Rugo (repo root) | M0-M34: done | G1: done, G2: done |
+| Rugo (repo root) | M0-M35: done | G1: done, G2: done |
 
 Tiny visual summary:
 
 ```text
 Legacy: [M0 M1 M2 M3 M4 M5 M6 M7] [G0] complete
-Rugo:   [M0 M1 M2 M3 M4 M5 M6 M7 M8 M9 M10 M11 M12 M13 M14 M15 M16 M17 M18 M19 M20 M21 M22 M23 M24 M25 M26 M27 M28 M29 M30 M31 M32 M33 M34] [G1] complete  [G2] complete
+Rugo:   [M0 M1 M2 M3 M4 M5 M6 M7 M8 M9 M10 M11 M12 M13 M14 M15 M16 M17 M18 M19 M20 M21 M22 M23 M24 M25 M26 M27 M28 M29 M30 M31 M32 M33 M34 M35] [G1] complete  [G2] complete
 ```
 
 ## Post-G2 roadmap
 
 - Research roadmap (M8-M14): [docs/POST_G2_EXTENDED_MILESTONES.md](docs/POST_G2_EXTENDED_MILESTONES.md)
-- Next roadmap (M35-M39, proposed): [docs/M35_M39_GENERAL_PURPOSE_EXPANSION_ROADMAP.md](docs/M35_M39_GENERAL_PURPOSE_EXPANSION_ROADMAP.md)
+- Next roadmap (M35-M39): [docs/M35_M39_GENERAL_PURPOSE_EXPANSION_ROADMAP.md](docs/M35_M39_GENERAL_PURPOSE_EXPANSION_ROADMAP.md)
 - M8 execution backlog (completed): `docs/M8_EXECUTION_BACKLOG.md`
 - M9 execution backlog (completed): `docs/M9_EXECUTION_BACKLOG.md`
 - M10 execution backlog (completed): `docs/M10_EXECUTION_BACKLOG.md`
@@ -118,7 +118,7 @@ Rugo:   [M0 M1 M2 M3 M4 M5 M6 M7 M8 M9 M10 M11 M12 M13 M14 M15 M16 M17 M18 M19 M
 - M32 execution backlog (completed): `docs/M32_EXECUTION_BACKLOG.md`
 - M33 execution backlog (completed): `docs/M33_EXECUTION_BACKLOG.md`
 - M34 execution backlog (completed): `docs/M34_EXECUTION_BACKLOG.md`
-- M35 execution backlog (proposed): `docs/M35_EXECUTION_BACKLOG.md`
+- M35 execution backlog (completed): `docs/M35_EXECUTION_BACKLOG.md`
 - M36 execution backlog (proposed): `docs/M36_EXECUTION_BACKLOG.md`
 - M37 execution backlog (proposed): `docs/M37_EXECUTION_BACKLOG.md`
 - M38 execution backlog (proposed): `docs/M38_EXECUTION_BACKLOG.md`
@@ -186,6 +186,8 @@ make test-conformance-v1
 make test-fleet-ops-v1
 make test-fleet-rollout-safety-v1
 make test-maturity-qual-v1
+make test-desktop-stack-v1
+make test-gui-app-compat-v1
 
 # Compatibility Profile v1 + external package bootstrap lane
 python3 tools/pkg_bootstrap_v1.py --disk-out out/fs-external.img

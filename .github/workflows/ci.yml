@@ -528,3 +528,29 @@ jobs:
           path: |
             out/pytest-maturity-qual-v1.xml
             out/maturity-qualification-v1.json
+
+      - name: Desktop stack v1 gate
+        run: |
+          make test-desktop-stack-v1
+
+      - name: Upload desktop stack v1 artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-stack-v1-artifacts
+          path: |
+            out/pytest-desktop-stack-v1.xml
+            out/desktop-smoke-v1.json
+
+      - name: GUI app compatibility v1 gate
+        run: |
+          make test-gui-app-compat-v1
+
+      - name: Upload GUI app compatibility v1 artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gui-app-compat-v1-artifacts
+          path: |
+            out/pytest-gui-app-compat-v1.xml
+            out/gui-app-matrix-v1.json

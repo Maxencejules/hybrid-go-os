@@ -2,7 +2,7 @@
 
 Date: 2026-03-09  
 Lane: Rugo (Rust kernel + Go user space)  
-Status: proposed
+Status: done
 
 ## Goal
 
@@ -20,11 +20,11 @@ M35 source of truth remains `docs/M35_M39_GENERAL_PURPOSE_EXPANSION_ROADMAP.md`,
 - M35 introduces desktop/session/input contracts and deterministic GUI baseline
   gates.
 
-## Execution Plan
+## Execution Result
 
-- PR-1: contract freeze
-- PR-2: implementation and deterministic artifacts
-- PR-3: release-gate wiring and closure
+- PR-1: complete (2026-03-09)
+- PR-2: complete (2026-03-09)
+- PR-3: complete (2026-03-09)
 
 ## PR-1: Desktop Contract Freeze
 
@@ -57,6 +57,16 @@ Define desktop/session/input baseline expectations as executable contracts.
 ### Done criteria for PR-1
 
 - Desktop/session/input contracts are explicit, versioned, and test-referenced.
+
+### PR-1 completion summary
+
+- Added desktop contract docs:
+  - `docs/desktop/display_stack_contract_v1.md`
+  - `docs/desktop/window_manager_contract_v1.md`
+  - `docs/desktop/input_stack_contract_v1.md`
+  - `docs/desktop/desktop_profile_v1.md`
+- Added executable contract checks:
+  - `tests/desktop/test_desktop_docs_v1.py`
 
 ## PR-2: Desktop Baseline Tooling + Tests
 
@@ -95,6 +105,17 @@ Implement deterministic desktop smoke and GUI app-compat baseline behavior.
 - Desktop and GUI artifacts are deterministic and machine-readable.
 - Session/input/window lifecycle behavior is executable and auditable.
 
+### PR-2 completion summary
+
+- Added deterministic desktop and GUI tooling:
+  - `tools/run_desktop_smoke_v1.py`
+  - `tools/run_gui_app_matrix_v1.py`
+- Added executable baseline checks:
+  - `tests/desktop/test_display_session_v1.py`
+  - `tests/desktop/test_input_baseline_v1.py`
+  - `tests/desktop/test_window_lifecycle_v1.py`
+  - `tests/desktop/test_gui_app_compat_v1.py`
+
 ## PR-3: Desktop Gate + GUI Sub-gate
 
 ### Objective
@@ -132,6 +153,22 @@ Make desktop baseline and GUI app compatibility release-blocking.
 
 - Desktop and GUI sub-gates are required in local and CI release lanes.
 - M35 can be marked done with deterministic artifact evidence.
+
+### PR-3 completion summary
+
+- Added aggregate gate checks:
+  - `tests/desktop/test_desktop_gate_v1.py`
+  - `tests/desktop/test_gui_app_compat_gate_v1.py`
+- Added local gates:
+  - `make test-desktop-stack-v1`
+  - `make test-gui-app-compat-v1`
+- Added CI gates and artifacts:
+  - `Desktop stack v1 gate`
+  - `GUI app compatibility v1 gate`
+- Updated closure docs:
+  - `MILESTONES.md`
+  - `docs/STATUS.md`
+  - `README.md`
 
 ## Non-goals for M35 backlog
 

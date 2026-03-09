@@ -100,6 +100,7 @@ Tests: `legacy/tests/` (boot, trap, sched, user, ipc, drivers, fs, pkg, net)
 | M32 | Conformance + Profile Qualification v1 | n/a | done | Rugo: profile conformance contract + deterministic profile qualification suite artifacts, `make test-conformance-v1`, CI `Conformance v1 gate`, docs in `docs/runtime/profile_conformance_v1.md` and `docs/M32_EXECUTION_BACKLOG.md`. |
 | M33 | Fleet-Scale Operations Baseline v1 | n/a | done | Rugo: fleet update/health and rollout-safety policy contracts + deterministic fleet/canary/abort simulations, `make test-fleet-ops-v1`, `make test-fleet-rollout-safety-v1`, CI `Fleet ops v1 gate` + `Fleet rollout safety v1 gate`, docs in `docs/pkg/fleet_update_policy_v1.md`, `docs/runtime/fleet_health_policy_v1.md`, and `docs/M33_EXECUTION_BACKLOG.md`. |
 | M34 | Maturity Qualification + LTS Declaration | n/a | done | Rugo: maturity qualification/LTS declaration contracts + deterministic cross-domain qualification bundle, `make test-maturity-qual-v1`, CI `Maturity qualification v1 gate`, docs in `docs/build/maturity_qualification_v1.md`, `docs/build/lts_declaration_policy_v1.md`, and `docs/M34_EXECUTION_BACKLOG.md`. |
+| M35 | Desktop + Interactive UX Baseline v1 | n/a | done | Rugo: desktop/display/input contracts + deterministic desktop/gui artifacts, `make test-desktop-stack-v1`, `make test-gui-app-compat-v1`, CI `Desktop stack v1 gate` + `GUI app compatibility v1 gate`, docs in `docs/desktop/*` and `docs/M35_EXECUTION_BACKLOG.md`. |
 Legend: ✅ = done with passing tests, ◐ = in progress (prep), — = not started, n/a = not applicable to this lane.
 
 ---
@@ -1732,6 +1733,58 @@ Milestone status: done (2026-03-09).
 - Release gating:
   - `Makefile` target `test-maturity-qual-v1`
   - `.github/workflows/ci.yml` step `Maturity qualification v1 gate`
+
+---
+
+## M35: Desktop + Interactive UX Baseline v1
+
+Milestone status: done (2026-03-09).
+
+### Definition of done
+
+- Desktop/session/input baseline contracts are explicit, versioned, and
+  test-backed.
+- Desktop smoke and GUI compatibility artifacts are deterministic and
+  machine-readable.
+- Desktop gate and GUI compatibility sub-gate are required in local and CI
+  release lanes.
+
+### Acceptance tests
+
+| Test | Markers/Outcome |
+|------|------------------|
+| `tests/desktop/test_desktop_docs_v1.py` | desktop/display/window/input contract docs include required IDs, thresholds, schemas, and gate anchors |
+| `tests/desktop/test_display_session_v1.py` | deterministic display/session smoke behavior and display failure-path enforcement |
+| `tests/desktop/test_input_baseline_v1.py` | deterministic keyboard/pointer baseline checks and injected regression rejection |
+| `tests/desktop/test_window_lifecycle_v1.py` | deterministic create/map/focus/close lifecycle checks and failure-path enforcement |
+| `tests/desktop/test_gui_app_compat_v1.py` | deterministic GUI app matrix schema and class threshold enforcement checks |
+| `tests/desktop/test_gui_app_compat_gate_v1.py` | GUI sub-gate make/ci/docs wiring and matrix artifact pass |
+| `tests/desktop/test_desktop_gate_v1.py` | desktop gate wiring, sub-gate integration, closure checks, and deterministic artifact pass |
+
+### Rugo evidence
+
+- Contract docs:
+  - `docs/desktop/display_stack_contract_v1.md`
+  - `docs/desktop/window_manager_contract_v1.md`
+  - `docs/desktop/input_stack_contract_v1.md`
+  - `docs/desktop/desktop_profile_v1.md`
+- Tooling:
+  - `tools/run_desktop_smoke_v1.py`
+  - `tools/run_gui_app_matrix_v1.py`
+- Test gate:
+  - `tests/desktop/test_desktop_docs_v1.py`
+  - `tests/desktop/test_display_session_v1.py`
+  - `tests/desktop/test_input_baseline_v1.py`
+  - `tests/desktop/test_window_lifecycle_v1.py`
+  - `tests/desktop/test_gui_app_compat_v1.py`
+  - `tests/desktop/test_gui_app_compat_gate_v1.py`
+  - `tests/desktop/test_desktop_gate_v1.py`
+- Execution history:
+  - `docs/M35_EXECUTION_BACKLOG.md`
+- Release gating:
+  - `Makefile` targets `test-desktop-stack-v1`, `test-gui-app-compat-v1`
+  - `.github/workflows/ci.yml` steps `Desktop stack v1 gate`,
+    `GUI app compatibility v1 gate`
 
 ---
 

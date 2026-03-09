@@ -53,7 +53,7 @@ endif
        test-security-baseline test-runtime-maturity test-process-scheduler-v2 test-compat-v2 test-network-stack-v1 test-network-stack-v2 \
        test-storage-reliability-v1 test-storage-reliability-v2 test-release-engineering-v1 test-release-ops-v2 test-abi-stability-v3 test-kernel-reliability-v1 \
        test-firmware-attestation-v1 test-perf-regression-v1 test-userspace-model-v2 test-pkg-ecosystem-v3 test-update-trust-v1 test-app-compat-v3 test-security-hardening-v3 test-vuln-response-v1 \
-       test-observability-v2 test-crash-dump-v1 test-ops-ux-v3 test-release-lifecycle-v2 test-supply-chain-revalidation-v1 test-conformance-v1 test-fleet-ops-v1 test-fleet-rollout-safety-v1 test-maturity-qual-v1 \
+       test-observability-v2 test-crash-dump-v1 test-ops-ux-v3 test-release-lifecycle-v2 test-supply-chain-revalidation-v1 test-conformance-v1 test-fleet-ops-v1 test-fleet-rollout-safety-v1 test-maturity-qual-v1 test-desktop-stack-v1 test-gui-app-compat-v1 \
        run test-qemu test-hw-matrix test-hw-matrix-v2 test-hw-matrix-v3 repro-check clean legacy docker-all docker-legacy
 
 # Tools
@@ -678,6 +678,15 @@ test-fleet-rollout-safety-v1:
 test-maturity-qual-v1:
 	$(PYTHON) tools/run_maturity_qualification_v1.py --seed 20260309 --out $(OUT)/maturity-qualification-v1.json
 	$(PYTHON) -m pytest tests/build/test_maturity_docs_v1.py tests/build/test_maturity_qualification_v1.py tests/build/test_lts_policy_v1.py tests/build/test_maturity_security_response_drill_v1.py tests/build/test_maturity_supply_chain_continuity_v1.py tests/build/test_maturity_rollout_safety_v1.py tests/build/test_maturity_gate_v1.py -v --junitxml=$(OUT)/pytest-maturity-qual-v1.xml
+
+test-desktop-stack-v1:
+	$(PYTHON) tools/run_desktop_smoke_v1.py --out $(OUT)/desktop-smoke-v1.json
+	$(MAKE) test-gui-app-compat-v1
+	$(PYTHON) -m pytest tests/desktop/test_desktop_docs_v1.py tests/desktop/test_display_session_v1.py tests/desktop/test_input_baseline_v1.py tests/desktop/test_window_lifecycle_v1.py tests/desktop/test_desktop_gate_v1.py -v --junitxml=$(OUT)/pytest-desktop-stack-v1.xml
+
+test-gui-app-compat-v1:
+	$(PYTHON) tools/run_gui_app_matrix_v1.py --out $(OUT)/gui-app-matrix-v1.json
+	$(PYTHON) -m pytest tests/desktop/test_gui_app_compat_v1.py tests/desktop/test_gui_app_compat_gate_v1.py -v --junitxml=$(OUT)/pytest-gui-app-compat-v1.xml
 
 repro-check:
 	@set -e; \
