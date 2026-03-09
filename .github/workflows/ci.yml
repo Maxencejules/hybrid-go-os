@@ -632,3 +632,30 @@ jobs:
           path: |
             out/pytest-storage-feature-contract-v1.xml
             out/platform-feature-v1.json
+
+      - name: Ecosystem scale v1 gate
+        run: |
+          make test-ecosystem-scale-v1
+
+      - name: Upload ecosystem scale v1 artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ecosystem-scale-v1-artifacts
+          path: |
+            out/pytest-ecosystem-scale-v1.xml
+            out/app-catalog-sim-v1.json
+
+      - name: App catalog health v1 gate
+        run: |
+          make test-app-catalog-health-v1
+
+      - name: Upload app catalog health v1 artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-catalog-health-v1-artifacts
+          path: |
+            out/pytest-app-catalog-health-v1.xml
+            out/pkg-install-success-v1.json
+            out/catalog-audit-v1.json

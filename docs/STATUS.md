@@ -44,6 +44,8 @@ make test-compat-surface-v1
 make test-posix-gap-closure-v1
 make test-hw-matrix-v4
 make test-hw-baremetal-promotion-v1
+make test-ecosystem-scale-v1
+make test-app-catalog-health-v1
 
 # Legacy (build + QEMU smoke tests, 16 tests)
 make -C legacy build && make -C legacy image && make -C legacy test-qemu
@@ -99,6 +101,7 @@ make docker-legacy       # Legacy only (requires gccgo in Docker image)
 | **M36** Compatibility Surface Expansion v1 | n/a | done | Rugo: compatibility/process/socket contracts + deterministic compatibility/POSIX artifacts, `make test-compat-surface-v1`, `make test-posix-gap-closure-v1`, CI `Compatibility surface v1 gate` + `POSIX gap closure v1 gate`, docs in `docs/abi/compat_profile_v4.md`, `docs/runtime/syscall_coverage_matrix_v3.md`, and `docs/M36_EXECUTION_BACKLOG.md`. |
 | **M37** Hardware Breadth + Driver Matrix v4 | n/a | done | Rugo: matrix v4/driver-lifecycle/promotion contracts + deterministic hardware/promotion artifacts, `make test-hw-matrix-v4`, `make test-hw-baremetal-promotion-v1`, CI `Hardware matrix v4 gate` + `Hardware bare-metal promotion v1 gate`, docs in `docs/hw/support_matrix_v4.md`, `docs/hw/driver_lifecycle_contract_v4.md`, and `docs/M37_EXECUTION_BACKLOG.md`. |
 | **M38** Storage + Platform Feature Expansion v1 | n/a | done | Rugo: storage/platform feature contracts + deterministic snapshot/resize/fs-ops and platform-conformance artifacts, `make test-storage-platform-v1`, `make test-storage-feature-contract-v1`, CI `Storage platform v1 gate` + `Storage feature contract v1 gate`, docs in `docs/storage/fs_feature_contract_v1.md`, `docs/runtime/platform_feature_profile_v1.md`, and `docs/M38_EXECUTION_BACKLOG.md`. |
+| **M39** Ecosystem Scale + Distribution Workflow v1 | n/a | done | Rugo: ecosystem-scale/distribution contracts + deterministic catalog-scale/install/audit artifacts, `make test-ecosystem-scale-v1`, `make test-app-catalog-health-v1`, CI `Ecosystem scale v1 gate` + `App catalog health v1 gate`, docs in `docs/pkg/ecosystem_scale_policy_v1.md`, `docs/pkg/distribution_workflow_v1.md`, and `docs/M39_EXECUTION_BACKLOG.md`. |
 
 ✅ done &ensp; ◐ in progress (prep) &ensp; ⬜ not started &ensp; n/a not applicable
 
@@ -788,14 +791,39 @@ M38 execution update (2026-03-09):
   - `.github/workflows/ci.yml` steps `Storage platform v1 gate`, `Storage feature contract v1 gate`
 - M38 is done.
 
+M39 execution update (2026-03-09):
+- PR-1 complete (ecosystem scale/distribution contract freeze):
+  - `docs/pkg/ecosystem_scale_policy_v1.md`
+  - `docs/pkg/catalog_quality_contract_v1.md`
+  - `docs/pkg/distribution_workflow_v1.md`
+  - `tests/pkg/test_ecosystem_scale_docs_v1.py`
+- PR-2 complete (deterministic ecosystem-scale tooling + checks):
+  - `tools/run_app_catalog_sim_v1.py`
+  - `tools/run_pkg_install_success_campaign_v1.py`
+  - `tools/run_reproducible_catalog_audit_v1.py`
+  - `tests/pkg/test_app_catalog_sim_v1.py`
+  - `tests/pkg/test_pkg_install_success_rate_v1.py`
+  - `tests/pkg/test_catalog_reproducibility_v1.py`
+  - `tests/pkg/test_distribution_workflow_v1.py`
+- PR-3 complete (ecosystem gate + app-catalog-health sub-gate wiring):
+  - `tests/pkg/test_ecosystem_scale_gate_v1.py`
+  - `tests/pkg/test_app_catalog_health_gate_v1.py`
+  - `Makefile` targets `test-ecosystem-scale-v1`, `test-app-catalog-health-v1`
+  - `.github/workflows/ci.yml` steps `Ecosystem scale v1 gate`, `App catalog health v1 gate`
+- M39 is done.
+
 Post-G2 planning and execution:
 - Extended roadmap (M21-M34): `docs/M21_M34_MATURITY_PARITY_ROADMAP.md`
 - Next roadmap (M35-M39): `docs/M35_M39_GENERAL_PURPOSE_EXPANSION_ROADMAP.md`
-- Planned backlogs (M39):
+- Completed backlogs (M35-M39):
+  - `docs/M35_EXECUTION_BACKLOG.md`
+  - `docs/M36_EXECUTION_BACKLOG.md`
+  - `docs/M37_EXECUTION_BACKLOG.md`
+  - `docs/M38_EXECUTION_BACKLOG.md`
   - `docs/M39_EXECUTION_BACKLOG.md`
-- Last completed backlog (M38): `docs/M38_EXECUTION_BACKLOG.md`
-- M35-M39 roadmap execution has started with M35 desktop baseline closure and
-  M36 compatibility-surface closure and M37 hardware matrix v4 closure and
-  M38 storage/platform feature closure.
+- Last completed backlog (M39): `docs/M39_EXECUTION_BACKLOG.md`
+- M35-M39 roadmap execution is complete with M35 desktop baseline closure,
+  M36 compatibility-surface closure, M37 hardware matrix v4 closure, M38
+  storage/platform feature closure, and M39 ecosystem-scale closure.
 
 

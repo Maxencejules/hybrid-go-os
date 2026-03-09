@@ -104,6 +104,7 @@ Tests: `legacy/tests/` (boot, trap, sched, user, ipc, drivers, fs, pkg, net)
 | M36 | Compatibility Surface Expansion v1 | n/a | done | Rugo: compatibility/process/socket contracts + deterministic compatibility/POSIX artifacts, `make test-compat-surface-v1`, `make test-posix-gap-closure-v1`, CI `Compatibility surface v1 gate` + `POSIX gap closure v1 gate`, docs in `docs/abi/compat_profile_v4.md`, `docs/runtime/syscall_coverage_matrix_v3.md`, and `docs/M36_EXECUTION_BACKLOG.md`. |
 | M37 | Hardware Breadth + Driver Matrix v4 | n/a | done | Rugo: matrix v4/driver-lifecycle/promotion contracts + deterministic hardware/promotion artifacts, `make test-hw-matrix-v4`, `make test-hw-baremetal-promotion-v1`, CI `Hardware matrix v4 gate` + `Hardware bare-metal promotion v1 gate`, docs in `docs/hw/support_matrix_v4.md`, `docs/hw/driver_lifecycle_contract_v4.md`, and `docs/M37_EXECUTION_BACKLOG.md`. |
 | M38 | Storage + Platform Feature Expansion v1 | n/a | done | Rugo: storage/platform feature contracts + deterministic snapshot/resize/fs-ops and platform-conformance artifacts, `make test-storage-platform-v1`, `make test-storage-feature-contract-v1`, CI `Storage platform v1 gate` + `Storage feature contract v1 gate`, docs in `docs/storage/fs_feature_contract_v1.md`, `docs/runtime/platform_feature_profile_v1.md`, and `docs/M38_EXECUTION_BACKLOG.md`. |
+| M39 | Ecosystem Scale + Distribution Workflow v1 | n/a | done | Rugo: ecosystem-scale/distribution contracts + deterministic catalog-scale/install/audit artifacts, `make test-ecosystem-scale-v1`, `make test-app-catalog-health-v1`, CI `Ecosystem scale v1 gate` + `App catalog health v1 gate`, docs in `docs/pkg/ecosystem_scale_policy_v1.md`, `docs/pkg/distribution_workflow_v1.md`, and `docs/M39_EXECUTION_BACKLOG.md`. |
 Legend: ✅ = done with passing tests, ◐ = in progress (prep), — = not started, n/a = not applicable to this lane.
 
 ---
@@ -1944,6 +1945,59 @@ Milestone status: done (2026-03-09).
     `test-storage-feature-contract-v1`
   - `.github/workflows/ci.yml` steps `Storage platform v1 gate`,
     `Storage feature contract v1 gate`
+
+---
+
+## M39: Ecosystem Scale + Distribution Workflow v1
+
+Milestone status: done (2026-03-09).
+
+### Definition of done
+
+- Ecosystem scale, catalog quality, and distribution workflow contracts are
+  explicit, versioned, and test-backed.
+- App catalog simulation, install-success campaign, and reproducibility-audit
+  artifacts are deterministic and machine-readable.
+- Ecosystem scale gate and app-catalog-health sub-gate are required in local
+  and CI release lanes.
+
+### Acceptance tests
+
+| Test | Markers/Outcome |
+|------|------------------|
+| `tests/pkg/test_ecosystem_scale_docs_v1.py` | ecosystem-scale/catalog-quality/distribution docs include required IDs, thresholds, schemas, and gate anchors |
+| `tests/pkg/test_app_catalog_sim_v1.py` | deterministic catalog simulation schema and class/quality threshold enforcement |
+| `tests/pkg/test_pkg_install_success_rate_v1.py` | deterministic install-success campaign schema and success-rate regression rejection |
+| `tests/pkg/test_catalog_reproducibility_v1.py` | deterministic reproducibility audit schema and rebuild/provenance failure-path enforcement |
+| `tests/pkg/test_distribution_workflow_v1.py` | deterministic workflow-stage, signoff, rollback, and replication-lag checks |
+| `tests/pkg/test_app_catalog_health_gate_v1.py` | app-catalog-health sub-gate make/ci/docs wiring and install/audit artifact pass |
+| `tests/pkg/test_ecosystem_scale_gate_v1.py` | ecosystem-scale gate wiring, sub-gate integration, closure checks, and deterministic artifacts |
+
+### Rugo evidence
+
+- Contract docs:
+  - `docs/pkg/ecosystem_scale_policy_v1.md`
+  - `docs/pkg/catalog_quality_contract_v1.md`
+  - `docs/pkg/distribution_workflow_v1.md`
+- Tooling:
+  - `tools/run_app_catalog_sim_v1.py`
+  - `tools/run_pkg_install_success_campaign_v1.py`
+  - `tools/run_reproducible_catalog_audit_v1.py`
+- Test gate:
+  - `tests/pkg/test_ecosystem_scale_docs_v1.py`
+  - `tests/pkg/test_app_catalog_sim_v1.py`
+  - `tests/pkg/test_pkg_install_success_rate_v1.py`
+  - `tests/pkg/test_catalog_reproducibility_v1.py`
+  - `tests/pkg/test_distribution_workflow_v1.py`
+  - `tests/pkg/test_app_catalog_health_gate_v1.py`
+  - `tests/pkg/test_ecosystem_scale_gate_v1.py`
+- Execution history:
+  - `docs/M39_EXECUTION_BACKLOG.md`
+- Release gating:
+  - `Makefile` targets `test-ecosystem-scale-v1`,
+    `test-app-catalog-health-v1`
+  - `.github/workflows/ci.yml` steps `Ecosystem scale v1 gate`,
+    `App catalog health v1 gate`
 
 ---
 

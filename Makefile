@@ -54,7 +54,7 @@ endif
        test-storage-reliability-v1 test-storage-reliability-v2 test-release-engineering-v1 test-release-ops-v2 test-abi-stability-v3 test-kernel-reliability-v1 \
        test-firmware-attestation-v1 test-perf-regression-v1 test-userspace-model-v2 test-pkg-ecosystem-v3 test-update-trust-v1 test-app-compat-v3 test-security-hardening-v3 test-vuln-response-v1 \
        test-observability-v2 test-crash-dump-v1 test-ops-ux-v3 test-release-lifecycle-v2 test-supply-chain-revalidation-v1 test-conformance-v1 test-fleet-ops-v1 test-fleet-rollout-safety-v1 test-maturity-qual-v1 test-desktop-stack-v1 test-gui-app-compat-v1 \
-       test-compat-surface-v1 test-posix-gap-closure-v1 test-hw-matrix-v4 test-hw-baremetal-promotion-v1 test-storage-platform-v1 test-storage-feature-contract-v1 \
+       test-compat-surface-v1 test-posix-gap-closure-v1 test-hw-matrix-v4 test-hw-baremetal-promotion-v1 test-storage-platform-v1 test-storage-feature-contract-v1 test-ecosystem-scale-v1 test-app-catalog-health-v1 \
        run test-qemu test-hw-matrix test-hw-matrix-v2 test-hw-matrix-v3 test-hw-matrix-v4 repro-check clean legacy docker-all docker-legacy
 
 # Tools
@@ -715,6 +715,16 @@ test-storage-platform-v1:
 test-storage-feature-contract-v1:
 	$(PYTHON) tools/run_platform_feature_conformance_v1.py --out $(OUT)/platform-feature-v1.json
 	$(PYTHON) -m pytest tests/storage/test_storage_feature_docs_v1.py tests/runtime/test_platform_feature_profile_v1.py tests/storage/test_storage_feature_contract_gate_v1.py -v --junitxml=$(OUT)/pytest-storage-feature-contract-v1.xml
+
+test-ecosystem-scale-v1:
+	$(PYTHON) tools/run_app_catalog_sim_v1.py --out $(OUT)/app-catalog-sim-v1.json
+	$(MAKE) test-app-catalog-health-v1
+	$(PYTHON) -m pytest tests/pkg/test_ecosystem_scale_docs_v1.py tests/pkg/test_app_catalog_sim_v1.py tests/pkg/test_pkg_install_success_rate_v1.py tests/pkg/test_catalog_reproducibility_v1.py tests/pkg/test_distribution_workflow_v1.py tests/pkg/test_ecosystem_scale_gate_v1.py -v --junitxml=$(OUT)/pytest-ecosystem-scale-v1.xml
+
+test-app-catalog-health-v1:
+	$(PYTHON) tools/run_pkg_install_success_campaign_v1.py --out $(OUT)/pkg-install-success-v1.json
+	$(PYTHON) tools/run_reproducible_catalog_audit_v1.py --out $(OUT)/catalog-audit-v1.json
+	$(PYTHON) -m pytest tests/pkg/test_ecosystem_scale_docs_v1.py tests/pkg/test_pkg_install_success_rate_v1.py tests/pkg/test_catalog_reproducibility_v1.py tests/pkg/test_distribution_workflow_v1.py tests/pkg/test_app_catalog_health_gate_v1.py -v --junitxml=$(OUT)/pytest-app-catalog-health-v1.xml
 
 repro-check:
 	@set -e; \
