@@ -24,3 +24,38 @@ def test_provenance_verification_v1(tmp_path: Path):
     assert checks["provenance_schema"] is True
     assert checks["subject_consistency"] is True
 
+
+def test_provenance_verification_v1_detects_subject_drift(tmp_path: Path):
+    sbom_out = tmp_path / "sbom-v1.spdx.json"
+    prov_out = tmp_path / "provenance-v1.json"
+    report_out = tmp_path / "supply-chain-revalidation-v1.json"
+
+    assert sbom.main(["--out", str(sbom_out)]) == 0
+    assert provenance.main(["--out", str(prov_out)]) == 0
+
+    data = json.loads(prov_out.read_text(encoding="utf-8"))
+    data["subjects"].append(
+        {
+            "name": "out/non-existent-artifact.bin",
+            "digest": {"sha256": "00" * 32},
+        }
+    )
+    prov_out.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+
+    rc = verify.main(
+        [
+            "--sbom",
+            str(sbom_out),
+            "--provenance",
+            str(prov_out),
+            "--out",
+            str(report_out),
+            "--max-failures",
+            "0",
+        ]
+    )
+    assert rc == 1
+    report = json.loads(report_out.read_text(encoding="utf-8"))
+    checks = {c["name"]: c["pass"] for c in report["checks"]}
+    assert checks["subject_consistency"] is False
+    assert report["total_failures"] >= 1

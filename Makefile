@@ -53,7 +53,7 @@ endif
        test-security-baseline test-runtime-maturity test-process-scheduler-v2 test-compat-v2 test-network-stack-v1 test-network-stack-v2 \
        test-storage-reliability-v1 test-storage-reliability-v2 test-release-engineering-v1 test-release-ops-v2 test-abi-stability-v3 test-kernel-reliability-v1 \
        test-firmware-attestation-v1 test-perf-regression-v1 test-userspace-model-v2 test-pkg-ecosystem-v3 test-update-trust-v1 test-app-compat-v3 test-security-hardening-v3 test-vuln-response-v1 \
-       test-observability-v2 test-crash-dump-v1 test-ops-ux-v3 test-supply-chain-revalidation-v1 test-fleet-rollout-safety-v1 \
+       test-observability-v2 test-crash-dump-v1 test-ops-ux-v3 test-release-lifecycle-v2 test-supply-chain-revalidation-v1 test-fleet-rollout-safety-v1 \
        run test-qemu test-hw-matrix test-hw-matrix-v2 test-hw-matrix-v3 repro-check clean legacy docker-all docker-legacy
 
 # Tools
@@ -647,12 +647,18 @@ test-ops-ux-v3:
 	$(PYTHON) tools/run_recovery_drill_v3.py --seed 20260309 --out $(OUT)/recovery-drill-v3.json
 	$(PYTHON) -m pytest tests/build/test_installer_ux_v3.py tests/build/test_upgrade_recovery_v3.py tests/build/test_rollback_safety_v3.py tests/build/test_ops_ux_gate_v3.py -v --junitxml=$(OUT)/pytest-ops-ux-v3.xml
 
+test-release-lifecycle-v2:
+	$(PYTHON) tools/release_branch_audit_v2.py --out $(OUT)/release-branch-audit-v2.json
+	$(PYTHON) tools/support_window_audit_v1.py --out $(OUT)/support-window-audit-v1.json
+	$(MAKE) test-supply-chain-revalidation-v1
+	$(PYTHON) -m pytest tests/build/test_release_policy_v2_docs.py tests/build/test_release_branch_policy_v2.py tests/build/test_support_window_policy_v1.py tests/build/test_release_lifecycle_gate_v2.py -v --junitxml=$(OUT)/pytest-release-lifecycle-v2.xml
+
 test-supply-chain-revalidation-v1:
 	$(PYTHON) tools/generate_sbom_v1.py --out $(OUT)/sbom-v1.spdx.json
 	$(PYTHON) tools/generate_provenance_v1.py --out $(OUT)/provenance-v1.json
 	$(PYTHON) tools/verify_sbom_provenance_v2.py --sbom $(OUT)/sbom-v1.spdx.json --provenance $(OUT)/provenance-v1.json --out $(OUT)/supply-chain-revalidation-v1.json
 	$(PYTHON) tools/verify_release_attestations_v1.py --out $(OUT)/release-attestation-verification-v1.json
-	$(PYTHON) -m pytest tests/build/test_supply_chain_revalidation_docs_v1.py tests/build/test_sbom_revalidation_v1.py tests/build/test_provenance_verification_v1.py tests/build/test_attestation_drift_v1.py tests/build/test_supply_chain_revalidation_gate_v1.py -v
+	$(PYTHON) -m pytest tests/build/test_supply_chain_revalidation_docs_v1.py tests/build/test_sbom_revalidation_v1.py tests/build/test_provenance_verification_v1.py tests/build/test_attestation_drift_v1.py tests/build/test_supply_chain_revalidation_gate_v1.py -v --junitxml=$(OUT)/pytest-supply-chain-revalidation-v1.xml
 
 test-fleet-rollout-safety-v1:
 	$(PYTHON) tools/run_canary_rollout_sim_v1.py --out $(OUT)/canary-rollout-sim-v1.json

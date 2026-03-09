@@ -2,7 +2,7 @@
 
 Date: 2026-03-06  
 Lane: Rugo (Rust kernel + Go user space)  
-Status: planned
+Status: done
 
 ## Goal
 
@@ -14,15 +14,15 @@ M31 source of truth remains `docs/M21_M34_MATURITY_PARITY_ROADMAP.md`,
 
 ## Current State Summary
 
-- Release engineering baseline exists from prior milestones.
-- M31 advances branch/support governance to v2 and adds revalidation sub-gate.
-- SBOM/provenance/signature drift checks are not yet enforced per candidate.
+- Release lifecycle and support policies are explicit and versioned.
+- Branch and support-window audits are deterministic and machine-readable.
+- Supply-chain revalidation and attestation drift checks are release-blocking.
 
 ## Execution Result
 
-- PR-1: planned
-- PR-2: planned
-- PR-3: planned
+- PR-1: complete (2026-03-09)
+- PR-2: complete (2026-03-09)
+- PR-3: complete (2026-03-09)
 
 ## PR-1: Release Lifecycle + Revalidation Contracts
 
@@ -58,6 +58,11 @@ Freeze release lifecycle policy and supply-chain revalidation requirements.
 
 - Release/support/revalidation policies are explicit and test-referenced.
 
+### PR-1 completion summary
+
+- Added policy docs for lifecycle, support windows, supply-chain, and attestation.
+- Added executable doc contract checks for lifecycle and revalidation policy tokens.
+
 ## PR-2: Audit + Revalidation Tooling
 
 ### Objective
@@ -92,12 +97,19 @@ Operationalize release branch/support audits and attestation drift detection.
 
 ### Acceptance checks
 
+- `python tools/release_branch_audit_v2.py --out out/release-branch-audit-v2.json`
+- `python tools/support_window_audit_v1.py --out out/support-window-audit-v1.json`
 - `python -m pytest tests/build/test_release_branch_policy_v2.py tests/build/test_support_window_policy_v1.py tests/build/test_sbom_revalidation_v1.py tests/build/test_provenance_verification_v1.py tests/build/test_attestation_drift_v1.py -v`
 
 ### Done criteria for PR-2
 
 - Branch/support/revalidation audits are deterministic and machine-readable.
 - Attestation drift is detectable with explicit policy outcome.
+
+### PR-2 completion summary
+
+- Added deterministic branch and support-window audit tooling.
+- Extended provenance and attestation tests with explicit drift failure paths.
 
 ## PR-3: Release Lifecycle v2 Gate + Revalidation Sub-gate
 
@@ -136,8 +148,13 @@ Make release lifecycle and supply-chain revalidation release-blocking.
 - Lifecycle and revalidation gates are required in local and CI lanes.
 - M31 can be marked done with audit and support-window evidence.
 
+### PR-3 completion summary
+
+- Added lifecycle gate and retained supply-chain sub-gate as release-blocking.
+- Added CI steps and artifact uploads for both lifecycle and sub-gate lanes.
+- Added aggregate wiring test and milestone closure updates.
+
 ## Non-goals for M31 backlog
 
 - Multi-year process exception handling beyond documented policy.
 - Optional-only supply-chain checks in release candidate lanes.
-

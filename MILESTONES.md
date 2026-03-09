@@ -96,6 +96,7 @@ Tests: `legacy/tests/` (boot, trap, sched, user, ipc, drivers, fs, pkg, net)
 | M28 | Security Hardening Program v3 | n/a | done | Rugo: hardening profile/threat model contracts + deterministic attack/fuzz and vulnerability-response artifacts, `make test-security-hardening-v3`, `make test-vuln-response-v1`, CI `Security hardening v3 gate` + `Vulnerability response v1 gate`, docs in `docs/security/hardening_profile_v3.md`, `docs/security/threat_model_v2.md`, and `docs/M28_EXECUTION_BACKLOG.md`. |
 | M29 | Observability + Diagnostics v2 | n/a | done | Rugo: observability/crash contracts + deterministic trace/diagnostic/crash artifacts, `make test-observability-v2`, `make test-crash-dump-v1`, CI `Observability v2 gate` + `Crash dump v1 gate`, docs in `docs/runtime/observability_contract_v2.md`, `docs/runtime/crash_dump_contract_v1.md`, and `docs/M29_EXECUTION_BACKLOG.md`. |
 | M30 | Installer/Upgrade/Recovery UX v3 | n/a | done | Rugo: installer/recovery v3 contracts + deterministic upgrade/recovery rollback-safety artifacts, `make test-ops-ux-v3`, CI `Ops UX v3 gate`, docs in `docs/build/installer_ux_v3.md`, `docs/build/recovery_workflow_v3.md`, and `docs/M30_EXECUTION_BACKLOG.md`. |
+| M31 | Release Engineering + Support Lifecycle v2 | n/a | done | Rugo: release/support/revalidation policy contracts + deterministic branch/support/supply-chain audits, `make test-release-lifecycle-v2`, `make test-supply-chain-revalidation-v1`, CI `Release lifecycle v2 gate` + `Supply-chain revalidation v1 gate`, docs in `docs/build/release_policy_v2.md`, `docs/build/support_lifecycle_policy_v1.md`, and `docs/M31_EXECUTION_BACKLOG.md`. |
 Legend: ✅ = done with passing tests, ◐ = in progress (prep), — = not started, n/a = not applicable to this lane.
 
 ---
@@ -1530,6 +1531,65 @@ Milestone status: done (2026-03-09).
 - Release gating:
   - `Makefile` target `test-ops-ux-v3`
   - `.github/workflows/ci.yml` step `Ops UX v3 gate`
+
+---
+
+## M31: Release Engineering + Support Lifecycle v2
+
+Milestone status: done (2026-03-09).
+
+### Definition of done
+
+- Release lifecycle and support-window policies are versioned and test-backed.
+- Branch and support-window audits are deterministic and machine-readable.
+- Supply-chain revalidation and attestation drift checks are required for every
+  release candidate.
+- Release lifecycle v2 gate and supply-chain revalidation sub-gate are required
+  in local and CI release lanes.
+
+### Acceptance tests
+
+| Test | Markers/Outcome |
+|------|------------------|
+| `tests/build/test_release_policy_v2_docs.py` | release/support policy docs include required contract IDs, thresholds, and gate anchors |
+| `tests/build/test_supply_chain_revalidation_docs_v1.py` | supply-chain/attestation docs include required schema IDs, drift thresholds, and gate anchors |
+| `tests/build/test_release_branch_policy_v2.py` | deterministic branch audit schema and missing-required-branch enforcement checks |
+| `tests/build/test_support_window_policy_v1.py` | deterministic support window schema and out-of-window rejection checks |
+| `tests/build/test_sbom_revalidation_v1.py` | SBOM/provenance revalidation artifact schema and zero-failure baseline checks |
+| `tests/build/test_provenance_verification_v1.py` | provenance subject drift detection checks |
+| `tests/build/test_attestation_drift_v1.py` | attestation policy mismatch/drift detection checks |
+| `tests/build/test_supply_chain_revalidation_gate_v1.py` | supply-chain sub-gate make/ci/docs wiring and artifact checks |
+| `tests/build/test_release_lifecycle_gate_v2.py` | lifecycle gate wiring, sub-gate integration, closure checks, and audit artifact pass |
+
+### Rugo evidence
+
+- Contract docs:
+  - `docs/build/release_policy_v2.md`
+  - `docs/build/support_lifecycle_policy_v1.md`
+  - `docs/build/supply_chain_revalidation_policy_v1.md`
+  - `docs/build/release_attestation_policy_v1.md`
+- Tooling:
+  - `tools/release_branch_audit_v2.py`
+  - `tools/support_window_audit_v1.py`
+  - `tools/verify_sbom_provenance_v2.py`
+  - `tools/verify_release_attestations_v1.py`
+- Test gate:
+  - `tests/build/test_release_policy_v2_docs.py`
+  - `tests/build/test_supply_chain_revalidation_docs_v1.py`
+  - `tests/build/test_release_branch_policy_v2.py`
+  - `tests/build/test_support_window_policy_v1.py`
+  - `tests/build/test_sbom_revalidation_v1.py`
+  - `tests/build/test_provenance_verification_v1.py`
+  - `tests/build/test_attestation_drift_v1.py`
+  - `tests/build/test_supply_chain_revalidation_gate_v1.py`
+  - `tests/build/test_release_lifecycle_gate_v2.py`
+- Execution history:
+  - `docs/M31_EXECUTION_BACKLOG.md`
+- Release gating:
+  - `Makefile` targets `test-release-lifecycle-v2`,
+    `test-supply-chain-revalidation-v1`
+  - `.github/workflows/ci.yml` steps `Release lifecycle v2 gate`,
+    `Supply-chain revalidation v1 gate`
 
 ---
 

@@ -444,3 +444,33 @@ jobs:
             out/pytest-ops-ux-v3.xml
             out/upgrade-drill-v3.json
             out/recovery-drill-v3.json
+
+      - name: Release lifecycle v2 gate
+        run: |
+          make test-release-lifecycle-v2
+
+      - name: Upload release lifecycle v2 artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-lifecycle-v2-artifacts
+          path: |
+            out/pytest-release-lifecycle-v2.xml
+            out/release-branch-audit-v2.json
+            out/support-window-audit-v1.json
+
+      - name: Supply-chain revalidation v1 gate
+        run: |
+          make test-supply-chain-revalidation-v1
+
+      - name: Upload supply-chain revalidation v1 artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: supply-chain-revalidation-v1-artifacts
+          path: |
+            out/pytest-supply-chain-revalidation-v1.xml
+            out/supply-chain-revalidation-v1.json
+            out/release-attestation-verification-v1.json
+            out/sbom-v1.spdx.json
+            out/provenance-v1.json
