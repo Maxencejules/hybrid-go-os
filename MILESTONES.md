@@ -105,6 +105,7 @@ Tests: `legacy/tests/` (boot, trap, sched, user, ipc, drivers, fs, pkg, net)
 | M37 | Hardware Breadth + Driver Matrix v4 | n/a | done | Rugo: matrix v4/driver-lifecycle/promotion contracts + deterministic hardware/promotion artifacts, `make test-hw-matrix-v4`, `make test-hw-baremetal-promotion-v1`, CI `Hardware matrix v4 gate` + `Hardware bare-metal promotion v1 gate`, docs in `docs/hw/support_matrix_v4.md`, `docs/hw/driver_lifecycle_contract_v4.md`, and `docs/M37_EXECUTION_BACKLOG.md`. |
 | M38 | Storage + Platform Feature Expansion v1 | n/a | done | Rugo: storage/platform feature contracts + deterministic snapshot/resize/fs-ops and platform-conformance artifacts, `make test-storage-platform-v1`, `make test-storage-feature-contract-v1`, CI `Storage platform v1 gate` + `Storage feature contract v1 gate`, docs in `docs/storage/fs_feature_contract_v1.md`, `docs/runtime/platform_feature_profile_v1.md`, and `docs/M38_EXECUTION_BACKLOG.md`. |
 | M39 | Ecosystem Scale + Distribution Workflow v1 | n/a | done | Rugo: ecosystem-scale/distribution contracts + deterministic catalog-scale/install/audit artifacts, `make test-ecosystem-scale-v1`, `make test-app-catalog-health-v1`, CI `Ecosystem scale v1 gate` + `App catalog health v1 gate`, docs in `docs/pkg/ecosystem_scale_policy_v1.md`, `docs/pkg/distribution_workflow_v1.md`, and `docs/M39_EXECUTION_BACKLOG.md`. |
+| M40 | Runtime-Backed Evidence Integrity v1 | n/a | done | Rugo: evidence-integrity/provenance contracts + deterministic runtime-evidence/audit artifacts, `make test-evidence-integrity-v1`, `make test-synthetic-evidence-ban-v1`, CI `Evidence integrity v1 gate` + `Synthetic evidence ban v1 gate`, docs in `docs/runtime/evidence_integrity_policy_v1.md`, `docs/runtime/gate_provenance_policy_v1.md`, and `docs/M40_EXECUTION_BACKLOG.md`. |
 Legend: ✅ = done with passing tests, ◐ = in progress (prep), — = not started, n/a = not applicable to this lane.
 
 ---
@@ -1998,6 +1999,56 @@ Milestone status: done (2026-03-09).
     `test-app-catalog-health-v1`
   - `.github/workflows/ci.yml` steps `Ecosystem scale v1 gate`,
     `App catalog health v1 gate`
+
+---
+
+## M40: Runtime-Backed Evidence Integrity v1
+
+Milestone status: done (2026-03-10).
+
+### Definition of done
+
+- Evidence integrity, runtime evidence schema, and provenance audit policy
+  contracts are explicit, versioned, and test-backed.
+- Runtime evidence collection and gate audit artifacts are deterministic,
+  machine-readable, and trace-linked.
+- Evidence integrity gate and synthetic-evidence-ban sub-gate are required in
+  local and CI release lanes.
+
+### Acceptance tests
+
+| Test | Markers/Outcome |
+|------|------------------|
+| `tests/runtime/test_evidence_integrity_docs_v1.py` | evidence-integrity/runtime-schema/gate-provenance docs include required IDs, thresholds, schemas, and gate anchors |
+| `tests/runtime/test_runtime_evidence_collection_v1.py` | deterministic runtime evidence schema, provenance metrics, and synthetic failure-path rejection |
+| `tests/runtime/test_gate_evidence_audit_v1.py` | deterministic audit schema and synthetic-only evidence rejection path |
+| `tests/runtime/test_evidence_trace_linkage_v1.py` | runtime evidence items link to traces with matching lane and digest |
+| `tests/runtime/test_synthetic_evidence_ban_v1.py` | synthetic-ban sub-gate make/ci/docs wiring and enforced synthetic-only rejection |
+| `tests/runtime/test_evidence_integrity_gate_v1.py` | evidence-integrity gate wiring, sub-gate integration, closure checks, and deterministic artifacts |
+
+### Rugo evidence
+
+- Contract docs:
+  - `docs/runtime/evidence_integrity_policy_v1.md`
+  - `docs/runtime/runtime_evidence_schema_v1.md`
+  - `docs/runtime/gate_provenance_policy_v1.md`
+- Tooling:
+  - `tools/collect_runtime_evidence_v1.py`
+  - `tools/audit_gate_evidence_v1.py`
+- Test gate:
+  - `tests/runtime/test_evidence_integrity_docs_v1.py`
+  - `tests/runtime/test_runtime_evidence_collection_v1.py`
+  - `tests/runtime/test_gate_evidence_audit_v1.py`
+  - `tests/runtime/test_evidence_trace_linkage_v1.py`
+  - `tests/runtime/test_synthetic_evidence_ban_v1.py`
+  - `tests/runtime/test_evidence_integrity_gate_v1.py`
+- Execution history:
+  - `docs/M40_EXECUTION_BACKLOG.md`
+- Release gating:
+  - `Makefile` targets `test-evidence-integrity-v1`,
+    `test-synthetic-evidence-ban-v1`
+  - `.github/workflows/ci.yml` steps `Evidence integrity v1 gate`,
+    `Synthetic evidence ban v1 gate`
 
 ---
 

@@ -46,6 +46,8 @@ make test-hw-matrix-v4
 make test-hw-baremetal-promotion-v1
 make test-ecosystem-scale-v1
 make test-app-catalog-health-v1
+make test-evidence-integrity-v1
+make test-synthetic-evidence-ban-v1
 
 # Legacy (build + QEMU smoke tests, 16 tests)
 make -C legacy build && make -C legacy image && make -C legacy test-qemu
@@ -102,6 +104,7 @@ make docker-legacy       # Legacy only (requires gccgo in Docker image)
 | **M37** Hardware Breadth + Driver Matrix v4 | n/a | done | Rugo: matrix v4/driver-lifecycle/promotion contracts + deterministic hardware/promotion artifacts, `make test-hw-matrix-v4`, `make test-hw-baremetal-promotion-v1`, CI `Hardware matrix v4 gate` + `Hardware bare-metal promotion v1 gate`, docs in `docs/hw/support_matrix_v4.md`, `docs/hw/driver_lifecycle_contract_v4.md`, and `docs/M37_EXECUTION_BACKLOG.md`. |
 | **M38** Storage + Platform Feature Expansion v1 | n/a | done | Rugo: storage/platform feature contracts + deterministic snapshot/resize/fs-ops and platform-conformance artifacts, `make test-storage-platform-v1`, `make test-storage-feature-contract-v1`, CI `Storage platform v1 gate` + `Storage feature contract v1 gate`, docs in `docs/storage/fs_feature_contract_v1.md`, `docs/runtime/platform_feature_profile_v1.md`, and `docs/M38_EXECUTION_BACKLOG.md`. |
 | **M39** Ecosystem Scale + Distribution Workflow v1 | n/a | done | Rugo: ecosystem-scale/distribution contracts + deterministic catalog-scale/install/audit artifacts, `make test-ecosystem-scale-v1`, `make test-app-catalog-health-v1`, CI `Ecosystem scale v1 gate` + `App catalog health v1 gate`, docs in `docs/pkg/ecosystem_scale_policy_v1.md`, `docs/pkg/distribution_workflow_v1.md`, and `docs/M39_EXECUTION_BACKLOG.md`. |
+| **M40** Runtime-Backed Evidence Integrity v1 | n/a | done | Rugo: evidence-integrity/provenance contracts + deterministic runtime-evidence/audit artifacts, `make test-evidence-integrity-v1`, `make test-synthetic-evidence-ban-v1`, CI `Evidence integrity v1 gate` + `Synthetic evidence ban v1 gate`, docs in `docs/runtime/evidence_integrity_policy_v1.md`, `docs/runtime/gate_provenance_policy_v1.md`, and `docs/M40_EXECUTION_BACKLOG.md`. |
 
 ✅ done &ensp; ◐ in progress (prep) &ensp; ⬜ not started &ensp; n/a not applicable
 
@@ -812,25 +815,43 @@ M39 execution update (2026-03-09):
   - `.github/workflows/ci.yml` steps `Ecosystem scale v1 gate`, `App catalog health v1 gate`
 - M39 is done.
 
+M40 execution update (2026-03-10):
+- PR-1 complete (evidence-integrity contract freeze):
+  - `docs/runtime/evidence_integrity_policy_v1.md`
+  - `docs/runtime/runtime_evidence_schema_v1.md`
+  - `docs/runtime/gate_provenance_policy_v1.md`
+  - `tests/runtime/test_evidence_integrity_docs_v1.py`
+- PR-2 complete (deterministic runtime evidence tooling + checks):
+  - `tools/collect_runtime_evidence_v1.py`
+  - `tools/audit_gate_evidence_v1.py`
+  - `tests/runtime/test_runtime_evidence_collection_v1.py`
+  - `tests/runtime/test_gate_evidence_audit_v1.py`
+  - `tests/runtime/test_evidence_trace_linkage_v1.py`
+- PR-3 complete (evidence-integrity gate + synthetic-ban sub-gate wiring):
+  - `tests/runtime/test_evidence_integrity_gate_v1.py`
+  - `tests/runtime/test_synthetic_evidence_ban_v1.py`
+  - `Makefile` targets `test-evidence-integrity-v1`, `test-synthetic-evidence-ban-v1`
+  - `.github/workflows/ci.yml` steps `Evidence integrity v1 gate`, `Synthetic evidence ban v1 gate`
+- M40 is done.
+
 Post-G2 planning and execution:
 - Extended roadmap (M21-M34): `docs/M21_M34_MATURITY_PARITY_ROADMAP.md`
 - Next roadmap (M35-M39): `docs/M35_M39_GENERAL_PURPOSE_EXPANSION_ROADMAP.md`
-- Next roadmap (M40-M44, proposed): `docs/M40_M44_GENERAL_PURPOSE_PARITY_ROADMAP.md`
-- Completed backlogs (M35-M39):
+- Active roadmap (M40-M44): `docs/M40_M44_GENERAL_PURPOSE_PARITY_ROADMAP.md`
+- Completed backlogs (M35-M40):
   - `docs/M35_EXECUTION_BACKLOG.md`
   - `docs/M36_EXECUTION_BACKLOG.md`
   - `docs/M37_EXECUTION_BACKLOG.md`
   - `docs/M38_EXECUTION_BACKLOG.md`
   - `docs/M39_EXECUTION_BACKLOG.md`
-- Next backlogs (M40-M44, proposed):
   - `docs/M40_EXECUTION_BACKLOG.md`
+- Next backlogs (M41-M44, proposed):
   - `docs/M41_EXECUTION_BACKLOG.md`
   - `docs/M42_EXECUTION_BACKLOG.md`
   - `docs/M43_EXECUTION_BACKLOG.md`
   - `docs/M44_EXECUTION_BACKLOG.md`
-- Last completed backlog (M39): `docs/M39_EXECUTION_BACKLOG.md`
-- M35-M39 roadmap execution is complete with M35 desktop baseline closure,
-  M36 compatibility-surface closure, M37 hardware matrix v4 closure, M38
-  storage/platform feature closure, and M39 ecosystem-scale closure.
+- Last completed backlog (M40): `docs/M40_EXECUTION_BACKLOG.md`
+- M35-M39 roadmap execution remains complete, and M40-M44 execution is active
+  with M40 runtime-backed evidence-integrity closure.
 
 

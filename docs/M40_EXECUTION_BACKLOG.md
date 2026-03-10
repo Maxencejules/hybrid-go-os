@@ -2,7 +2,7 @@
 
 Date: 2026-03-09  
 Lane: Rugo (Rust kernel + Go user space)  
-Status: proposed
+Status: done
 
 ## Goal
 
@@ -21,11 +21,11 @@ M40 source of truth remains `docs/M40_M44_GENERAL_PURPOSE_PARITY_ROADMAP.md`,
 - Hardware/desktop/ecosystem claims are bounded and need evidence-integrity
   promotion before broader parity claims.
 
-## Execution plan
+## Execution Result
 
-- PR-1: contract freeze
-- PR-2: runtime evidence collection + audit tooling
-- PR-3: release gate wiring + closure
+- PR-1: complete (2026-03-10)
+- PR-2: complete (2026-03-10)
+- PR-3: complete (2026-03-10)
 
 ## PR-1: Evidence Integrity Contract Freeze
 
@@ -58,6 +58,15 @@ contracts.
 
 - Evidence integrity policy is explicit, versioned, and test-backed.
 - Runtime provenance requirements are machine-checkable.
+
+### PR-1 completion summary
+
+- Added evidence-integrity contract docs:
+  - `docs/runtime/evidence_integrity_policy_v1.md`
+  - `docs/runtime/runtime_evidence_schema_v1.md`
+  - `docs/runtime/gate_provenance_policy_v1.md`
+- Added executable contract checks:
+  - `tests/runtime/test_evidence_integrity_docs_v1.py`
 
 ## PR-2: Runtime Evidence Collection + Audit Tooling
 
@@ -97,6 +106,16 @@ audits over release-bound artifacts.
 - Provenance audit fails deterministically when synthetic-only artifacts are
   provided.
 
+### PR-2 completion summary
+
+- Added deterministic runtime evidence tooling:
+  - `tools/collect_runtime_evidence_v1.py`
+  - `tools/audit_gate_evidence_v1.py`
+- Added executable runtime evidence checks:
+  - `tests/runtime/test_runtime_evidence_collection_v1.py`
+  - `tests/runtime/test_gate_evidence_audit_v1.py`
+  - `tests/runtime/test_evidence_trace_linkage_v1.py`
+
 ## PR-3: Evidence Integrity Gate + Synthetic-Evidence Ban Sub-gate
 
 ### Objective
@@ -135,6 +154,22 @@ Make evidence provenance enforcement release-blocking.
 - Evidence-integrity and synthetic-ban sub-gates are required in local and CI
   release lanes.
 - M40 can be marked done only with runtime-provenance artifacts.
+
+### PR-3 completion summary
+
+- Added aggregate gate checks:
+  - `tests/runtime/test_evidence_integrity_gate_v1.py`
+  - `tests/runtime/test_synthetic_evidence_ban_v1.py`
+- Added local gates:
+  - `make test-evidence-integrity-v1`
+  - `make test-synthetic-evidence-ban-v1`
+- Added CI gates and artifacts:
+  - `Evidence integrity v1 gate`
+  - `Synthetic evidence ban v1 gate`
+- Updated closure docs:
+  - `MILESTONES.md`
+  - `docs/STATUS.md`
+  - `README.md`
 
 ## Non-goals for M40 backlog
 
