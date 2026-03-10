@@ -2,7 +2,7 @@
 
 Date: 2026-03-10  
 Lane: Rugo (Rust kernel + Go user space)  
-Status: proposed
+Status: done
 
 ## Goal
 
@@ -21,16 +21,20 @@ M45 source of truth remains:
 
 - v5 is stable and release-blocking, but it is still centered around
   transitional VirtIO assumptions.
-- Modern VirtIO classes and `virtio-gpu-pci` are not yet first-class matrix
-  surfaces.
-- Desktop qualification exists, but display-class evidence is not yet tied into
-  hardware support claims.
+- Modern VirtIO classes and `virtio-gpu-pci` are now first-class matrix
+  surfaces through v6 contract docs and deterministic reports.
+- Desktop qualification now carries explicit display-class evidence via the
+  desktop display bridge.
+- PR-1 contract freeze artifacts are now implemented and test-backed.
+- PR-2 campaign tooling and executable modern VirtIO checks are now
+  implemented and deterministic.
+- PR-3 shadow-gate wiring is now implemented in local and CI lanes.
 
-## Execution Plan
+## Execution Result
 
-- PR-1: contract freeze
-- PR-2: tooling + deterministic campaigns
-- PR-3: shadow-gate rollout + promotion criteria
+- PR-1: complete (2026-03-10)
+- PR-2: complete (2026-03-10)
+- PR-3: complete (2026-03-10)
 
 ## PR-1: Matrix v6 / Modern VirtIO Contract Freeze
 
@@ -71,6 +75,18 @@ device evidence.
   not implied support.
 - Display-class requirements are tied to desktop evidence instead of a
   standalone hardware marker.
+
+### PR-1 completion summary
+
+- Added contract docs:
+  - `docs/hw/support_matrix_v6.md`
+  - `docs/hw/driver_lifecycle_contract_v6.md`
+  - `docs/hw/virtio_platform_profile_v1.md`
+- Extended the display contract:
+  - `docs/desktop/display_stack_contract_v1.md`
+- Added executable contract checks:
+  - `tests/hw/test_hw_matrix_docs_v6.py`
+  - `tests/hw/test_virtio_platform_profile_v1.py`
 
 ## PR-2: Modern VirtIO Campaigns + Desktop Display Bridge
 
@@ -121,6 +137,20 @@ and connect GPU/display evidence to the desktop smoke model.
 - Desktop smoke evidence can name the display device class used during
   qualification.
 
+### PR-2 completion summary
+
+- Added deterministic modern VirtIO and desktop bridge tooling:
+  - `tools/run_hw_matrix_v6.py`
+  - `tools/run_desktop_smoke_v1.py`
+- Added executable modern VirtIO and display bridge checks:
+  - `tests/hw/test_virtio_modern_storage_v1.py`
+  - `tests/hw/test_virtio_modern_net_v1.py`
+  - `tests/hw/test_virtio_scsi_v1.py`
+  - `tests/hw/test_virtio_gpu_framebuffer_v1.py`
+  - `tests/hw/test_driver_lifecycle_v6.py`
+  - `tests/hw/test_hw_negative_paths_v5.py`
+  - `tests/desktop/test_display_device_bridge_v1.py`
+
 ## PR-3: v6 Shadow Gate + Adoption Criteria
 
 ### Objective
@@ -164,10 +194,25 @@ promoting v6 to the primary hardware gate.
   - both transitional and modern VirtIO profiles remain reproducible.
 - No support claim broadens until the promotion criteria are satisfied.
 
+### PR-3 completion summary
+
+- Added aggregate shadow-gate checks:
+  - `tests/hw/test_hw_gate_v6.py`
+  - `tests/hw/test_virtio_platform_gate_v1.py`
+- Added local shadow gates:
+  - `make test-hw-matrix-v6`
+  - `make test-virtio-platform-v1`
+- Added CI shadow gates and artifacts:
+  - `Hardware matrix v6 shadow gate`
+  - `Virtio platform v1 shadow gate`
+- Updated closure docs:
+  - `MILESTONES.md`
+  - `docs/STATUS.md`
+  - `README.md`
+
 ## Non-goals for M45 backlog
 
 - bare-metal NIC expansion (`e1000e`, `rtl8169`)
 - USB input or removable-media work
 - Wi-Fi, Bluetooth, audio, webcam, or power-management breadth
 - replacing v5 before sustained v6 parity evidence exists
-

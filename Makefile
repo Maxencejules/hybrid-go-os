@@ -56,7 +56,7 @@ endif
        test-observability-v2 test-crash-dump-v1 test-ops-ux-v3 test-release-lifecycle-v2 test-supply-chain-revalidation-v1 test-conformance-v1 test-fleet-ops-v1 test-fleet-rollout-safety-v1 test-maturity-qual-v1 test-desktop-stack-v1 test-gui-app-compat-v1 \
        test-compat-surface-v1 test-posix-gap-closure-v1 test-hw-matrix-v4 test-hw-baremetal-promotion-v1 test-storage-platform-v1 test-storage-feature-contract-v1 test-ecosystem-scale-v1 test-app-catalog-health-v1 \
        test-evidence-integrity-v1 test-synthetic-evidence-ban-v1 test-process-readiness-parity-v1 test-posix-gap-closure-v2 test-isolation-baseline-v1 test-namespace-cgroup-v1 \
-       test-hw-firmware-smp-v1 test-native-driver-matrix-v1 test-real-ecosystem-desktop-v2 test-real-app-catalog-v2 \
+       test-hw-firmware-smp-v1 test-native-driver-matrix-v1 test-hw-matrix-v6 test-virtio-platform-v1 test-real-ecosystem-desktop-v2 test-real-app-catalog-v2 \
        run test-qemu test-hw-matrix test-hw-matrix-v2 test-hw-matrix-v3 test-hw-matrix-v4 repro-check clean legacy docker-all docker-legacy
 
 # Tools
@@ -66,6 +66,11 @@ CC      ?= cc
 XORRISO ?= xorriso
 PYTHON  ?= python3
 WSL_PATH ?= /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/mnt/c/mingw64/mingw64/bin
+ifeq ($(OS),Windows_NT)
+SUBMAKE ?= /mnt/c/mingw64/mingw64/bin/mingw32-make.exe
+else
+SUBMAKE ?= $(MAKE)
+endif
 
 ifeq ($(OS),Windows_NT)
 RUSTUP_TOOLCHAIN ?= nightly-x86_64-pc-windows-gnu
@@ -764,6 +769,16 @@ test-hw-firmware-smp-v1:
 test-native-driver-matrix-v1:
 	$(PYTHON) tools/collect_firmware_smp_evidence_v1.py --out $(OUT)/hw-firmware-smp-v1.json
 	$(PYTHON) -m pytest tests/hw/test_hw_matrix_docs_v5.py tests/hw/test_native_storage_driver_matrix_v1.py tests/hw/test_native_nic_driver_matrix_v1.py tests/hw/test_firmware_table_validation_v3.py tests/hw/test_smp_interrupt_baseline_v1.py tests/hw/test_native_driver_matrix_gate_v1.py -v --junitxml=$(OUT)/pytest-native-driver-matrix-v1.xml
+
+test-hw-matrix-v6:
+	$(PYTHON) tools/run_hw_matrix_v6.py --out $(OUT)/hw-matrix-v6.json
+	$(SUBMAKE) test-virtio-platform-v1
+	$(PYTHON) -m pytest tests/hw/test_hw_matrix_docs_v6.py tests/hw/test_virtio_modern_storage_v1.py tests/hw/test_virtio_modern_net_v1.py tests/hw/test_virtio_scsi_v1.py tests/hw/test_virtio_gpu_framebuffer_v1.py tests/hw/test_driver_lifecycle_v6.py tests/hw/test_hw_negative_paths_v5.py tests/desktop/test_display_device_bridge_v1.py tests/hw/test_hw_gate_v6.py -v --junitxml=$(OUT)/pytest-hw-matrix-v6.xml
+
+test-virtio-platform-v1:
+	$(PYTHON) tools/run_hw_matrix_v6.py --out $(OUT)/hw-matrix-v6.json
+	$(PYTHON) tools/run_desktop_smoke_v1.py --out $(OUT)/desktop-smoke-v1.json
+	$(PYTHON) -m pytest tests/hw/test_hw_matrix_docs_v6.py tests/hw/test_virtio_platform_profile_v1.py tests/desktop/test_display_device_bridge_v1.py tests/hw/test_virtio_platform_gate_v1.py -v --junitxml=$(OUT)/pytest-virtio-platform-v1.xml
 
 test-real-ecosystem-desktop-v2:
 	$(PYTHON) tools/run_real_gui_app_matrix_v2.py --out $(OUT)/real-gui-matrix-v2.json

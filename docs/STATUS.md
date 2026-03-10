@@ -52,6 +52,8 @@ make test-process-readiness-parity-v1
 make test-posix-gap-closure-v2
 make test-isolation-baseline-v1
 make test-namespace-cgroup-v1
+make test-hw-matrix-v6
+make test-virtio-platform-v1
 make test-real-ecosystem-desktop-v2
 make test-real-app-catalog-v2
 
@@ -115,6 +117,7 @@ make docker-legacy       # Legacy only (requires gccgo in Docker image)
 | **M42** Isolation + Namespace Baseline v1 | n/a | done | Rugo: isolation/namespace/resource-control contracts + deterministic containment artifacts, `make test-isolation-baseline-v1`, `make test-namespace-cgroup-v1`, CI `Isolation baseline v1 gate` + `Namespace cgroup v1 gate`, docs in `docs/abi/namespace_cgroup_contract_v1.md`, `docs/runtime/resource_control_policy_v1.md`, and `docs/M42_EXECUTION_BACKLOG.md`. |
 | **M43** Hardware/Firmware Breadth + SMP v1 | n/a | done | Rugo: matrix-v5/driver-lifecycle-v5/firmware-hardening-v3 + SMP interrupt model contracts with deterministic hardware/firmware/SMP artifacts, `make test-hw-firmware-smp-v1`, `make test-native-driver-matrix-v1`, CI `Hardware firmware smp v1 gate` + `Native driver matrix v1 gate`, docs in `docs/hw/support_matrix_v5.md`, `docs/hw/driver_lifecycle_contract_v5.md`, `docs/hw/acpi_uefi_hardening_v3.md`, `docs/runtime/smp_interrupt_model_v1.md`, and `docs/M43_EXECUTION_BACKLOG.md`. |
 | **M44** Real Desktop + Ecosystem Qualification v2 | n/a | done | Rugo: desktop/app-tier/ecosystem v2 contracts + deterministic runtime qualification artifacts, `make test-real-ecosystem-desktop-v2`, `make test-real-app-catalog-v2`, CI `Real ecosystem desktop v2 gate` + `Real app catalog v2 gate`, docs in `docs/desktop/desktop_profile_v2.md`, `docs/abi/app_compat_tiers_v2.md`, `docs/pkg/ecosystem_scale_policy_v2.md`, `docs/pkg/distribution_workflow_v2.md`, and `docs/M44_EXECUTION_BACKLOG.md`. |
+| **M45** Modern Virtual Platform Parity v1 | n/a | done | Rugo: matrix-v6/driver-lifecycle-v6/virtio-platform-profile-v1 contracts plus deterministic modern VirtIO shadow artifacts, `make test-hw-matrix-v6`, `make test-virtio-platform-v1`, CI `Hardware matrix v6 shadow gate` + `Virtio platform v1 shadow gate`, docs in `docs/hw/support_matrix_v6.md`, `docs/hw/driver_lifecycle_contract_v6.md`, `docs/hw/virtio_platform_profile_v1.md`, `docs/desktop/display_stack_contract_v1.md`, and `docs/M45_EXECUTION_BACKLOG.md`. |
 
 ✅ done &ensp; ◐ in progress (prep) &ensp; ⬜ not started &ensp; n/a not applicable
 
@@ -937,12 +940,38 @@ M44 execution update (2026-03-10):
     `Real app catalog v2 gate`
 - M44 is done.
 
+M45 execution update (2026-03-10):
+- PR-1 complete (matrix v6 + display bridge contract freeze):
+  - `docs/hw/support_matrix_v6.md`
+  - `docs/hw/driver_lifecycle_contract_v6.md`
+  - `docs/hw/virtio_platform_profile_v1.md`
+  - `docs/desktop/display_stack_contract_v1.md`
+  - `tests/hw/test_hw_matrix_docs_v6.py`
+  - `tests/hw/test_virtio_platform_profile_v1.py`
+- PR-2 complete (deterministic modern VirtIO + display bridge tooling):
+  - `tools/run_hw_matrix_v6.py`
+  - `tools/run_desktop_smoke_v1.py`
+  - `tests/hw/test_virtio_modern_storage_v1.py`
+  - `tests/hw/test_virtio_modern_net_v1.py`
+  - `tests/hw/test_virtio_scsi_v1.py`
+  - `tests/hw/test_virtio_gpu_framebuffer_v1.py`
+  - `tests/hw/test_driver_lifecycle_v6.py`
+  - `tests/hw/test_hw_negative_paths_v5.py`
+  - `tests/desktop/test_display_device_bridge_v1.py`
+- PR-3 complete (shadow gate + sub-gate wiring):
+  - `tests/hw/test_hw_gate_v6.py`
+  - `tests/hw/test_virtio_platform_gate_v1.py`
+  - `Makefile` targets `test-hw-matrix-v6`, `test-virtio-platform-v1`
+  - `.github/workflows/ci.yml` steps `Hardware matrix v6 shadow gate`,
+    `Virtio platform v1 shadow gate`
+- M45 is done.
+
 Post-G2 planning and execution:
 - Extended roadmap (M21-M34): `docs/M21_M34_MATURITY_PARITY_ROADMAP.md`
 - Completed roadmap (M35-M39): `docs/M35_M39_GENERAL_PURPOSE_EXPANSION_ROADMAP.md`
 - Completed roadmap (M40-M44): `docs/M40_M44_GENERAL_PURPOSE_PARITY_ROADMAP.md`
 - Planned roadmap (M45-M47): `docs/M45_M47_HARDWARE_EXPANSION_ROADMAP.md`
-- Completed backlogs (M35-M44):
+- Completed backlogs (M35-M45):
   - `docs/M35_EXECUTION_BACKLOG.md`
   - `docs/M36_EXECUTION_BACKLOG.md`
   - `docs/M37_EXECUTION_BACKLOG.md`
@@ -953,17 +982,18 @@ Post-G2 planning and execution:
   - `docs/M42_EXECUTION_BACKLOG.md`
   - `docs/M43_EXECUTION_BACKLOG.md`
   - `docs/M44_EXECUTION_BACKLOG.md`
-- Planned backlogs (M45-M47):
-  - `docs/M45_EXECUTION_BACKLOG.md`
+- `docs/M45_EXECUTION_BACKLOG.md`
+- Planned backlogs (M46-M47):
   - `docs/M46_EXECUTION_BACKLOG.md`
   - `docs/M47_EXECUTION_BACKLOG.md`
-- Last completed backlog (M44): `docs/M44_EXECUTION_BACKLOG.md`
-- M35-M39 roadmap execution remains complete, and M40-M44 execution is now
+- Last completed backlog (M45): `docs/M45_EXECUTION_BACKLOG.md`
+- M35-M39 roadmap execution remains complete, and M40-M45 execution is now
   complete with M40 evidence-integrity closure, M41 process/readiness closure,
   M42 isolation/namespace baseline closure, M43 hardware/firmware/SMP closure,
-  and M44 real desktop/ecosystem runtime qualification closure.
-- Proposed next milestone phase is M45-M47:
-  - M45 modern virtual-platform parity,
+  M44 real desktop/ecosystem runtime qualification closure, and M45 modern
+  virtual-platform parity shadow closure.
+- Active hardware expansion phase is M45-M47:
+  - M45 modern virtual-platform parity (done),
   - M46 bare-metal I/O baseline,
   - M47 hardware claim promotion program.
 

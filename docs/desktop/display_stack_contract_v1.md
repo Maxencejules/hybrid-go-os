@@ -39,9 +39,20 @@ desktop baseline profile.
 - Unsupported display acceleration features remain out of scope and must not be
   counted as pass criteria in this contract.
 
+## Display device bridge requirements
+
+- Desktop smoke reports used for hardware qualification must expose
+  `display_class`, `display_device`, `boot_transport_class`, and
+  `desktop_display_checks`.
+- `desktop_display_checks` must bind the qualifying display/session checks to a
+  named display device class instead of a standalone "display detected" marker.
+- M45 framebuffer baseline qualification is bounded to `virtio-gpu-pci`.
+- A qualification run that omits `display_class` or fails
+  `desktop_display_checks` cannot be used for hardware support claims.
+- Accelerated 3D and broader compositor parity remain out of scope.
+
 ## Tooling and gate wiring
 
 - Smoke runner: `tools/run_desktop_smoke_v1.py`
 - Local desktop gate: `make test-desktop-stack-v1`
 - CI desktop gate: `Desktop stack v1 gate`
-

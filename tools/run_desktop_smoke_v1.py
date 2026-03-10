@@ -211,7 +211,17 @@ def _normalize_failures(values: Sequence[str]) -> Set[str]:
     return failures
 
 
-def run_smoke(seed: int, injected_failures: Set[str] | None = None) -> Dict[str, object]:
+def normalize_failures(values: Sequence[str]) -> Set[str]:
+    return _normalize_failures(values)
+
+
+def run_smoke(
+    seed: int,
+    injected_failures: Set[str] | None = None,
+    display_class: str = "virtio-gpu-pci",
+    display_driver: str = "virtio_gpu_framebuffer",
+    boot_transport_class: str = "virtio-blk-pci-modern",
+) -> Dict[str, object]:
     failures = set() if injected_failures is None else set(injected_failures)
 
     checks: List[Dict[str, object]] = []
@@ -237,10 +247,16 @@ def run_smoke(seed: int, injected_failures: Set[str] | None = None) -> Dict[str,
         metric_values[spec.metric_key] = observed
 
     total_failures = sum(1 for check in checks if check["pass"] is False)
+    display_summary = _domain_summary(checks, "display")
+    session_summary = _domain_summary(checks, "session")
+    bridge_pass = display_summary["pass"] and session_summary["pass"]
     stable_payload = {
         "schema": SCHEMA,
         "policy_id": POLICY_ID,
         "seed": seed,
+        "display_class": display_class,
+        "display_driver": display_driver,
+        "boot_transport_class": boot_transport_class,
         "checks": [
             {
                 "check_id": check["check_id"],
@@ -263,22 +279,48 @@ def run_smoke(seed: int, injected_failures: Set[str] | None = None) -> Dict[str,
         "input_contract_id": INPUT_CONTRACT_ID,
         "created_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "seed": seed,
+        "boot_transport_class": boot_transport_class,
+        "display_class": display_class,
         "checks": checks,
         "summary": {
-            "display": _domain_summary(checks, "display"),
-            "session": _domain_summary(checks, "session"),
+            "display": display_summary,
+            "session": session_summary,
             "input": _domain_summary(checks, "input"),
             "window": _domain_summary(checks, "window"),
         },
         "display": {
+            "device_class": display_class,
+            "driver": display_driver,
+            "scanout_model": "framebuffer",
             "mode_set_ms": metric_values["mode_set_ms"],
             "frame_drop_ratio": metric_values["frame_drop_ratio"],
-            "checks_pass": _domain_summary(checks, "display")["pass"],
+            "checks_pass": display_summary["pass"],
+        },
+        "display_device": {
+            "device_class": display_class,
+            "driver": display_driver,
+            "scanout_model": "framebuffer",
+            "desktop_qualified": bridge_pass,
+        },
+        "desktop_display_checks": {
+            "contract_id": DISPLAY_CONTRACT_ID,
+            "display_class": display_class,
+            "display_driver": display_driver,
+            "boot_transport_class": boot_transport_class,
+            "qualifying_checks": [
+                "display_mode_set",
+                "display_scanout_stable",
+                "session_handshake_ready",
+                "session_desktop_ready",
+            ],
+            "display_checks_pass": display_summary["pass"],
+            "session_checks_pass": session_summary["pass"],
+            "bridge_pass": bridge_pass,
         },
         "session": {
             "session_handshake_ms": metric_values["session_handshake_ms"],
             "desktop_ready_ms": metric_values["desktop_ready_ms"],
-            "checks_pass": _domain_summary(checks, "session")["pass"],
+            "checks_pass": session_summary["pass"],
         },
         "input": {
             "keyboard_latency_p95_ms": metric_values["keyboard_latency_p95_ms"],
@@ -310,6 +352,9 @@ def _build_parser() -> argparse.ArgumentParser:
         help="force a check to fail by check_id",
     )
     parser.add_argument("--max-failures", type=int, default=0)
+    parser.add_argument("--display-class", default="virtio-gpu-pci")
+    parser.add_argument("--display-driver", default="virtio_gpu_framebuffer")
+    parser.add_argument("--boot-transport-class", default="virtio-blk-pci-modern")
     parser.add_argument("--out", default="out/desktop-smoke-v1.json")
     return parser
 
@@ -321,12 +366,18 @@ def main(argv: List[str] | None = None) -> int:
         return 2
 
     try:
-        injected_failures = _normalize_failures(args.inject_failure)
+        injected_failures = normalize_failures(args.inject_failure)
     except ValueError as exc:
         print(f"error: {exc}")
         return 2
 
-    report = run_smoke(seed=args.seed, injected_failures=injected_failures)
+    report = run_smoke(
+        seed=args.seed,
+        injected_failures=injected_failures,
+        display_class=args.display_class,
+        display_driver=args.display_driver,
+        boot_transport_class=args.boot_transport_class,
+    )
     report["max_failures"] = args.max_failures
     report["gate_pass"] = report["total_failures"] <= args.max_failures
 
@@ -342,4 +393,3 @@ def main(argv: List[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

@@ -767,6 +767,34 @@ jobs:
             out/pytest-native-driver-matrix-v1.xml
             out/hw-firmware-smp-v1.json
 
+      - name: Hardware matrix v6 shadow gate
+        run: |
+          make test-hw-matrix-v6
+
+      - name: Upload hardware matrix v6 artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hw-matrix-v6-artifacts
+          path: |
+            out/pytest-hw-matrix-v6.xml
+            out/hw-matrix-v6.json
+            out/desktop-smoke-v1.json
+
+      - name: Virtio platform v1 shadow gate
+        run: |
+          make test-virtio-platform-v1
+
+      - name: Upload virtio platform v1 artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: virtio-platform-v1-artifacts
+          path: |
+            out/pytest-virtio-platform-v1.xml
+            out/hw-matrix-v6.json
+            out/desktop-smoke-v1.json
+
       - name: Real ecosystem desktop v2 gate
         run: |
           make test-real-ecosystem-desktop-v2
