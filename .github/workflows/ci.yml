@@ -739,3 +739,30 @@ jobs:
           path: |
             out/pytest-namespace-cgroup-v1.xml
             out/resource-control-v1.json
+
+      - name: Hardware firmware smp v1 gate
+        run: |
+          make test-hw-firmware-smp-v1
+
+      - name: Upload hardware firmware smp v1 artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hw-firmware-smp-v1-artifacts
+          path: |
+            out/pytest-hw-firmware-smp-v1.xml
+            out/hw-matrix-v5.json
+            out/hw-firmware-smp-v1.json
+
+      - name: Native driver matrix v1 gate
+        run: |
+          make test-native-driver-matrix-v1
+
+      - name: Upload native driver matrix v1 artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-driver-matrix-v1-artifacts
+          path: |
+            out/pytest-native-driver-matrix-v1.xml
+            out/hw-firmware-smp-v1.json

@@ -56,6 +56,7 @@ endif
        test-observability-v2 test-crash-dump-v1 test-ops-ux-v3 test-release-lifecycle-v2 test-supply-chain-revalidation-v1 test-conformance-v1 test-fleet-ops-v1 test-fleet-rollout-safety-v1 test-maturity-qual-v1 test-desktop-stack-v1 test-gui-app-compat-v1 \
        test-compat-surface-v1 test-posix-gap-closure-v1 test-hw-matrix-v4 test-hw-baremetal-promotion-v1 test-storage-platform-v1 test-storage-feature-contract-v1 test-ecosystem-scale-v1 test-app-catalog-health-v1 \
        test-evidence-integrity-v1 test-synthetic-evidence-ban-v1 test-process-readiness-parity-v1 test-posix-gap-closure-v2 test-isolation-baseline-v1 test-namespace-cgroup-v1 \
+       test-hw-firmware-smp-v1 test-native-driver-matrix-v1 \
        run test-qemu test-hw-matrix test-hw-matrix-v2 test-hw-matrix-v3 test-hw-matrix-v4 repro-check clean legacy docker-all docker-legacy
 
 # Tools
@@ -754,6 +755,15 @@ test-isolation-baseline-v1:
 test-namespace-cgroup-v1:
 	$(PYTHON) tools/run_resource_control_campaign_v1.py --out $(OUT)/resource-control-v1.json
 	$(PYTHON) -m pytest tests/security/test_isolation_docs_v1.py tests/security/test_namespace_baseline_v1.py tests/security/test_cgroup_baseline_v1.py tests/security/test_isolation_escape_negative_v1.py tests/runtime/test_resource_control_policy_v1.py tests/security/test_namespace_cgroup_gate_v1.py -v --junitxml=$(OUT)/pytest-namespace-cgroup-v1.xml
+
+test-hw-firmware-smp-v1:
+	$(PYTHON) tools/run_hw_matrix_v5.py --out $(OUT)/hw-matrix-v5.json
+	$(MAKE) test-native-driver-matrix-v1
+	$(PYTHON) -m pytest tests/hw/test_hw_matrix_docs_v5.py tests/hw/test_native_storage_driver_matrix_v1.py tests/hw/test_native_nic_driver_matrix_v1.py tests/hw/test_firmware_table_validation_v3.py tests/hw/test_smp_interrupt_baseline_v1.py tests/hw/test_hw_firmware_smp_gate_v1.py -v --junitxml=$(OUT)/pytest-hw-firmware-smp-v1.xml
+
+test-native-driver-matrix-v1:
+	$(PYTHON) tools/collect_firmware_smp_evidence_v1.py --out $(OUT)/hw-firmware-smp-v1.json
+	$(PYTHON) -m pytest tests/hw/test_hw_matrix_docs_v5.py tests/hw/test_native_storage_driver_matrix_v1.py tests/hw/test_native_nic_driver_matrix_v1.py tests/hw/test_firmware_table_validation_v3.py tests/hw/test_smp_interrupt_baseline_v1.py tests/hw/test_native_driver_matrix_gate_v1.py -v --junitxml=$(OUT)/pytest-native-driver-matrix-v1.xml
 
 repro-check:
 	@set -e; \

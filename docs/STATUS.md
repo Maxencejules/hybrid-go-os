@@ -111,6 +111,7 @@ make docker-legacy       # Legacy only (requires gccgo in Docker image)
 | **M40** Runtime-Backed Evidence Integrity v1 | n/a | done | Rugo: evidence-integrity/provenance contracts + deterministic runtime-evidence/audit artifacts, `make test-evidence-integrity-v1`, `make test-synthetic-evidence-ban-v1`, CI `Evidence integrity v1 gate` + `Synthetic evidence ban v1 gate`, docs in `docs/runtime/evidence_integrity_policy_v1.md`, `docs/runtime/gate_provenance_policy_v1.md`, and `docs/M40_EXECUTION_BACKLOG.md`. |
 | **M41** Process + Readiness Compatibility Closure v1 | n/a | done | Rugo: compatibility/process/readiness contracts + deterministic compatibility/POSIX artifacts, `make test-process-readiness-parity-v1`, `make test-posix-gap-closure-v2`, CI `Process readiness parity v1 gate` + `POSIX gap closure v2 gate`, docs in `docs/abi/compat_profile_v5.md`, `docs/runtime/syscall_coverage_matrix_v4.md`, and `docs/M41_EXECUTION_BACKLOG.md`. |
 | **M42** Isolation + Namespace Baseline v1 | n/a | done | Rugo: isolation/namespace/resource-control contracts + deterministic containment artifacts, `make test-isolation-baseline-v1`, `make test-namespace-cgroup-v1`, CI `Isolation baseline v1 gate` + `Namespace cgroup v1 gate`, docs in `docs/abi/namespace_cgroup_contract_v1.md`, `docs/runtime/resource_control_policy_v1.md`, and `docs/M42_EXECUTION_BACKLOG.md`. |
+| **M43** Hardware/Firmware Breadth + SMP v1 | n/a | done | Rugo: matrix-v5/driver-lifecycle-v5/firmware-hardening-v3 + SMP interrupt model contracts with deterministic hardware/firmware/SMP artifacts, `make test-hw-firmware-smp-v1`, `make test-native-driver-matrix-v1`, CI `Hardware firmware smp v1 gate` + `Native driver matrix v1 gate`, docs in `docs/hw/support_matrix_v5.md`, `docs/hw/driver_lifecycle_contract_v5.md`, `docs/hw/acpi_uefi_hardening_v3.md`, `docs/runtime/smp_interrupt_model_v1.md`, and `docs/M43_EXECUTION_BACKLOG.md`. |
 
 ✅ done &ensp; ◐ in progress (prep) &ensp; ⬜ not started &ensp; n/a not applicable
 
@@ -885,11 +886,34 @@ M42 execution update (2026-03-10):
     `Namespace cgroup v1 gate`
 - M42 is done.
 
+M43 execution update (2026-03-10):
+- PR-1 complete (hardware/firmware/SMP contract freeze):
+  - `docs/hw/support_matrix_v5.md`
+  - `docs/hw/driver_lifecycle_contract_v5.md`
+  - `docs/hw/acpi_uefi_hardening_v3.md`
+  - `docs/runtime/smp_interrupt_model_v1.md`
+  - `tests/hw/test_hw_matrix_docs_v5.py`
+- PR-2 complete (deterministic matrix/evidence tooling + native driver checks):
+  - `tools/run_hw_matrix_v5.py`
+  - `tools/collect_firmware_smp_evidence_v1.py`
+  - `tests/hw/test_native_storage_driver_matrix_v1.py`
+  - `tests/hw/test_native_nic_driver_matrix_v1.py`
+  - `tests/hw/test_firmware_table_validation_v3.py`
+  - `tests/hw/test_smp_interrupt_baseline_v1.py`
+- PR-3 complete (aggregate gate + native sub-gate wiring):
+  - `tests/hw/test_hw_firmware_smp_gate_v1.py`
+  - `tests/hw/test_native_driver_matrix_gate_v1.py`
+  - `Makefile` targets `test-hw-firmware-smp-v1`,
+    `test-native-driver-matrix-v1`
+  - `.github/workflows/ci.yml` steps `Hardware firmware smp v1 gate`,
+    `Native driver matrix v1 gate`
+- M43 is done.
+
 Post-G2 planning and execution:
 - Extended roadmap (M21-M34): `docs/M21_M34_MATURITY_PARITY_ROADMAP.md`
 - Next roadmap (M35-M39): `docs/M35_M39_GENERAL_PURPOSE_EXPANSION_ROADMAP.md`
 - Active roadmap (M40-M44): `docs/M40_M44_GENERAL_PURPOSE_PARITY_ROADMAP.md`
-- Completed backlogs (M35-M42):
+- Completed backlogs (M35-M43):
   - `docs/M35_EXECUTION_BACKLOG.md`
   - `docs/M36_EXECUTION_BACKLOG.md`
   - `docs/M37_EXECUTION_BACKLOG.md`
@@ -898,12 +922,12 @@ Post-G2 planning and execution:
   - `docs/M40_EXECUTION_BACKLOG.md`
   - `docs/M41_EXECUTION_BACKLOG.md`
   - `docs/M42_EXECUTION_BACKLOG.md`
-- Next backlogs (M43-M44, proposed):
   - `docs/M43_EXECUTION_BACKLOG.md`
+- Next backlogs (M44, proposed):
   - `docs/M44_EXECUTION_BACKLOG.md`
-- Last completed backlog (M42): `docs/M42_EXECUTION_BACKLOG.md`
+- Last completed backlog (M43): `docs/M43_EXECUTION_BACKLOG.md`
 - M35-M39 roadmap execution remains complete, and M40-M44 execution is active
-  with M40 evidence-integrity, M41 process/readiness closure, and M42
-  isolation/namespace baseline closure.
+  with M40 evidence-integrity, M41 process/readiness closure, M42
+  isolation/namespace baseline closure, and M43 hardware/firmware/SMP closure.
 
 
