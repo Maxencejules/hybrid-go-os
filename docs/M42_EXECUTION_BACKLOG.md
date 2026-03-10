@@ -2,7 +2,7 @@
 
 Date: 2026-03-09  
 Lane: Rugo (Rust kernel + Go user space)  
-Status: proposed
+Status: done
 
 ## Goal
 
@@ -21,11 +21,11 @@ M42 source of truth remains `docs/M40_M44_GENERAL_PURPOSE_PARITY_ROADMAP.md`,
 - M42 introduces deterministic containment semantics and release-bound negative
   path enforcement.
 
-## Execution plan
+## Execution Result
 
-- PR-1: contract freeze
-- PR-2: isolation/resource-control implementation + campaigns
-- PR-3: release gate wiring + closure
+- PR-1: complete (2026-03-10)
+- PR-2: complete (2026-03-10)
+- PR-3: complete (2026-03-10)
 
 ## PR-1: Isolation Contract Freeze
 
@@ -59,6 +59,15 @@ contracts.
 - Isolation and resource-control boundaries are explicit, versioned, and
   test-backed.
 - Containment policy and failure semantics are machine-verifiable.
+
+### PR-1 completion summary
+
+- Added isolation and resource-control contract docs:
+  - `docs/abi/namespace_cgroup_contract_v1.md`
+  - `docs/security/isolation_profile_v1.md`
+  - `docs/runtime/resource_control_policy_v1.md`
+- Added executable contract checks:
+  - `tests/security/test_isolation_docs_v1.py`
 
 ## PR-2: Isolation Campaign Tooling + Tests
 
@@ -98,6 +107,17 @@ escape and misuse negative paths.
 - Isolation/resource-control artifacts are deterministic and machine-readable.
 - Escape and privilege-escalation negative paths are executable and auditable.
 
+### PR-2 completion summary
+
+- Added deterministic isolation/resource-control campaign tooling:
+  - `tools/run_isolation_campaign_v1.py`
+  - `tools/run_resource_control_campaign_v1.py`
+- Added executable baseline and negative-path checks:
+  - `tests/security/test_namespace_baseline_v1.py`
+  - `tests/security/test_cgroup_baseline_v1.py`
+  - `tests/security/test_isolation_escape_negative_v1.py`
+  - `tests/runtime/test_resource_control_policy_v1.py`
+
 ## PR-3: Isolation Gate + Namespace/Cgroup Sub-gate
 
 ### Objective
@@ -136,6 +156,22 @@ Make isolation baseline and namespace/cgroup policy checks release-blocking.
 - Isolation and namespace/cgroup sub-gates are required in local and CI release
   lanes.
 - M42 can be marked done only with deterministic isolation artifacts.
+
+### PR-3 completion summary
+
+- Added aggregate gate checks:
+  - `tests/security/test_isolation_gate_v1.py`
+  - `tests/security/test_namespace_cgroup_gate_v1.py`
+- Added local gates:
+  - `make test-isolation-baseline-v1`
+  - `make test-namespace-cgroup-v1`
+- Added CI gates and artifacts:
+  - `Isolation baseline v1 gate`
+  - `Namespace cgroup v1 gate`
+- Updated closure docs:
+  - `MILESTONES.md`
+  - `docs/STATUS.md`
+  - `README.md`
 
 ## Non-goals for M42 backlog
 

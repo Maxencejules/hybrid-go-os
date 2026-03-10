@@ -713,3 +713,29 @@ jobs:
           path: |
             out/pytest-posix-gap-closure-v2.xml
             out/posix-gap-report-v2.json
+
+      - name: Isolation baseline v1 gate
+        run: |
+          make test-isolation-baseline-v1
+
+      - name: Upload isolation baseline v1 artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: isolation-baseline-v1-artifacts
+          path: |
+            out/pytest-isolation-baseline-v1.xml
+            out/isolation-campaign-v1.json
+
+      - name: Namespace cgroup v1 gate
+        run: |
+          make test-namespace-cgroup-v1
+
+      - name: Upload namespace cgroup v1 artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: namespace-cgroup-v1-artifacts
+          path: |
+            out/pytest-namespace-cgroup-v1.xml
+            out/resource-control-v1.json

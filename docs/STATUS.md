@@ -50,6 +50,8 @@ make test-evidence-integrity-v1
 make test-synthetic-evidence-ban-v1
 make test-process-readiness-parity-v1
 make test-posix-gap-closure-v2
+make test-isolation-baseline-v1
+make test-namespace-cgroup-v1
 
 # Legacy (build + QEMU smoke tests, 16 tests)
 make -C legacy build && make -C legacy image && make -C legacy test-qemu
@@ -108,6 +110,7 @@ make docker-legacy       # Legacy only (requires gccgo in Docker image)
 | **M39** Ecosystem Scale + Distribution Workflow v1 | n/a | done | Rugo: ecosystem-scale/distribution contracts + deterministic catalog-scale/install/audit artifacts, `make test-ecosystem-scale-v1`, `make test-app-catalog-health-v1`, CI `Ecosystem scale v1 gate` + `App catalog health v1 gate`, docs in `docs/pkg/ecosystem_scale_policy_v1.md`, `docs/pkg/distribution_workflow_v1.md`, and `docs/M39_EXECUTION_BACKLOG.md`. |
 | **M40** Runtime-Backed Evidence Integrity v1 | n/a | done | Rugo: evidence-integrity/provenance contracts + deterministic runtime-evidence/audit artifacts, `make test-evidence-integrity-v1`, `make test-synthetic-evidence-ban-v1`, CI `Evidence integrity v1 gate` + `Synthetic evidence ban v1 gate`, docs in `docs/runtime/evidence_integrity_policy_v1.md`, `docs/runtime/gate_provenance_policy_v1.md`, and `docs/M40_EXECUTION_BACKLOG.md`. |
 | **M41** Process + Readiness Compatibility Closure v1 | n/a | done | Rugo: compatibility/process/readiness contracts + deterministic compatibility/POSIX artifacts, `make test-process-readiness-parity-v1`, `make test-posix-gap-closure-v2`, CI `Process readiness parity v1 gate` + `POSIX gap closure v2 gate`, docs in `docs/abi/compat_profile_v5.md`, `docs/runtime/syscall_coverage_matrix_v4.md`, and `docs/M41_EXECUTION_BACKLOG.md`. |
+| **M42** Isolation + Namespace Baseline v1 | n/a | done | Rugo: isolation/namespace/resource-control contracts + deterministic containment artifacts, `make test-isolation-baseline-v1`, `make test-namespace-cgroup-v1`, CI `Isolation baseline v1 gate` + `Namespace cgroup v1 gate`, docs in `docs/abi/namespace_cgroup_contract_v1.md`, `docs/runtime/resource_control_policy_v1.md`, and `docs/M42_EXECUTION_BACKLOG.md`. |
 
 ✅ done &ensp; ◐ in progress (prep) &ensp; ⬜ not started &ensp; n/a not applicable
 
@@ -860,11 +863,33 @@ M41 execution update (2026-03-10):
     `POSIX gap closure v2 gate`
 - M41 is done.
 
+M42 execution update (2026-03-10):
+- PR-1 complete (isolation/namespace contract freeze):
+  - `docs/abi/namespace_cgroup_contract_v1.md`
+  - `docs/security/isolation_profile_v1.md`
+  - `docs/runtime/resource_control_policy_v1.md`
+  - `tests/security/test_isolation_docs_v1.py`
+- PR-2 complete (deterministic isolation/resource-control tooling + checks):
+  - `tools/run_isolation_campaign_v1.py`
+  - `tools/run_resource_control_campaign_v1.py`
+  - `tests/security/test_namespace_baseline_v1.py`
+  - `tests/security/test_cgroup_baseline_v1.py`
+  - `tests/security/test_isolation_escape_negative_v1.py`
+  - `tests/runtime/test_resource_control_policy_v1.py`
+- PR-3 complete (isolation gate + namespace/cgroup sub-gate wiring):
+  - `tests/security/test_isolation_gate_v1.py`
+  - `tests/security/test_namespace_cgroup_gate_v1.py`
+  - `Makefile` targets `test-isolation-baseline-v1`,
+    `test-namespace-cgroup-v1`
+  - `.github/workflows/ci.yml` steps `Isolation baseline v1 gate`,
+    `Namespace cgroup v1 gate`
+- M42 is done.
+
 Post-G2 planning and execution:
 - Extended roadmap (M21-M34): `docs/M21_M34_MATURITY_PARITY_ROADMAP.md`
 - Next roadmap (M35-M39): `docs/M35_M39_GENERAL_PURPOSE_EXPANSION_ROADMAP.md`
 - Active roadmap (M40-M44): `docs/M40_M44_GENERAL_PURPOSE_PARITY_ROADMAP.md`
-- Completed backlogs (M35-M41):
+- Completed backlogs (M35-M42):
   - `docs/M35_EXECUTION_BACKLOG.md`
   - `docs/M36_EXECUTION_BACKLOG.md`
   - `docs/M37_EXECUTION_BACKLOG.md`
@@ -872,12 +897,13 @@ Post-G2 planning and execution:
   - `docs/M39_EXECUTION_BACKLOG.md`
   - `docs/M40_EXECUTION_BACKLOG.md`
   - `docs/M41_EXECUTION_BACKLOG.md`
-- Next backlogs (M42-M44, proposed):
   - `docs/M42_EXECUTION_BACKLOG.md`
+- Next backlogs (M43-M44, proposed):
   - `docs/M43_EXECUTION_BACKLOG.md`
   - `docs/M44_EXECUTION_BACKLOG.md`
-- Last completed backlog (M41): `docs/M41_EXECUTION_BACKLOG.md`
+- Last completed backlog (M42): `docs/M42_EXECUTION_BACKLOG.md`
 - M35-M39 roadmap execution remains complete, and M40-M44 execution is active
-  with M40 evidence-integrity and M41 process/readiness closure.
+  with M40 evidence-integrity, M41 process/readiness closure, and M42
+  isolation/namespace baseline closure.
 
 

@@ -107,6 +107,7 @@ Tests: `legacy/tests/` (boot, trap, sched, user, ipc, drivers, fs, pkg, net)
 | M39 | Ecosystem Scale + Distribution Workflow v1 | n/a | done | Rugo: ecosystem-scale/distribution contracts + deterministic catalog-scale/install/audit artifacts, `make test-ecosystem-scale-v1`, `make test-app-catalog-health-v1`, CI `Ecosystem scale v1 gate` + `App catalog health v1 gate`, docs in `docs/pkg/ecosystem_scale_policy_v1.md`, `docs/pkg/distribution_workflow_v1.md`, and `docs/M39_EXECUTION_BACKLOG.md`. |
 | M40 | Runtime-Backed Evidence Integrity v1 | n/a | done | Rugo: evidence-integrity/provenance contracts + deterministic runtime-evidence/audit artifacts, `make test-evidence-integrity-v1`, `make test-synthetic-evidence-ban-v1`, CI `Evidence integrity v1 gate` + `Synthetic evidence ban v1 gate`, docs in `docs/runtime/evidence_integrity_policy_v1.md`, `docs/runtime/gate_provenance_policy_v1.md`, and `docs/M40_EXECUTION_BACKLOG.md`. |
 | M41 | Process + Readiness Compatibility Closure v1 | n/a | done | Rugo: compatibility/process/readiness contracts + deterministic compatibility/POSIX artifacts, `make test-process-readiness-parity-v1`, `make test-posix-gap-closure-v2`, CI `Process readiness parity v1 gate` + `POSIX gap closure v2 gate`, docs in `docs/abi/compat_profile_v5.md`, `docs/runtime/syscall_coverage_matrix_v4.md`, and `docs/M41_EXECUTION_BACKLOG.md`. |
+| M42 | Isolation + Namespace Baseline v1 | n/a | done | Rugo: isolation/namespace/resource-control contracts + deterministic containment artifacts, `make test-isolation-baseline-v1`, `make test-namespace-cgroup-v1`, CI `Isolation baseline v1 gate` + `Namespace cgroup v1 gate`, docs in `docs/abi/namespace_cgroup_contract_v1.md`, `docs/runtime/resource_control_policy_v1.md`, and `docs/M42_EXECUTION_BACKLOG.md`. |
 Legend: ✅ = done with passing tests, ◐ = in progress (prep), — = not started, n/a = not applicable to this lane.
 
 ---
@@ -2103,6 +2104,58 @@ Milestone status: done (2026-03-10).
     `test-posix-gap-closure-v2`
   - `.github/workflows/ci.yml` steps `Process readiness parity v1 gate`,
     `POSIX gap closure v2 gate`
+
+---
+
+## M42: Isolation + Namespace Baseline v1
+
+Milestone status: done (2026-03-10).
+
+### Definition of done
+
+- Namespace/cgroup baseline and isolation/resource-control contracts are
+  explicit, versioned, and test-backed.
+- Isolation and resource-control campaign artifacts are deterministic and
+  machine-readable.
+- Isolation baseline gate and namespace/cgroup sub-gate are required in local
+  and CI release lanes.
+
+### Acceptance tests
+
+| Test | Markers/Outcome |
+|------|------------------|
+| `tests/security/test_isolation_docs_v1.py` | namespace/cgroup, isolation profile, and resource-control docs include required IDs, schemas, thresholds, and gate anchors |
+| `tests/security/test_namespace_baseline_v1.py` | deterministic namespace baseline schema and regression rejection |
+| `tests/security/test_cgroup_baseline_v1.py` | deterministic cgroup baseline checks and memory-limit regression rejection |
+| `tests/security/test_isolation_escape_negative_v1.py` | deterministic escape negative-path checks and denial-regression rejection |
+| `tests/runtime/test_resource_control_policy_v1.py` | deterministic resource-control policy schema and controller-drift rejection |
+| `tests/security/test_namespace_cgroup_gate_v1.py` | namespace/cgroup sub-gate make/ci/docs wiring and resource-control artifact checks |
+| `tests/security/test_isolation_gate_v1.py` | isolation gate wiring, sub-gate integration, closure checks, and deterministic artifacts |
+
+### Rugo evidence
+
+- Contract docs:
+  - `docs/abi/namespace_cgroup_contract_v1.md`
+  - `docs/security/isolation_profile_v1.md`
+  - `docs/runtime/resource_control_policy_v1.md`
+- Tooling:
+  - `tools/run_isolation_campaign_v1.py`
+  - `tools/run_resource_control_campaign_v1.py`
+- Test gate:
+  - `tests/security/test_isolation_docs_v1.py`
+  - `tests/security/test_namespace_baseline_v1.py`
+  - `tests/security/test_cgroup_baseline_v1.py`
+  - `tests/security/test_isolation_escape_negative_v1.py`
+  - `tests/runtime/test_resource_control_policy_v1.py`
+  - `tests/security/test_namespace_cgroup_gate_v1.py`
+  - `tests/security/test_isolation_gate_v1.py`
+- Execution history:
+  - `docs/M42_EXECUTION_BACKLOG.md`
+- Release gating:
+  - `Makefile` targets `test-isolation-baseline-v1`,
+    `test-namespace-cgroup-v1`
+  - `.github/workflows/ci.yml` steps `Isolation baseline v1 gate`,
+    `Namespace cgroup v1 gate`
 
 ---
 
