@@ -125,6 +125,10 @@ Rugo:   [M0 M1 M2 M3 M4 M5 M6 M7 M8 M9 M10 M11 M12 M13 M14 M15 M16 M17 M18 M19 M
 - M38 execution backlog (completed): `docs/M38_EXECUTION_BACKLOG.md`
 - M39 execution backlog (completed): `docs/M39_EXECUTION_BACKLOG.md`
 - M40 execution backlog (proposed): `docs/M40_EXECUTION_BACKLOG.md`
+- M41 execution backlog (proposed): `docs/M41_EXECUTION_BACKLOG.md`
+- M42 execution backlog (proposed): `docs/M42_EXECUTION_BACKLOG.md`
+- M43 execution backlog (proposed): `docs/M43_EXECUTION_BACKLOG.md`
+- M44 execution backlog (proposed): `docs/M44_EXECUTION_BACKLOG.md`
 - Hardware support matrix v1: [docs/hw/support_matrix_v1.md](docs/hw/support_matrix_v1.md)
 - Security baseline docs: [docs/security/rights_capability_model_v1.md](docs/security/rights_capability_model_v1.md)
 - Compatibility profile v1 contract: [docs/abi/compat_profile_v1.md](docs/abi/compat_profile_v1.md)

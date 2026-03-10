@@ -822,7 +822,12 @@ Post-G2 planning and execution:
   - `docs/M37_EXECUTION_BACKLOG.md`
   - `docs/M38_EXECUTION_BACKLOG.md`
   - `docs/M39_EXECUTION_BACKLOG.md`
-- Next backlog (M40, proposed): `docs/M40_EXECUTION_BACKLOG.md`
+- Next backlogs (M40-M44, proposed):
+  - `docs/M40_EXECUTION_BACKLOG.md`
+  - `docs/M41_EXECUTION_BACKLOG.md`
+  - `docs/M42_EXECUTION_BACKLOG.md`
+  - `docs/M43_EXECUTION_BACKLOG.md`
+  - `docs/M44_EXECUTION_BACKLOG.md`
 - Last completed backlog (M39): `docs/M39_EXECUTION_BACKLOG.md`
 - M35-M39 roadmap execution is complete with M35 desktop baseline closure,
   M36 compatibility-surface closure, M37 hardware matrix v4 closure, M38
