@@ -2,7 +2,7 @@
 
 Date: 2026-03-11  
 Lane: Rugo (Rust kernel + Go user space)  
-Status: proposed
+Status: done
 
 ## Goal
 
@@ -17,8 +17,8 @@ M49 source of truth remains `docs/M48_M52_GUI_IMPLEMENTATION_ROADMAP.md`,
 - Input contracts, desktop focus expectations, and USB input hardware baselines
   already exist.
 - Hardware evidence now covers relevant input-capable classes.
-- The repo does not yet have a live graphical seat/event runtime for keyboard
-  and pointer delivery.
+- A deterministic seat runtime and HID event-path campaign now back graphical
+  keyboard/pointer delivery, focus routing, and hotplug evidence.
 
 ## Execution plan
 
@@ -28,9 +28,9 @@ M49 source of truth remains `docs/M48_M52_GUI_IMPLEMENTATION_ROADMAP.md`,
 
 ## Execution Result
 
-- PR-1: not started
-- PR-2: not started
-- PR-3: not started
+- PR-1: complete (2026-03-11)
+- PR-2: complete (2026-03-11)
+- PR-3: complete (2026-03-11)
 
 ## PR-1: Seat/Input Contract Freeze
 
@@ -63,6 +63,15 @@ runtime implementation begins.
 
 - Seat and input-routing semantics are explicit and versioned.
 - Focus ownership and device-delivery rules are reviewable before code lands.
+
+### PR-1 completion summary
+
+- Added contract docs:
+  - `docs/desktop/seat_input_contract_v1.md`
+  - `docs/desktop/input_event_contract_v1.md`
+  - `docs/desktop/focus_routing_policy_v1.md`
+- Added executable doc checks:
+  - `tests/desktop/test_input_seat_docs_v1.py`
 
 ## PR-2: Input Runtime + HID Event Campaigns
 
@@ -103,6 +112,17 @@ runtime evidence for declared workflows.
 - Keyboard/pointer delivery and focus routing are exercised through live
   graphical paths.
 
+### PR-2 completion summary
+
+- Added deterministic seat runtime tooling:
+  - `tools/run_input_seat_runtime_v1.py`
+  - `tools/run_hid_event_path_v1.py`
+- Added executable runtime and HID path checks:
+  - `tests/desktop/test_keyboard_event_delivery_v1.py`
+  - `tests/desktop/test_pointer_motion_buttons_v1.py`
+  - `tests/desktop/test_focus_routing_v1.py`
+  - `tests/desktop/test_seat_hotplug_v1.py`
+
 ## PR-3: Input Seat Gate + HID Event Sub-gate
 
 ### Objective
@@ -140,6 +160,22 @@ Make real input/seat behavior release-blocking for the declared GUI profile.
 
 - Real input/seat behavior is release-blocking in local and CI lanes.
 - Focus and HID delivery regressions are tied to explicit runtime artifacts.
+
+### PR-3 completion summary
+
+- Added aggregate gate checks:
+  - `tests/desktop/test_input_seat_gate_v1.py`
+  - `tests/desktop/test_hid_event_path_gate_v1.py`
+- Added local gates:
+  - `make test-input-seat-v1`
+  - `make test-hid-event-path-v1`
+- Added CI qualification gates and artifacts:
+  - `Input seat v1 gate`
+  - `HID event path v1 gate`
+- Updated closure docs:
+  - `MILESTONES.md`
+  - `docs/STATUS.md`
+  - `README.md`
 
 ## Non-goals for M49 backlog
 

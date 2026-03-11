@@ -56,7 +56,7 @@ endif
        test-observability-v2 test-crash-dump-v1 test-ops-ux-v3 test-release-lifecycle-v2 test-supply-chain-revalidation-v1 test-conformance-v1 test-fleet-ops-v1 test-fleet-rollout-safety-v1 test-maturity-qual-v1 test-desktop-stack-v1 test-gui-app-compat-v1 \
        test-compat-surface-v1 test-posix-gap-closure-v1 test-hw-matrix-v4 test-hw-baremetal-promotion-v1 test-storage-platform-v1 test-storage-feature-contract-v1 test-ecosystem-scale-v1 test-app-catalog-health-v1 \
        test-evidence-integrity-v1 test-synthetic-evidence-ban-v1 test-process-readiness-parity-v1 test-posix-gap-closure-v2 test-isolation-baseline-v1 test-namespace-cgroup-v1 \
-       test-hw-firmware-smp-v1 test-native-driver-matrix-v1 test-hw-matrix-v6 test-virtio-platform-v1 test-baremetal-io-baseline-v1 test-usb-input-removable-v1 test-hw-claim-promotion-v1 test-hw-support-tier-audit-v1 test-display-runtime-v1 test-scanout-path-v1 test-real-ecosystem-desktop-v2 test-real-app-catalog-v2 \
+       test-hw-firmware-smp-v1 test-native-driver-matrix-v1 test-hw-matrix-v6 test-virtio-platform-v1 test-baremetal-io-baseline-v1 test-usb-input-removable-v1 test-hw-claim-promotion-v1 test-hw-support-tier-audit-v1 test-display-runtime-v1 test-scanout-path-v1 test-input-seat-v1 test-hid-event-path-v1 test-real-ecosystem-desktop-v2 test-real-app-catalog-v2 \
        run test-qemu test-hw-matrix test-hw-matrix-v2 test-hw-matrix-v3 test-hw-matrix-v4 repro-check clean legacy docker-all docker-legacy
 
 # Tools
@@ -811,6 +811,16 @@ test-scanout-path-v1:
 	$(PYTHON) tools/run_display_runtime_v1.py --out $(OUT)/display-runtime-v1.json
 	$(PYTHON) tools/capture_display_frame_v1.py --out $(OUT)/display-frame-v1.png
 	$(PYTHON) -m pytest tests/desktop/test_display_runtime_docs_v1.py tests/desktop/test_virtio_gpu_scanout_v1.py tests/desktop/test_efifb_fallback_v1.py tests/desktop/test_display_present_timing_v1.py tests/desktop/test_display_frame_capture_v1.py tests/desktop/test_scanout_path_gate_v1.py -v --junitxml=$(OUT)/pytest-scanout-path-v1.xml
+
+test-input-seat-v1:
+	$(PYTHON) tools/run_input_seat_runtime_v1.py --out $(OUT)/input-seat-v1.json
+	$(SUBMAKE) test-hid-event-path-v1
+	$(PYTHON) -m pytest tests/desktop/test_input_seat_docs_v1.py tests/desktop/test_keyboard_event_delivery_v1.py tests/desktop/test_pointer_motion_buttons_v1.py tests/desktop/test_focus_routing_v1.py tests/desktop/test_seat_hotplug_v1.py tests/desktop/test_input_seat_gate_v1.py -v --junitxml=$(OUT)/pytest-input-seat-v1.xml
+
+test-hid-event-path-v1:
+	$(PYTHON) tools/run_input_seat_runtime_v1.py --out $(OUT)/input-seat-v1.json
+	$(PYTHON) tools/run_hid_event_path_v1.py --out $(OUT)/hid-event-path-v1.json
+	$(PYTHON) -m pytest tests/desktop/test_input_seat_docs_v1.py tests/desktop/test_keyboard_event_delivery_v1.py tests/desktop/test_pointer_motion_buttons_v1.py tests/desktop/test_focus_routing_v1.py tests/desktop/test_seat_hotplug_v1.py tests/desktop/test_hid_event_path_gate_v1.py -v --junitxml=$(OUT)/pytest-hid-event-path-v1.xml
 
 test-real-ecosystem-desktop-v2:
 	$(PYTHON) tools/run_real_gui_app_matrix_v2.py --out $(OUT)/real-gui-matrix-v2.json

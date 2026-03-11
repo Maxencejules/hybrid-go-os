@@ -884,6 +884,34 @@ jobs:
             out/display-frame-v1.png
             out/display-frame-v1.json
 
+      - name: Input seat v1 gate
+        run: |
+          make test-input-seat-v1
+
+      - name: Upload input seat v1 artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: input-seat-v1-artifacts
+          path: |
+            out/pytest-input-seat-v1.xml
+            out/input-seat-v1.json
+            out/hid-event-path-v1.json
+
+      - name: HID event path v1 gate
+        run: |
+          make test-hid-event-path-v1
+
+      - name: Upload HID event path v1 artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hid-event-path-v1-artifacts
+          path: |
+            out/pytest-hid-event-path-v1.xml
+            out/input-seat-v1.json
+            out/hid-event-path-v1.json
+
       - name: Real ecosystem desktop v2 gate
         run: |
           make test-real-ecosystem-desktop-v2
