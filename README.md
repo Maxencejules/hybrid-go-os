@@ -1,9 +1,14 @@
 # Rugo
 
-Rugo is a QEMU-first x86-64 hybrid OS: a `no_std` Rust kernel with Go user-space services.
+Rugo is an x86-64 hybrid OS with a tiered hardware support model: a `no_std`
+Rust kernel with Go user-space services.
 
-- Boots through Limine and runs marker-based acceptance tests in QEMU.
-- Keeps kernel mechanisms in Rust and user-space policy/services in Go (TinyGo-first).
+- Boots through Limine and uses QEMU Tier 0/Tier 1 lanes for marker-based
+  acceptance tests and release-floor validation.
+- Promotes broader hardware claims through explicit evidence, promotion policy,
+  and support-tier audit gates.
+- Keeps kernel mechanisms in Rust and user-space policy/services in Go
+  (TinyGo-first).
 - Preserves a full legacy C lane in `legacy/` as a working baseline.
 
 ## Quick demo

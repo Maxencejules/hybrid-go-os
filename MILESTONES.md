@@ -1,13 +1,17 @@
 # Rugo Milestones
 
 Date: 2026-02-17
-Target: x86-64, QEMU-first, Limine boot protocol
+Target: x86-64, tiered hardware support model (QEMU Tier 0/Tier 1 release floor), Limine boot protocol
 
 ---
 
 ## How to read this document
 
 This repository contains two implementation lanes for the same OS design:
+
+Hardware support is tracked through a tiered matrix. QEMU Tier 0/Tier 1 remain
+the active release-blocking floor, while broader bare-metal classes advance
+only through explicit promotion and audit policy.
 
 | Lane | Language | Location | Purpose |
 |------|----------|----------|---------|

@@ -7,8 +7,9 @@ Status: active release gate
 
 ## Goal
 
-Move from a QEMU-first confidence model to a tiered hardware confidence model
-with deterministic pass criteria and evidence artifacts.
+Define the tiered hardware confidence model that replaced the earlier
+QEMU-dominant validation model, with deterministic pass criteria and evidence
+artifacts.
 
 ## Tier definitions and pass criteria
 

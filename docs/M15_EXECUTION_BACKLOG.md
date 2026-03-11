@@ -6,8 +6,9 @@ Status: done
 
 ## Goal
 
-Move from QEMU-first confidence to a tiered hardware confidence model with
-repeatable evidence on representative real-hardware classes.
+Capture the transition from the earlier QEMU-dominant confidence model to a
+tiered hardware confidence model with repeatable evidence on representative
+real-hardware classes.
 
 M15 source of truth remains `docs/M15_M20_MULTIPURPOSE_PLAN.md`,
 `MILESTONES.md`, and this backlog.

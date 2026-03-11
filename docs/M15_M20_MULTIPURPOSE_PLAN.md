@@ -6,8 +6,9 @@ Status: Proposed
 
 ## Goal
 
-Define the next 6 milestones required to move from a strong QEMU-first, contract
-and gate driven OS project into a serious multi-purpose OS baseline with:
+Define the next 6 milestones that, as of 2026-03-04, were required to move the
+project from an earlier QEMU-dominant, contract- and gate-driven validation
+model into a serious multi-purpose OS baseline with:
 
 - broader hardware confidence,
 - stronger process and scheduler behavior,
@@ -21,8 +22,8 @@ This plan follows the same structure used by M8-M14 execution backlogs.
 
 - M0-M14 and G2 are marked complete with local and CI gate wiring.
 - Core release gates already exist: runtime, network, storage, release.
-- The project remains QEMU-first and heavily virtio-oriented for primary test
-  confidence.
+- At plan start, the project was still centered on QEMU and heavily
+  virtio-oriented for primary test confidence.
 - A v0 syscall freeze policy and compatibility profile foundation are in place.
 
 ## Milestone Map
@@ -81,8 +82,9 @@ test-release-ops-v2: image
 
 ### Objective
 
-Move from QEMU-first confidence to a tiered hardware confidence model with
-repeatable evidence across representative real hardware classes.
+Move from the earlier QEMU-dominant confidence model to a tiered hardware
+confidence model with repeatable evidence across representative real hardware
+classes.
 
 ### Execution plan (3 PRs)
 
