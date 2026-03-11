@@ -4,10 +4,14 @@ These documents are preserved because they contain milestone closure history,
 execution sequencing, and research detail. They are not the primary repo
 introduction.
 
+The primary milestone framing now lives in
+[../roadmap/MILESTONE_FRAMEWORK.md](../roadmap/MILESTONE_FRAMEWORK.md).
+
 ## Detailed Ledgers
 
 - full validation status ledger: [../STATUS.md](../STATUS.md)
 - exhaustive completion matrix: [../../MILESTONES.md](../../MILESTONES.md)
+- three-track milestone framework: [../roadmap/MILESTONE_FRAMEWORK.md](../roadmap/MILESTONE_FRAMEWORK.md)
 - post-G2 research roadmap: [../POST_G2_EXTENDED_MILESTONES.md](../POST_G2_EXTENDED_MILESTONES.md)
 
 ## Execution Backlogs

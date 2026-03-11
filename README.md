@@ -53,36 +53,21 @@ breaking the current build or test paths. That migration plan is documented in
 
 ## Milestone Status
 
-| Lane | Kernel milestones | Go milestones |
-|------|-------------------|---------------|
-| Legacy (`legacy/`) | M0-M7: done | G0: done |
-| Rugo (default hybrid OS lane) | M0-M52: done | G1: done, G2: done |
+| Track | What counts as progress | Current phase | Historical mapping |
+|------|--------------------------|---------------|--------------------|
+| Core Hybrid OS | The default Rust-kernel plus Go-service lane boots, runs native services, persists data, performs network I/O, and enforces runtime isolation on declared baseline targets. | `C5` complete; next core phase is `C6 Runtime Quality Under Load`. | `M0-M7`, `G1`, `M10`, `M12`, `M13`, `M16`, `M18`, `M19`, `M22`, `M25`, `M42` |
+| Tooling / Validation / Release Infrastructure | Confidence, reproducibility, qualification, release, and fleet discipline around the core lane improve. | `T4` complete; next infrastructure phase is `T5 Advanced Trust and Compliance Infrastructure`. | `G2`, `M11`, `M14`, `M20`, `M21`, `M24`, `M28`, `M29`, `M30-M34`, `M40` |
+| Expansion / Research / Platform Breadth | Compatibility, hardware breadth, desktop breadth, packaging breadth, and other product-surface expansion increase. | `X4` complete; next breadth phase is `X5 Next-Wave Breadth Research`. | `M8`, `M9`, `M15`, `M17`, `M23`, `M26`, `M27`, `M35-M39`, `M41`, `M43-M52` |
 
-Checkpoint strings retained for gate history: `M0-M40: done`, `M0-M41: done`,
-`M0-M42: done`, `M0-M43: done`, `M0-M44: done`, `M0-M45: done`, `M0-M46: done`,
-`M0-M47: done`, `M0-M48: done`, `M0-M49: done`, `M0-M50: done`, `M0-M51: done`,
-`M0-M52: done`.
-
-Latest completed GUI milestone: `M52`.
-Latest completed hardware promotion phase: `M45-M47`.
-
-Historical GUI checkpoint strings retained for gate history:
-Latest completed GUI milestone: `M49`.
-Latest completed GUI milestone: `M50`.
-Latest completed GUI milestone: `M51`.
-Latest completed GUI milestone: `M52`.
-
-Completed architecture streams:
-- compatibility and userspace: `M8`, `M16`, `M17`, `M25`, `M27`, `M36`, `M41`
-- security, runtime, and release: `M10`, `M11`, `M14`, `M20`, `M21`, `M22`,
-  `M24`, `M26`, `M28`, `M29`, `M30`, `M31`, `M32`, `M33`, `M34`
-- hardware and platform breadth: `M9`, `M15`, `M18`, `M19`, `M23`, `M37`,
-  `M38`, `M39`, `M43`, `M44`, `M45`, `M46`, `M47`
-- desktop stack and workflows: `M35`, `M48`, `M49`, `M50`, `M51`, `M52`
+Primary scoring rule: the first row is the answer to "how close is the repo to
+its stated goal?" `G1` should be read as the default TinyGo-first Go-service
+lane. `G2` should be read as experimental stock-Go qualification, not as the
+default product state.
 
 For the exhaustive completion matrix, see [MILESTONES.md](MILESTONES.md). For
 the detailed validation ledger that CI gates still reference, see
-[docs/STATUS.md](docs/STATUS.md).
+[docs/STATUS.md](docs/STATUS.md). For the three-track framework and rename
+guidance, see [docs/roadmap/MILESTONE_FRAMEWORK.md](docs/roadmap/MILESTONE_FRAMEWORK.md).
 
 ## Demo And Validation Paths
 
@@ -109,6 +94,7 @@ Compatibility aliases remain available: `make build`, `make image`,
 - Architecture overview: [docs/architecture/README.md](docs/architecture/README.md)
 - Repo migration strategy: [docs/architecture/repo-strategy.md](docs/architecture/repo-strategy.md)
 - Current roadmap and milestone streams: [docs/roadmap/README.md](docs/roadmap/README.md)
+- Milestone framework: [docs/roadmap/MILESTONE_FRAMEWORK.md](docs/roadmap/MILESTONE_FRAMEWORK.md)
 - Historical archive index: [docs/archive/README.md](docs/archive/README.md)
 - Legacy lane notes: [legacy/README.md](legacy/README.md)
 

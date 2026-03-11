@@ -3,62 +3,75 @@
 This is the architecture-first roadmap view. Use it to understand direction.
 Use [../../MILESTONES.md](../../MILESTONES.md) for the exhaustive completion
 matrix and [../archive/README.md](../archive/README.md) for historical
-execution records.
+execution records. Use
+[MILESTONE_FRAMEWORK.md](MILESTONE_FRAMEWORK.md) for the full three-track
+taxonomy, old-to-new mapping, rename guidance, and archive/foreground rules.
 
 ## Current Phase
 
-Completed baseline:
-- kernel and service foundation through `M0-M52`
-- Go bring-up through `G1`
-- stock-Go contract path through `G2`
+The active framing is now three tracks rather than one flat milestone ladder.
 
-Current repo-shaping priority:
-- make the Rust-kernel plus Go-userspace identity obvious in structure,
-  documentation, and demo paths before doing disruptive directory moves
+| Track | Role | Current phase |
+|---|---|---|
+| Core Hybrid OS | Main scoreboard. Measures the default Rust-kernel plus Go-service runtime itself. | `C5` complete; next is `C6 Runtime Quality Under Load`. |
+| Tooling / Validation / Release Infrastructure | Secondary scoreboard. Measures confidence, qualification, release, and lifecycle discipline around the core lane. | `T4` complete; next is `T5 Advanced Trust and Compliance Infrastructure`. |
+| Expansion / Research / Platform Breadth | Secondary scoreboard. Measures compatibility breadth, hardware breadth, desktop breadth, and ecosystem growth. | `X4` complete; next is `X5 Next-Wave Breadth Research`. |
 
-## Milestone Streams
+## Observable Core Progress
 
-### Kernel and Runtime
+The repo is closer to its goal only when the default lane can do more of the
+following on declared baseline platforms:
 
-- foundational kernel milestones: `M0-M7`
-- runtime maturity and stability: `M11`, `M21`, `M22`, `M24`, `M29`, `M32`
-- service and init model: `M25`, `M33`, `M34`
+- boot from firmware into the Rust kernel and enter Go user space
+- run the default Go init/service/shell stack on native kernel primitives
+- persist data and perform network I/O through the default service lane
+- enforce the process, rights, and isolation model that those services depend on
+- survive bounded soak, restart, and containment tests tied to that same lane
 
-### Userspace and Compatibility
+## Track Summary
 
-- compatibility and ABI surface: `M8`, `M16`, `M17`, `M27`, `M36`, `M41`
-- TinyGo-first user-space path: `G1`
-- stock-Go contract path: `G2` (experimental lane, not default repo identity)
+### Core Hybrid OS
 
-### Hardware and Platform
+- `C1` Kernel Mechanisms Baseline: `M0-M5`
+- `C2` Default Go Service Bring-up: `M6`, `M7`, `G1`
+- `C3` Contracted Service OS Runtime: `M10`, `M16`, `M25`
+- `C4` Durable and Connected Runtime: `M12`, `M13`, `M18`, `M19`
+- `C5` Reliable and Isolated Service OS: `M22`, `M42`
+- `C6` Runtime Quality Under Load: future core target, likely fed by `M78`,
+  `M79`
 
-- hardware matrix and promotion: `M9`, `M15`, `M23`, `M37`, `M43`, `M45`,
-  `M46`, `M47`
-- platform and storage breadth: `M18`, `M19`, `M38`, `M39`
+### Tooling / Validation / Release Infrastructure
 
-### Security and Release
+- `T1` Experimental Go Port and ABI Qualification: `G2`, `M11`, `M21`
+- `T2` Observability, Performance, and Evidence Discipline: `M24`, `M29`,
+  `M40`
+- `T3` Release and Recovery Infrastructure: `M14`, `M20`, `M30`, `M31`
+- `T4` Hardening, Qualification, and Fleet Operations: `M28`, `M32`, `M33`,
+  `M34`
 
-- security hardening and isolation: `M10`, `M28`, `M42`
-- release, support, and operations: `M14`, `M20`, `M30`, `M31`
+### Expansion / Research / Platform Breadth
 
-### Desktop and Workflow
+- `X1` Compatibility Surface Expansion: `M8`, `M17`, `M27`, `M36`, `M41`
+- `X2` Hardware, Firmware, and Driver Breadth: `M9`, `M15`, `M23`, `M37`,
+  `M43`, `M45-M47`
+- `X3` Platform and Ecosystem Feature Breadth: `M26`, `M38`, `M39`
+- `X4` Desktop and Workflow Breadth: `M35`, `M44`, `M48-M52`
 
-- desktop baseline and ecosystem qualification: `M35`, `M44`
-- display, input, windowing, toolkit, and shell: `M48`, `M49`, `M50`, `M51`,
-  `M52`
+## Foreground vs Archive
 
-## What Is Primary vs Secondary
+Foreground:
 
-Primary:
-- Rust kernel
-- Go userspace
-- TinyGo-first demo path
+- the three-track scoreboard
+- the default Rust-kernel plus Go-service demo path
+- the next unfinished core-runtime phase
 
-Secondary but preserved:
-- tooling and validation gates
-- historical milestone backlogs
-- legacy C baseline
+Archive or de-emphasize:
 
-Experimental:
+- flat `M0-M52 done` headlines
+- repeated checkpoint strings and latest-GUI callouts
+- detailed execution backlogs and closure ledgers as the first impression
+
+Experimental but preserved:
+
 - stock-Go porting work
 - extended research roadmap details in `docs/POST_G2_EXTENDED_MILESTONES.md`

@@ -6,7 +6,8 @@ Scope: Rugo lane after G2 completion
 
 Archive note: this document remains the detailed research roadmap and milestone
 history. The current architecture-first summary now lives in
-`docs/roadmap/README.md`.
+`docs/roadmap/README.md`, and the current milestone framing now lives in
+`docs/roadmap/MILESTONE_FRAMEWORK.md`.
 
 ---
 
