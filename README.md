@@ -13,11 +13,15 @@ Rust kernel with Go user-space services.
 
 ## Quick demo
 
-Placeholders (real captures only):
+Boot screenshot:
 
-- `TODO`: add `docs/visuals/screenshots/boot-qemu.png` (QEMU boot screenshot)
-- `TODO`: add `docs/visuals/screenshots/make-run-demo.gif` (10-20s capture of the recommended `make run` flow)
-- Optional: add `docs/visuals/screenshots/make-test-qemu-demo.gif` only if you also want a full smoke-suite capture
+![QEMU boot screenshot](docs/visuals/screenshots/boot-qemu.png)
+
+`make run` demo capture:
+
+![`make run` demo capture](docs/visuals/screenshots/make-run-demo.gif)
+
+Optional extended validation capture: add `docs/visuals/screenshots/make-test-qemu-demo.gif` only if you also want a full smoke-suite capture.
 
 Exact capture steps:
 
