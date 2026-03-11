@@ -62,7 +62,8 @@ def test_perf_gate_v1_wiring_and_artifacts(tmp_path: Path):
     assert "Status: done" in backlog
     assert "M24" in milestones
     assert "M24" in status
-    assert "M24" in readme
+    assert "docs/architecture/SOURCE_MAP.md" in readme
+    assert "docs/archive/README.md" in readme
 
     baseline_out = tmp_path / "perf-baseline-v1.json"
     regression_out = tmp_path / "perf-regression-v1.json"

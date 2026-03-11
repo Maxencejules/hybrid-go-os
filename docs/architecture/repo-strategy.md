@@ -17,6 +17,9 @@ then migrate paths only after the build and test system is path-parameterized.
 
 Implemented now:
 - architecture-first `README.md`
+- wayfinding directories: `kernel/`, `userspace/`, `validation/`, `support/`,
+  `experimental/`
+- runtime source map: `docs/architecture/SOURCE_MAP.md`
 - architecture and roadmap docs under `docs/architecture/` and `docs/roadmap/`
 - archive index under `docs/archive/`
 - non-breaking make aliases: `make demo-go`, `make run-kernel`, `make validate`

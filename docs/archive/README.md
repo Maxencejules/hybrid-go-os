@@ -7,6 +7,9 @@ introduction.
 The primary milestone framing now lives in
 [../roadmap/MILESTONE_FRAMEWORK.md](../roadmap/MILESTONE_FRAMEWORK.md).
 
+Archive entry point for execution backlogs:
+- [EXECUTION_BACKLOGS.md](EXECUTION_BACKLOGS.md)
+
 ## Detailed Ledgers
 
 - full validation status ledger: [../STATUS.md](../STATUS.md)
@@ -22,6 +25,10 @@ existing tests, scripts, and links.
 - kernel, runtime, and release history: `docs/M8_EXECUTION_BACKLOG.md` through `docs/M34_EXECUTION_BACKLOG.md`
 - desktop and hardware expansion history: `docs/M35_EXECUTION_BACKLOG.md` through `docs/M52_EXECUTION_BACKLOG.md`
 - extended roadmap execution history: `docs/M53_EXECUTION_BACKLOG.md` through `docs/M84_EXECUTION_BACKLOG.md`
+
+The front door should not enumerate those files individually. Use
+[EXECUTION_BACKLOGS.md](EXECUTION_BACKLOGS.md) when you actually need backlog
+history.
 
 ## Legacy
 

@@ -80,8 +80,8 @@ def test_isolation_gate_v1_wiring_and_artifacts(tmp_path: Path):
         "| **M42** Isolation + Namespace Baseline v1 | n/a | done |"
         in status
     )
-    assert "M0-M42: done" in readme
-    assert "M42 execution backlog (completed)" in readme
+    assert "docs/architecture/SOURCE_MAP.md" in readme
+    assert "docs/archive/README.md" in readme
 
     isolation_out = tmp_path / "isolation-campaign-v1.json"
     resource_out = tmp_path / "resource-control-v1.json"

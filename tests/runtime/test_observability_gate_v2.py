@@ -75,7 +75,8 @@ def test_observability_gate_v2_wiring_and_artifacts(tmp_path: Path):
     assert "Status: done" in backlog
     assert "M29" in milestones
     assert "M29" in status
-    assert "M29" in readme
+    assert "docs/architecture/SOURCE_MAP.md" in readme
+    assert "docs/archive/README.md" in readme
 
     trace_out = tmp_path / "trace-bundle-v2.json"
     diag_out = tmp_path / "diagnostic-snapshot-v2.json"

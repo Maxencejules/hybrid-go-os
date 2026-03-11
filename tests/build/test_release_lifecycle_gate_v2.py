@@ -75,7 +75,8 @@ def test_release_lifecycle_gate_v2_wiring_and_artifacts(tmp_path: Path):
     assert "Status: done" in backlog
     assert "M31" in milestones
     assert "M31" in status
-    assert "M31" in readme
+    assert "docs/architecture/SOURCE_MAP.md" in readme
+    assert "docs/archive/README.md" in readme
 
     branch_out = tmp_path / "release-branch-audit-v2.json"
     support_out = tmp_path / "support-window-audit-v1.json"

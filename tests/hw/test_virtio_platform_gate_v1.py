@@ -75,7 +75,8 @@ def test_virtio_platform_gate_v1_wiring_and_artifacts():
     assert "Status: done" in backlog
     assert "| M45 | Modern Virtual Platform Parity v1 | n/a | done |" in milestones
     assert "| **M45** Modern Virtual Platform Parity v1 | n/a | done |" in status
-    assert "M45 execution backlog (completed)" in readme
+    assert "docs/architecture/SOURCE_MAP.md" in readme
+    assert "docs/archive/README.md" in readme
 
     matrix_out = _out_path("virtio-platform-hw-matrix-v6.json")
     smoke_out = _out_path("virtio-platform-desktop-smoke-v1.json")

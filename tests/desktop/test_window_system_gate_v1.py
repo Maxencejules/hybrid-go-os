@@ -86,9 +86,8 @@ def test_window_system_gate_v1_wiring_and_artifacts():
     assert "Status: done" in backlog
     assert "| M50 | Window System + Composition v1 | n/a | done |" in milestones
     assert "| **M50** Window System + Composition v1 | n/a | done |" in status
-    assert "M0-M50: done" in readme
-    assert "Latest completed GUI milestone: `M50`." in readme
-    assert "M50 execution backlog (completed)" in readme
+    assert "docs/architecture/SOURCE_MAP.md" in readme
+    assert "docs/archive/README.md" in readme
 
     runtime_out = _out_path("window-system-v1.json")
     damage_out = _out_path("compositor-damage-v1.json")

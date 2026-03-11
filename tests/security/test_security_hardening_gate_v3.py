@@ -90,7 +90,8 @@ def test_security_hardening_gate_v3_wiring_and_artifacts(tmp_path: Path):
     assert "Status: done" in backlog
     assert "M28" in milestones
     assert "M28" in status
-    assert "M28" in readme
+    assert "docs/architecture/SOURCE_MAP.md" in readme
+    assert "docs/archive/README.md" in readme
 
     attack_out = tmp_path / "security-attack-suite-v3.json"
     fuzz_out = tmp_path / "security-fuzz-v2.json"

@@ -58,4 +58,5 @@ def test_operability_release_ux_v2_gate_wiring_and_artifacts():
     assert "Status: done" in backlog
     assert "M20" in milestones
     assert "M20" in status
-    assert "M20" in readme
+    assert "docs/architecture/SOURCE_MAP.md" in readme
+    assert "docs/archive/README.md" in readme

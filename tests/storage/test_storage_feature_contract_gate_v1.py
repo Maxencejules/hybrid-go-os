@@ -59,7 +59,8 @@ def test_storage_feature_contract_gate_v1_wiring_and_artifacts(tmp_path: Path):
     assert "Status: done" in backlog
     assert "M38" in milestones
     assert "M38" in status
-    assert "M38" in readme
+    assert "docs/architecture/SOURCE_MAP.md" in readme
+    assert "docs/archive/README.md" in readme
 
     out = tmp_path / "platform-feature-v1.json"
     assert conformance.main(["--seed", "20260309", "--out", str(out)]) == 0

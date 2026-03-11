@@ -67,7 +67,8 @@ def test_real_catalog_gate_v2_wiring_and_artifacts(tmp_path: Path):
     assert "Status: done" in backlog
     assert "M44" in milestones
     assert "M44" in status
-    assert "M44 execution backlog (completed)" in readme
+    assert "docs/architecture/SOURCE_MAP.md" in readme
+    assert "docs/archive/README.md" in readme
 
     install_out = tmp_path / "real-pkg-install-v2.json"
     audit_out = tmp_path / "real-catalog-audit-v2.json"

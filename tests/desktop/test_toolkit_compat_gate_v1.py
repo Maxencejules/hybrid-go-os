@@ -78,7 +78,8 @@ def test_toolkit_compat_gate_v1_wiring_and_artifacts():
     assert "Status: done" in backlog
     assert "| M51 | GUI Runtime + Toolkit Bridge v1 | n/a | done |" in milestones
     assert "| **M51** GUI Runtime + Toolkit Bridge v1 | n/a | done |" in status
-    assert "M51 execution backlog (completed)" in readme
+    assert "docs/architecture/SOURCE_MAP.md" in readme
+    assert "docs/archive/README.md" in readme
 
     runtime_out = _out_path("toolkit-gate-runtime-v1.json")
     compat_out = _out_path("toolkit-gate-v1.json")

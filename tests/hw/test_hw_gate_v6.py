@@ -96,8 +96,8 @@ def test_hw_matrix_v6_gate_wiring_and_artifacts():
     assert "Status: done" in backlog
     assert "| M45 | Modern Virtual Platform Parity v1 | n/a | done |" in milestones
     assert "| **M45** Modern Virtual Platform Parity v1 | n/a | done |" in status
-    assert "M0-M47: done" in readme
-    assert "M45 execution backlog (completed)" in readme
+    assert "docs/architecture/SOURCE_MAP.md" in readme
+    assert "docs/archive/README.md" in readme
 
     matrix_out = _out_path("hw-gate-v6-matrix.json")
     smoke_out = _out_path("hw-gate-v6-desktop.json")

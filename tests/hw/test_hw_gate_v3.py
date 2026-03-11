@@ -52,4 +52,5 @@ def test_hw_matrix_v3_gate_wiring_and_artifacts():
     assert "Status: done" in backlog
     assert "M23" in milestones
     assert "M23" in status
-    assert "M23" in readme
+    assert "docs/architecture/SOURCE_MAP.md" in readme
+    assert "docs/archive/README.md" in readme

@@ -65,7 +65,8 @@ def test_ops_ux_gate_v3_wiring_and_artifacts(tmp_path: Path):
     assert "Status: done" in backlog
     assert "M30" in milestones
     assert "M30" in status
-    assert "M30" in readme
+    assert "docs/architecture/SOURCE_MAP.md" in readme
+    assert "docs/archive/README.md" in readme
 
     upgrade_out = tmp_path / "upgrade-drill-v3.json"
     recovery_out = tmp_path / "recovery-drill-v3.json"

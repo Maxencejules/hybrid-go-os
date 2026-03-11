@@ -85,8 +85,8 @@ def test_hw_claim_promotion_gate_v1_wiring_and_artifacts():
     assert "Status: done" in backlog
     assert "| M47 | Hardware Claim Promotion Program v1 | n/a | done |" in milestones
     assert "| **M47** Hardware Claim Promotion Program v1 | n/a | done |" in status
-    assert "M0-M47: done" in readme
-    assert "M47 execution backlog (completed)" in readme
+    assert "docs/architecture/SOURCE_MAP.md" in readme
+    assert "docs/archive/README.md" in readme
 
     promotion_out = _out_path("hw-claim-promotion-v1.json")
     audit_out = _out_path("hw-support-tier-audit-v1.json")

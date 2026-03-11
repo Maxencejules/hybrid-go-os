@@ -78,7 +78,8 @@ def test_storage_platform_gate_v1_wiring_and_artifacts(tmp_path: Path):
     assert "Status: done" in backlog
     assert "M38" in milestones
     assert "M38" in status
-    assert "M38" in readme
+    assert "docs/architecture/SOURCE_MAP.md" in readme
+    assert "docs/archive/README.md" in readme
 
     feature_out = tmp_path / "storage-feature-v1.json"
     platform_out = tmp_path / "platform-feature-v1.json"

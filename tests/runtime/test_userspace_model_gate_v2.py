@@ -52,4 +52,5 @@ def test_userspace_model_v2_gate_wiring_and_artifacts():
     assert "Status: done" in backlog
     assert "M25" in milestones
     assert "M25" in status
-    assert "M25" in readme
+    assert "docs/architecture/SOURCE_MAP.md" in readme
+    assert "docs/archive/README.md" in readme

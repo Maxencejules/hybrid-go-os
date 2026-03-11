@@ -56,7 +56,8 @@ def test_gui_app_compat_gate_v1_wiring_and_artifacts(tmp_path: Path):
     assert "Status: done" in backlog
     assert "M35" in milestones
     assert "M35" in status
-    assert "M35" in readme
+    assert "docs/architecture/SOURCE_MAP.md" in readme
+    assert "docs/archive/README.md" in readme
 
     out = tmp_path / "gui-app-matrix-v1.json"
     assert matrix.main(["--seed", "20260309", "--out", str(out)]) == 0
@@ -66,4 +67,3 @@ def test_gui_app_compat_gate_v1_wiring_and_artifacts(tmp_path: Path):
     assert report["tier_schema"] == "rugo.gui_app_tiers.v1"
     assert report["gate_pass"] is True
     assert report["total_failures"] == 0
-

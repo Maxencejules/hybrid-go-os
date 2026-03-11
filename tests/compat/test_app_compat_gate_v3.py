@@ -63,7 +63,8 @@ def test_app_compat_gate_v3_wiring_and_artifacts(tmp_path: Path):
     assert "Status: done" in backlog
     assert "M27" in milestones
     assert "M27" in status
-    assert "M27" in readme
+    assert "docs/architecture/SOURCE_MAP.md" in readme
+    assert "docs/archive/README.md" in readme
 
     out = tmp_path / "app-compat-matrix-v3.json"
     assert matrix.main(["--seed", "20260309", "--out", str(out)]) == 0

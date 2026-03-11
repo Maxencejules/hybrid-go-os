@@ -79,8 +79,8 @@ def test_hw_firmware_smp_gate_v1_wiring_and_artifacts(tmp_path: Path):
     assert "Status: done" in backlog
     assert "| M43 | Hardware/Firmware Breadth + SMP v1 | n/a | done |" in milestones
     assert "| **M43** Hardware/Firmware Breadth + SMP v1 | n/a | done |" in status
-    assert "M0-M43: done" in readme
-    assert "M43 execution backlog (completed)" in readme
+    assert "docs/architecture/SOURCE_MAP.md" in readme
+    assert "docs/archive/README.md" in readme
 
     matrix_out = tmp_path / "hw-matrix-v5.json"
     evidence_out = tmp_path / "hw-firmware-smp-v1.json"

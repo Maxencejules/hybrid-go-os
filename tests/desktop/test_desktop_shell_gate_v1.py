@@ -86,9 +86,8 @@ def test_desktop_shell_gate_v1_wiring_and_artifacts():
     assert "Status: done" in backlog
     assert "| M52 | Desktop Shell + Workflow Baseline v1 | n/a | done |" in milestones
     assert "| **M52** Desktop Shell + Workflow Baseline v1 | n/a | done |" in status
-    assert "M0-M52: done" in readme
-    assert "Latest completed GUI milestone: `M52`." in readme
-    assert "M52 execution backlog (completed)" in readme
+    assert "docs/architecture/SOURCE_MAP.md" in readme
+    assert "docs/archive/README.md" in readme
 
     shell_out = _out_path("desktop-shell-gate-v1.json")
     installer_out = _out_path("graphical-installer-gate-v1.json")

@@ -4,6 +4,14 @@ This file is the detailed validation ledger. For the architecture-first repo
 story, start with `README.md`, `docs/architecture/README.md`, and
 `docs/roadmap/README.md`.
 
+Interpretation note:
+- live runtime evidence is concentrated in the kernel and userspace paths
+  mapped in `docs/architecture/SOURCE_MAP.md`
+- many later qualification lanes also rely on deterministic report generators
+  under `tools/`
+- those reports are useful repo-discipline artifacts, but they are not the
+  same thing as additional runtime source depth
+
 ## What this repo contains
 
 | Track | Language | Location | Role |

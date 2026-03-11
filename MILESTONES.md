@@ -19,6 +19,12 @@ The default product direction is:
 - stock-Go bring-up kept as experimental until the repo structure is migrated
 - legacy C lane preserved as a reference baseline, not as an equal-status lane
 
+Interpretation note:
+- this ledger mixes direct runtime milestones with later qualification and
+  expansion milestones
+- use `docs/architecture/SOURCE_MAP.md` when you need the implementation paths
+  and live proof commands behind a claim
+
 Hardware support is still tracked through a tiered matrix. QEMU Tier 0/Tier 1
 remain the release-blocking floor, while broader bare-metal classes advance
 only through explicit promotion and audit policy.

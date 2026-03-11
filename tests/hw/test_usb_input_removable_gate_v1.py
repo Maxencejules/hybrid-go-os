@@ -82,7 +82,8 @@ def test_usb_input_removable_gate_v1_wiring_and_artifacts():
     assert "Status: done" in backlog
     assert "| M46 | Bare-Metal I/O Baseline v1 | n/a | done |" in milestones
     assert "| **M46** Bare-Metal I/O Baseline v1 | n/a | done |" in status
-    assert "M46 execution backlog (completed)" in readme
+    assert "docs/architecture/SOURCE_MAP.md" in readme
+    assert "docs/archive/README.md" in readme
 
     baseline_out = _out_path("usb-removable-baremetal-io-v1.json")
     smoke_out = _out_path("usb-removable-desktop-smoke-v1.json")
@@ -127,4 +128,3 @@ def test_usb_input_removable_gate_v1_wiring_and_artifacts():
     assert recovery_data["schema"] == "rugo.recovery_drill.v3"
     assert recovery_data["workflow_id"] == "rugo.recovery_workflow.v3"
     assert recovery_data["gate_pass"] is True
-

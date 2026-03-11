@@ -59,7 +59,8 @@ def test_posix_gap_closure_gate_v1_wiring_and_artifacts(tmp_path: Path):
     assert "Status: done" in backlog
     assert "M36" in milestones
     assert "M36" in status
-    assert "M36" in readme
+    assert "docs/architecture/SOURCE_MAP.md" in readme
+    assert "docs/archive/README.md" in readme
 
     out = tmp_path / "posix-gap-report-v1.json"
     assert gap.main(["--seed", "20260309", "--out", str(out)]) == 0

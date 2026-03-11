@@ -78,7 +78,8 @@ def test_compositor_damage_gate_v1_wiring_and_artifacts():
     assert "Status: done" in backlog
     assert "| M50 | Window System + Composition v1 | n/a | done |" in milestones
     assert "| **M50** Window System + Composition v1 | n/a | done |" in status
-    assert "M50 execution backlog (completed)" in readme
+    assert "docs/architecture/SOURCE_MAP.md" in readme
+    assert "docs/archive/README.md" in readme
 
     runtime_out = _out_path("damage-gate-window-system-v1.json")
     damage_out = _out_path("damage-gate-compositor-v1.json")

@@ -90,8 +90,8 @@ def test_display_runtime_gate_v1_wiring_and_artifacts():
     assert "Status: done" in backlog
     assert "| M48 | Display Runtime + Scanout v1 | n/a | done |" in milestones
     assert "| **M48** Display Runtime + Scanout v1 | n/a | done |" in status
-    assert "M0-M48: done" in readme
-    assert "M48 execution backlog (completed)" in readme
+    assert "docs/architecture/SOURCE_MAP.md" in readme
+    assert "docs/archive/README.md" in readme
 
     runtime_out = _out_path("display-runtime-v1.json")
     frame_out = _out_path("display-frame-v1.png")

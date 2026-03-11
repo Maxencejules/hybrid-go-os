@@ -65,7 +65,8 @@ def test_fleet_rollout_safety_gate_v1_wiring_and_artifacts(tmp_path: Path):
     assert "Status: done" in backlog
     assert "M33" in milestones
     assert "M33" in status
-    assert "M33" in readme
+    assert "docs/architecture/SOURCE_MAP.md" in readme
+    assert "docs/archive/README.md" in readme
 
     canary_out = tmp_path / "canary-rollout-sim-v1.json"
     abort_out = tmp_path / "rollout-abort-drill-v1.json"

@@ -78,7 +78,8 @@ def test_desktop_workflows_gate_v1_wiring_and_artifacts():
     assert "Status: done" in backlog
     assert "| M52 | Desktop Shell + Workflow Baseline v1 | n/a | done |" in milestones
     assert "| **M52** Desktop Shell + Workflow Baseline v1 | n/a | done |" in status
-    assert "M52 execution backlog (completed)" in readme
+    assert "docs/architecture/SOURCE_MAP.md" in readme
+    assert "docs/archive/README.md" in readme
 
     shell_out = _out_path("desktop-shell-subgate-v1.json")
     installer_out = _out_path("graphical-installer-subgate-v1.json")

@@ -67,7 +67,8 @@ def test_app_catalog_health_gate_v1_wiring_and_artifacts(tmp_path: Path):
     assert "Status: done" in backlog
     assert "M39" in milestones
     assert "M39" in status
-    assert "M39" in readme
+    assert "docs/architecture/SOURCE_MAP.md" in readme
+    assert "docs/archive/README.md" in readme
 
     install_out = tmp_path / "pkg-install-success-v1.json"
     audit_out = tmp_path / "catalog-audit-v1.json"

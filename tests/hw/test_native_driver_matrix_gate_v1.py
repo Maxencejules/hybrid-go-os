@@ -65,7 +65,8 @@ def test_native_driver_matrix_gate_v1_wiring_and_artifacts(tmp_path: Path):
     assert "Status: done" in backlog
     assert "M43" in milestones
     assert "M43" in status
-    assert "M43 execution backlog (completed)" in readme
+    assert "docs/architecture/SOURCE_MAP.md" in readme
+    assert "docs/archive/README.md" in readme
 
     out = tmp_path / "hw-firmware-smp-v1.json"
     assert evidence.main(["--seed", "20260310", "--out", str(out)]) == 0

@@ -78,7 +78,8 @@ def test_desktop_gate_v1_wiring_and_artifacts(tmp_path: Path):
     assert "Status: done" in backlog
     assert "M35" in milestones
     assert "M35" in status
-    assert "M35" in readme
+    assert "docs/architecture/SOURCE_MAP.md" in readme
+    assert "docs/archive/README.md" in readme
 
     smoke_out = tmp_path / "desktop-smoke-v1.json"
     matrix_out = tmp_path / "gui-app-matrix-v1.json"
@@ -98,4 +99,3 @@ def test_desktop_gate_v1_wiring_and_artifacts(tmp_path: Path):
     assert matrix_data["profile_id"] == "rugo.desktop_profile.v1"
     assert matrix_data["total_failures"] == 0
     assert matrix_data["gate_pass"] is True
-

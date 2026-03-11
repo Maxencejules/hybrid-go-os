@@ -85,8 +85,8 @@ def test_process_readiness_gate_v1_wiring_and_artifacts(tmp_path: Path):
         "| **M41** Process + Readiness Compatibility Closure v1 | n/a | done |"
         in status
     )
-    assert "M0-M41: done" in readme
-    assert "M41 execution backlog (completed)" in readme
+    assert "docs/architecture/SOURCE_MAP.md" in readme
+    assert "docs/archive/README.md" in readme
 
     surface_out = tmp_path / "compat-surface-v2.json"
     gap_out = tmp_path / "posix-gap-report-v2.json"

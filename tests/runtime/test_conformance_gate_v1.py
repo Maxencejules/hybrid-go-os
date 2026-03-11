@@ -60,7 +60,8 @@ def test_conformance_gate_v1_wiring_and_artifacts(tmp_path: Path):
     assert "Status: done" in backlog
     assert "M32" in milestones
     assert "M32" in status
-    assert "M32" in readme
+    assert "docs/architecture/SOURCE_MAP.md" in readme
+    assert "docs/archive/README.md" in readme
 
     report_out = tmp_path / "conformance-v1.json"
     assert conformance_tool.main(["--seed", "20260309", "--out", str(report_out)]) == 0

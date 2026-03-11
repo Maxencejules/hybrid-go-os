@@ -78,7 +78,8 @@ def test_hw_matrix_v4_gate_wiring_and_artifacts(tmp_path: Path):
     assert "Status: done" in backlog
     assert "M37" in milestones
     assert "M37" in status
-    assert "M37" in readme
+    assert "docs/architecture/SOURCE_MAP.md" in readme
+    assert "docs/archive/README.md" in readme
 
     matrix_out = tmp_path / "hw-matrix-v4.json"
     promo_out = tmp_path / "hw-promotion-v1.json"

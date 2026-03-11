@@ -81,8 +81,8 @@ def test_real_desktop_gate_v2_wiring_and_artifacts(tmp_path: Path):
     assert "Status: done" in backlog
     assert "| M44 | Real Desktop + Ecosystem Qualification v2 | n/a | done |" in milestones
     assert "| **M44** Real Desktop + Ecosystem Qualification v2 | n/a | done |" in status
-    assert "M0-M44: done" in readme
-    assert "M44 execution backlog (completed)" in readme
+    assert "docs/architecture/SOURCE_MAP.md" in readme
+    assert "docs/archive/README.md" in readme
 
     gui_out = tmp_path / "real-gui-matrix-v2.json"
     install_out = tmp_path / "real-pkg-install-v2.json"

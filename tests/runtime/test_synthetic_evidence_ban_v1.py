@@ -68,7 +68,8 @@ def test_synthetic_evidence_ban_v1_wiring_and_artifacts(tmp_path: Path):
     assert "Status: done" in backlog
     assert "M40" in milestones
     assert "M40" in status
-    assert "M40 execution backlog (completed)" in readme
+    assert "docs/architecture/SOURCE_MAP.md" in readme
+    assert "docs/archive/README.md" in readme
 
     runtime_out = tmp_path / "runtime-evidence-v1.json"
     audit_out = tmp_path / "gate-evidence-audit-v1.json"

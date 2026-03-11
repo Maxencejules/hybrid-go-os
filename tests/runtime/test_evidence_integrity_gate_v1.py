@@ -72,8 +72,8 @@ def test_evidence_integrity_gate_v1_wiring_and_artifacts(tmp_path: Path):
     assert "Status: done" in backlog
     assert "| M40 | Runtime-Backed Evidence Integrity v1 | n/a | done |" in milestones
     assert "| **M40** Runtime-Backed Evidence Integrity v1 | n/a | done |" in status
-    assert "M0-M40: done" in readme
-    assert "M40 execution backlog (completed)" in readme
+    assert "docs/architecture/SOURCE_MAP.md" in readme
+    assert "docs/archive/README.md" in readme
 
     evidence_out = tmp_path / "runtime-evidence-v1.json"
     audit_out = tmp_path / "gate-evidence-audit-v1.json"

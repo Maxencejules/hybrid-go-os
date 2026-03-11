@@ -78,7 +78,8 @@ def test_hid_event_path_gate_v1_wiring_and_artifacts():
     assert "Status: done" in backlog
     assert "| M49 | Input + Seat Management v1 | n/a | done |" in milestones
     assert "| **M49** Input + Seat Management v1 | n/a | done |" in status
-    assert "M49 execution backlog (completed)" in readme
+    assert "docs/architecture/SOURCE_MAP.md" in readme
+    assert "docs/archive/README.md" in readme
 
     runtime_out = _out_path("hid-gate-input-seat-v1.json")
     hid_out = _out_path("hid-gate-event-path-v1.json")

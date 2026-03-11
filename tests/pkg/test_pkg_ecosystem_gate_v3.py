@@ -85,7 +85,8 @@ def test_pkg_ecosystem_gate_v3_wiring_and_artifacts(tmp_path: Path):
     assert "Status: done" in backlog
     assert "M26" in milestones
     assert "M26" in status
-    assert "M26" in readme
+    assert "docs/architecture/SOURCE_MAP.md" in readme
+    assert "docs/archive/README.md" in readme
 
     policy_out = tmp_path / "repo-policy-v3.json"
     rebuild_out = tmp_path / "pkg-rebuild-v3.json"

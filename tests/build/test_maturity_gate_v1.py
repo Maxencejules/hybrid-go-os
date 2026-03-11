@@ -67,7 +67,8 @@ def test_maturity_gate_v1_wiring_and_artifacts(tmp_path: Path):
     assert "Status: done" in backlog
     assert "M34" in milestones
     assert "M34" in status
-    assert "M34" in readme
+    assert "docs/architecture/SOURCE_MAP.md" in readme
+    assert "docs/archive/README.md" in readme
 
     report_out = tmp_path / "maturity-qualification-v1.json"
     assert maturity_tool.main(["--seed", "20260309", "--out", str(report_out)]) == 0

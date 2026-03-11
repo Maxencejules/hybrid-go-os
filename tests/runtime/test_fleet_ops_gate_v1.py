@@ -75,7 +75,8 @@ def test_fleet_ops_gate_v1_wiring_and_artifacts(tmp_path: Path):
     assert "Status: done" in backlog
     assert "M33" in milestones
     assert "M33" in status
-    assert "M33" in readme
+    assert "docs/architecture/SOURCE_MAP.md" in readme
+    assert "docs/archive/README.md" in readme
 
     update_out = tmp_path / "fleet-update-sim-v1.json"
     health_out = tmp_path / "fleet-health-sim-v1.json"

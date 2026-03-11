@@ -78,7 +78,8 @@ def test_compat_surface_gate_v1_wiring_and_artifacts(tmp_path: Path):
     assert "Status: done" in backlog
     assert "M36" in milestones
     assert "M36" in status
-    assert "M36" in readme
+    assert "docs/architecture/SOURCE_MAP.md" in readme
+    assert "docs/archive/README.md" in readme
 
     surface_out = tmp_path / "compat-surface-v1.json"
     gap_out = tmp_path / "posix-gap-report-v1.json"

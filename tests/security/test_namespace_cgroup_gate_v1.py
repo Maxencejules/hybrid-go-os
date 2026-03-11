@@ -65,7 +65,8 @@ def test_namespace_cgroup_gate_v1_wiring_and_artifacts(tmp_path: Path):
     assert "Status: done" in backlog
     assert "M42" in milestones
     assert "M42" in status
-    assert "M42 execution backlog (completed)" in readme
+    assert "docs/architecture/SOURCE_MAP.md" in readme
+    assert "docs/archive/README.md" in readme
 
     out = tmp_path / "resource-control-v1.json"
     assert resource_control.main(["--seed", "20260310", "--out", str(out)]) == 0
