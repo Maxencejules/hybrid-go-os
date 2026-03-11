@@ -940,6 +940,34 @@ jobs:
             out/window-system-v1.json
             out/compositor-damage-v1.json
 
+      - name: GUI runtime v1 gate
+        run: |
+          make test-gui-runtime-v1
+
+      - name: Upload GUI runtime v1 artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gui-runtime-v1-artifacts
+          path: |
+            out/pytest-gui-runtime-v1.xml
+            out/gui-runtime-v1.json
+            out/toolkit-compat-v1.json
+
+      - name: Toolkit compatibility v1 gate
+        run: |
+          make test-toolkit-compat-v1
+
+      - name: Upload toolkit compatibility v1 artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: toolkit-compat-v1-artifacts
+          path: |
+            out/pytest-toolkit-compat-v1.xml
+            out/gui-runtime-v1.json
+            out/toolkit-compat-v1.json
+
       - name: Real ecosystem desktop v2 gate
         run: |
           make test-real-ecosystem-desktop-v2

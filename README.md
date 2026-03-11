@@ -92,20 +92,20 @@ Source of truth: [MILESTONES.md](MILESTONES.md)
 | Lane | Kernel milestones | Go milestones |
 |------|-------------------|---------------|
 | Legacy (`legacy/`) | M0-M7: done | G0: done |
-| Rugo (repo root) | M0-M50: done; M51-M52: planned | G1: done, G2: done |
+| Rugo (repo root) | M0-M51: done; M52: planned | G1: done, G2: done |
 
 Historical checkpoints retained for closure tests: `M0-M43: done`. `M0-M44: done`.
 
 Latest completed hardware expansion phase: `M45-M47`.
-Latest completed GUI milestone: `M50`.
-Next planned GUI milestones: `M51-M52`.
+Latest completed GUI milestone: `M51`.
+Next planned GUI milestone: `M52`.
 
 Tiny visual summary:
 
 ```text
 Legacy: [M0 M1 M2 M3 M4 M5 M6 M7] [G0] complete
-Rugo:   [M0 M1 M2 M3 M4 M5 M6 M7 M8 M9 M10 M11 M12 M13 M14 M15 M16 M17 M18 M19 M20 M21 M22 M23 M24 M25 M26 M27 M28 M29 M30 M31 M32 M33 M34 M35 M36 M37 M38 M39 M40 M41 M42 M43 M44 M45 M46 M47 M48 M49 M50] [G1] complete  [G2] complete
-Next:   [M51 M52] planned GUI implementation phase
+Rugo:   [M0 M1 M2 M3 M4 M5 M6 M7 M8 M9 M10 M11 M12 M13 M14 M15 M16 M17 M18 M19 M20 M21 M22 M23 M24 M25 M26 M27 M28 M29 M30 M31 M32 M33 M34 M35 M36 M37 M38 M39 M40 M41 M42 M43 M44 M45 M46 M47 M48 M49 M50 M51] [G1] complete  [G2] complete
+Next:   [M52] planned GUI implementation phase
 ```
 
 ## Post-G2 roadmap
@@ -158,7 +158,7 @@ Next:   [M51 M52] planned GUI implementation phase
 - M48 execution backlog (completed): `docs/M48_EXECUTION_BACKLOG.md`
 - M49 execution backlog (completed): `docs/M49_EXECUTION_BACKLOG.md`
 - M50 execution backlog (completed): `docs/M50_EXECUTION_BACKLOG.md`
-- M51 execution backlog (planned): `docs/M51_EXECUTION_BACKLOG.md`
+- M51 execution backlog (completed): `docs/M51_EXECUTION_BACKLOG.md`
 - M52 execution backlog (planned): `docs/M52_EXECUTION_BACKLOG.md`
 - Hardware support matrix v1: [docs/hw/support_matrix_v1.md](docs/hw/support_matrix_v1.md)
 - Security baseline docs: [docs/security/rights_capability_model_v1.md](docs/security/rights_capability_model_v1.md)

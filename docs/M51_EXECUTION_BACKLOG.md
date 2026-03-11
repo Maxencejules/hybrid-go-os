@@ -2,7 +2,7 @@
 
 Date: 2026-03-11  
 Lane: Rugo (Rust kernel + Go user space)  
-Status: proposed
+Status: done
 
 ## Goal
 
@@ -15,11 +15,11 @@ M51 source of truth remains `docs/M48_M52_GUI_IMPLEMENTATION_ROADMAP.md`,
 
 ## Current State Summary
 
-- GUI qualification tiers and runtime-backed workload artifacts already exist.
-- Those artifacts still do not correspond to a real in-tree toolkit/runtime
-  boundary or live graphical app execution path.
-- After display, input, and windowing exist, the next missing layer is the
-  actual GUI runtime and toolkit-facing contract.
+- GUI runtime, toolkit profile, and font/text contracts now define the bounded
+  in-tree app/runtime/toolkit boundary.
+- Deterministic GUI runtime and toolkit compatibility tooling now produce
+  machine-readable launch, render, text, and event-loop evidence.
+- Live GUI runtime behavior is now wired into local and CI release gates.
 
 ## Execution plan
 
@@ -29,9 +29,9 @@ M51 source of truth remains `docs/M48_M52_GUI_IMPLEMENTATION_ROADMAP.md`,
 
 ## Execution Result
 
-- PR-1: not started
-- PR-2: not started
-- PR-3: not started
+- PR-1: complete (2026-03-11)
+- PR-2: complete (2026-03-11)
+- PR-3: complete (2026-03-11)
 
 ## PR-1: GUI Runtime Contract Freeze
 
@@ -64,6 +64,15 @@ app-facing implementation begins.
 
 - GUI runtime and toolkit boundaries are explicit and versioned.
 - Font/text/event-loop expectations are reviewable before runtime code lands.
+
+### PR-1 completion summary
+
+- Added contract docs:
+  - `docs/desktop/gui_runtime_contract_v1.md`
+  - `docs/desktop/toolkit_profile_v1.md`
+  - `docs/desktop/font_text_rendering_policy_v1.md`
+- Added executable doc checks:
+  - `tests/desktop/test_gui_runtime_docs_v1.py`
 
 ## PR-2: GUI Runtime + Toolkit Compatibility Campaigns
 
@@ -102,6 +111,17 @@ declared toolkit and render/event profile.
 
 - GUI runtime artifacts are deterministic and machine-readable.
 - Declared apps can render and receive input through a live runtime/toolkit path.
+
+### PR-2 completion summary
+
+- Added deterministic GUI runtime tooling:
+  - `tools/run_gui_runtime_v1.py`
+  - `tools/run_toolkit_compat_v1.py`
+- Added executable runtime and toolkit checks:
+  - `tests/desktop/test_gui_app_launch_render_v1.py`
+  - `tests/desktop/test_font_text_rendering_v1.py`
+  - `tests/desktop/test_toolkit_event_loop_v1.py`
+  - `tests/desktop/test_gui_runtime_negative_v1.py`
 
 ## PR-3: GUI Runtime Gate + Toolkit Sub-gate
 
@@ -142,6 +162,19 @@ profiles.
 - GUI runtime and toolkit regressions are blocked in local and CI lanes.
 - Declared app-profile claims are tied to live runtime evidence instead of
   simulated matrices alone.
+
+### PR-3 completion summary
+
+- Added local gates:
+  - `make test-gui-runtime-v1`
+  - `make test-toolkit-compat-v1`
+- Added aggregate gate tests:
+  - `tests/desktop/test_gui_runtime_gate_v1.py`
+  - `tests/desktop/test_toolkit_compat_gate_v1.py`
+- Updated repo-level closure documents:
+  - `MILESTONES.md`
+  - `docs/STATUS.md`
+  - `README.md`
 
 ## Non-goals for M51 backlog
 
