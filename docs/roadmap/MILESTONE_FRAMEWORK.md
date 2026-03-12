@@ -49,25 +49,21 @@ the default Rust-kernel plus Go-service runtime itself.
 | `C5` Reliable and Isolated Service OS | queued after `C4` | The default lane survives kernel reliability campaigns and enforces bounded containment/resource-control semantics required for multi-service operation. | `M22`, `M42` |
 | `C6` Runtime Quality Under Load | open | Latency, CPU affinity, memory-pressure behavior, and I/O QoS are explicit and test-backed for mixed service workloads on the default lane. | future core target; likely fed by `M78`, `M79` |
 
-### Current Core Closure Order
+### Historical Core Backlog Order
 
 The flat ledger still records `M10`, `M12`, `M13`, `M16`, `M18`, `M19`,
-`M22`, `M25`, and `M42` as completed execution backlogs. The architecture-first
-runtime plan should close them in this order instead:
+`M22`, `M25`, and `M42` as completed execution backlogs. This is the order the
+repo used to close that historical core backlog series; it is not the same
+thing as the current runtime-backed scoreboard:
 
-1. `M10` and `M16` first, because rights transfer, process objects,
-   accounting, scheduler control, and wedged-service handling are the contract
-   blockers for everything later.
-2. Extend the existing manifest-driven `M25` runtime rather than opening a new
-   runtime lane.
-3. Land `M12` and `M13` as the first user-visible runtime expansion on that
-   lane.
-4. Require boot-backed artifact collection before treating `M18`, `M19`, or
-   `M22` as literal runtime closure.
-5. Close `M18` and `M19` on top of the real v1 runtime.
-6. Run `M22` soak against real mixed block/network/service workloads.
-7. Finish `M42` last, after the process/accounting/service lifecycle surface is
-   stable enough that isolation work will not be redesigned.
+1. `M10` and `M16` closed first.
+2. `M25` extended the existing manifest-driven runtime rather than opening a
+   new runtime lane.
+3. `M12` and `M13` followed as the first connected and durable runtime
+   expansion on that lane.
+4. `M18`, `M19`, and `M22` closed later with heavier contract and artifact
+   support than direct boot-backed evidence.
+5. `M42` closed last.
 
 ### Track 2: Tooling / Validation / Release Infrastructure
 
@@ -134,6 +130,11 @@ Use the companion set in
 - [implementation_closure/expansion_breadth.md](implementation_closure/expansion_breadth.md)
 - [implementation_closure/next_wave_native.md](implementation_closure/next_wave_native.md)
 
+The historical core-runtime backlog is closed in the ledger.
+[implementation_closure/core_runtime.md](implementation_closure/core_runtime.md)
+records which of those closures are already runtime-backed and which still
+carry forward product work.
+
 Those documents cover every backlog-bearing milestone currently marked done in
 the ledger, including `G2` and `M8-M54`.
 
@@ -190,9 +191,9 @@ Foreground in `README.md` and `docs/roadmap/README.md`:
 - The observable definition of progress for the core lane.
 - The default demo path and baseline evidence that show Rust kernel plus Go
   services actually running.
-- The active core closure order (`M10/M16 -> M25 -> M12/M13 -> boot-backed
-  artifacts -> M18/M19 -> M22 -> M42`), not just the highest completed
-  milestone number.
+- The historical core backlog order
+  (`M10/M16 -> M25 -> M12/M13 -> M18/M19/M22 -> M42`), not just the highest
+  completed milestone number.
 
 Archive or de-emphasize:
 

@@ -33,6 +33,11 @@ literal implementation bar:
 - [implementation_closure/expansion_breadth.md](implementation_closure/expansion_breadth.md)
 - [implementation_closure/next_wave_native.md](implementation_closure/next_wave_native.md)
 
+The historical core-runtime backlog is closed in the ledger.
+[implementation_closure/core_runtime.md](implementation_closure/core_runtime.md)
+records which of those closures are already runtime-backed and which still
+carry forward product work.
+
 ## Observable Core Progress
 
 The repo is closer to its goal only when the default lane can do more of the
@@ -44,17 +49,19 @@ following on declared baseline platforms:
 - enforce the process, rights, and isolation model that those services depend on
 - survive bounded soak, restart, and containment tests tied to that same lane
 
-## Current Core Closure Order
+## Historical Core Backlog Order
 
-1. `M10` and `M16` first.
-2. Extend the existing manifest-driven `M25` runtime instead of opening a new
-   lane.
-3. Land `M12` and `M13` as the first real user-visible runtime expansion.
-4. Add boot-backed artifact collection before treating `M18`, `M19`, or `M22`
-   as literal runtime closure.
-5. Close `M18` and `M19` on top of the real v1 runtime.
-6. Run `M22` soak against mixed block/network/service workloads.
-7. Finish `M42` last.
+This is the order the flat ledger used to close the historical core backlog.
+It is not the same thing as the current runtime-backed scoreboard.
+
+1. `M10` and `M16` closed first.
+2. `M25` extended the existing manifest-driven runtime instead of opening a
+   new lane.
+3. `M12` and `M13` followed as the first connected and durable runtime
+   expansions.
+4. `M18`, `M19`, and `M22` closed later with heavier contract and artifact
+   support than direct boot-backed evidence.
+5. `M42` closed last.
 
 ## Track Summary
 
@@ -91,8 +98,8 @@ Foreground:
 
 - the three-track scoreboard
 - the default Rust-kernel plus Go-service demo path
-- the active core closure order for `M10/M16 -> M25 -> M12/M13 -> boot-backed
-  artifacts -> M18/M19 -> M22 -> M42`
+- the historical core backlog order for
+  `M10/M16 -> M25 -> M12/M13 -> M18/M19/M22 -> M42`
 
 Archive or de-emphasize:
 
