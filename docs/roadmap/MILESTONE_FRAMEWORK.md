@@ -44,8 +44,8 @@ the default Rust-kernel plus Go-service runtime itself.
 |---|---|---|---|
 | `C1` Kernel Mechanisms Baseline | done | The Rust kernel boots, manages memory, schedules threads, enters user mode, supports syscall/IPC paths, and performs block I/O on the default lane. | `M0-M5` |
 | `C2` Default Go Service Bring-up | done | The default lane boots into Go init/service/user workflows with filesystem, package, shell, and basic network support visible in the default demo path. | `M6`, `M7`, `G1` |
-| `C3` Contracted Service OS Runtime | in progress | The service OS has explicit process/scheduler, rights, and init/service lifecycle contracts that the default Go services actually use. | `M10`, `M16`, `M25` |
-| `C4` Durable and Connected Runtime | queued after `C3` | The default service lane supports sustained storage and network behavior beyond smoke tests, with release-gated reliability semantics for storage and networking. | `M12`, `M13`, `M18`, `M19` |
+| `C3` Contracted Service OS Runtime | done | The service OS has explicit process/scheduler, rights, init/service lifecycle, task accounting, and bounded scheduler-control surfaces that the default Go services actually use on the booted lane. | `M10`, `M16`, `M25` |
+| `C4` Durable and Connected Runtime | in progress | The default service lane supports sustained storage and network behavior beyond smoke tests, with release-gated reliability semantics for storage and networking. | `M12`, `M13`, `M18`, `M19` |
 | `C5` Reliable and Isolated Service OS | queued after `C4` | The default lane survives kernel reliability campaigns and enforces bounded containment/resource-control semantics required for multi-service operation. | `M22`, `M42` |
 | `C6` Runtime Quality Under Load | open | Latency, CPU affinity, memory-pressure behavior, and I/O QoS are explicit and test-backed for mixed service workloads on the default lane. | future core target; likely fed by `M78`, `M79` |
 
@@ -171,7 +171,7 @@ Use a three-row top-level table instead of a flat "M0-M52 done" headline.
 
 | Track | What counts as progress | Current phase | Historical mapping |
 |---|---|---|---|
-| Core Hybrid OS | The default Rust-kernel plus Go-service lane boots, runs native services, persists data, performs network I/O, and enforces runtime isolation on declared baseline targets. | `C3` in progress; `C4` and `C5` stay queued behind runtime-first closure. | `M0-M7`, `G1`, `M10`, `M12`, `M13`, `M16`, `M18`, `M19`, `M22`, `M25`, `M42` |
+| Core Hybrid OS | The default Rust-kernel plus Go-service lane boots, runs native services, persists data, performs network I/O, and enforces runtime isolation on declared baseline targets. | `C3` done; `C4` in progress; `C5` remains queued behind runtime-backed storage, network, and reliability closure. | `M0-M7`, `G1`, `M10`, `M12`, `M13`, `M16`, `M18`, `M19`, `M22`, `M25`, `M42` |
 | Tooling / Validation / Release Infrastructure | Confidence, reproducibility, qualification, release, and fleet discipline around the core lane improve. | `T4` complete; next infrastructure phase is `T5 Advanced Trust and Compliance Infrastructure`. | `G2`, `M11`, `M14`, `M20`, `M21`, `M24`, `M28`, `M29`, `M30-M34`, `M40` |
 | Expansion / Research / Platform Breadth | Compatibility, hardware breadth, desktop breadth, packaging breadth, and other product-surface expansion increase. | `X4` complete; next breadth phase is `X5 Next-Wave Breadth Research`. | `M8`, `M9`, `M15`, `M17`, `M23`, `M26`, `M27`, `M35-M39`, `M41`, `M43-M52` |
 

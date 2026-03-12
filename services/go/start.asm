@@ -62,6 +62,18 @@ main.sysWait:
     int  0x80
     ret
 
+global main.sysProcInfoRaw
+main.sysProcInfoRaw:
+    mov  eax, 28
+    int  0x80
+    ret
+
+global main.sysSchedSetRaw
+main.sysSchedSetRaw:
+    mov  eax, 29
+    int  0x80
+    ret
+
 global main.sysSvcRegister
 main.sysSvcRegister:
     mov  eax, 11

@@ -18,6 +18,7 @@ This contract freezes v2 behavior for:
 
 - process/thread lifecycle states and transitions
 - wait/kill semantics
+- task/process object accounting snapshots
 - signal delivery ordering boundaries
 - fault containment and scheduler survival requirements
 
@@ -57,6 +58,8 @@ Required transitions:
   exits.
 - Reaped child slots can be reused for bounded restart attempts in the same
   boot session.
+- `sys_proc_info` exposes task identity, parent, state, scheduler class, and
+  accounting counters for operator-visible diagnostics on the default Go lane.
 - Runtime-backed default-lane evidence:
   `tests/runtime/test_process_scheduler_runtime_v2.py`.
 
@@ -83,4 +86,5 @@ Required transitions:
 - `tests/user/test_process_wait_kill_v2.py`
 - `tests/user/test_signal_delivery_v2.py`
 - `tests/runtime/test_process_scheduler_runtime_v2.py`
+- `tests/runtime/test_service_control_runtime_v1.py`
 - `tests/sched/test_scheduler_gate_v2.py`

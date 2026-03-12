@@ -17,7 +17,7 @@ The active framing is now three tracks rather than one flat milestone ladder.
 
 | Track | Role | Current phase |
 |---|---|---|
-| Core Hybrid OS | Main scoreboard. Measures the default Rust-kernel plus Go-service runtime itself. | `C3` in progress; `C4` and `C5` stay queued behind runtime-first closure. |
+| Core Hybrid OS | Main scoreboard. Measures the default Rust-kernel plus Go-service runtime itself. | `C3` done; `C4` in progress; `C5` stays queued behind runtime-backed storage, network, and reliability closure. |
 | Tooling / Validation / Release Infrastructure | Secondary scoreboard. Measures confidence, qualification, release, and lifecycle discipline around the core lane. | `T4` complete; next is `T5 Advanced Trust and Compliance Infrastructure`. |
 | Expansion / Research / Platform Breadth | Secondary scoreboard. Measures compatibility breadth, hardware breadth, desktop breadth, and ecosystem growth. | `X4` complete; next is `X5 Next-Wave Breadth Research`. |
 

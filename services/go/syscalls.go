@@ -1,5 +1,36 @@
 package main
 
+import "unsafe"
+
+const (
+	taskStateReady = iota
+	taskStateRunning
+	taskStateBlocked
+	taskStateExited
+	taskStateDead
+)
+
+const (
+	schedClassBestEffort = iota
+	schedClassCritical
+)
+
+type taskInfo struct {
+	TID           uint64
+	ParentTID     uint64
+	State         uint64
+	SchedClass    uint64
+	DispatchCount uint64
+	YieldCount    uint64
+	BlockCount    uint64
+	IpcSendCount  uint64
+	IpcRecvCount  uint64
+	EndpointCount uint64
+	ShmCount      uint64
+	ThreadCount   uint64
+	ExitStatus    uint64
+}
+
 // sysDebugWrite invokes syscall 0 (sys_debug_write).
 func sysDebugWrite(buf *byte, n uintptr) uintptr
 
@@ -32,6 +63,24 @@ func sysSvcLookup(name *byte, n uintptr) uintptr
 
 // sysIpcEndpointCreate invokes syscall 17 (sys_ipc_endpoint_create).
 func sysIpcEndpointCreate() uintptr
+
+// sysSchedSetRaw invokes syscall 29 (sys_sched_set).
+func sysSchedSetRaw(tid uintptr, class uintptr) uintptr
+
+// sysProcInfoRaw invokes syscall 28 (sys_proc_info).
+func sysProcInfoRaw(tid uintptr, buf *byte, n uintptr) uintptr
+
+func sysSchedSet(tid uintptr, class uintptr) uintptr {
+	return sysSchedSetRaw(tid, class)
+}
+
+func sysProcInfo(tid uintptr, info *taskInfo) uintptr {
+	return sysProcInfoRaw(
+		tid,
+		(*byte)(unsafe.Pointer(info)),
+		unsafe.Sizeof(*info),
+	)
+}
 
 // sysSpawnEntry returns the user-mode trampoline for spawned threads.
 func sysSpawnEntry() uintptr

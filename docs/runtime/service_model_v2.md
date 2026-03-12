@@ -74,7 +74,9 @@ The default Go lane uses those fields to:
 
 - reach `operational` only after the `core` phase is healthy
 - emit deterministic wedge markers instead of waiting forever in `starting`
+- apply per-service scheduler class through `sys_sched_set`
 - request orderly shutdown of remaining services after the shell completes
+- expose kernel-backed task snapshots through `diagsvc` and `sys_proc_info`
 
 ## Enforcement
 
@@ -100,3 +102,6 @@ Runtime-backed default-lane evidence:
   run reaches `ready`.
 - The same boot path now launches `diagsvc`, services a live diagnostic request
   from `shell`, and performs bounded stop control on the remaining services.
+- The service manager now applies explicit scheduler class to each spawned
+  service, and `diagsvc` snapshots kernel task identity/state/accounting from
+  the live booted system.

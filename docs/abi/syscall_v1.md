@@ -179,6 +179,17 @@ These syscall IDs add M10 least-privilege controls and are stable in v1.x.
 | 26 | `sys_fd_rights_transfer` | `rdi=fd`, `rsi=rights_mask` | new fd or `-1` | Implemented (source fd revoked on success) |
 | 27 | `sys_sec_profile_set` | `rdi=profile_id` | `0` or `-1` | Implemented (`0=default`, `1=restricted`) |
 
+## C3 process and scheduler control extensions
+
+These syscall IDs expose the contracted process/accounting and scheduler-control
+surface used by the default Go service lane. They are additive in `v1.x` and
+currently exercised on the `go_test` boot path.
+
+| # | Name | Args | Returns | C3 status |
+|---|------|------|---------|-----------|
+| 28 | `sys_proc_info` | `rdi=tid`, `rsi=info_ptr`, `rdx=info_len` | `0` or `-1` | Implemented on the default Go lane for task identity, parent, state, scheduler class, and accounting snapshots |
+| 29 | `sys_sched_set` | `rdi=tid`, `rsi=class_id` | `0` or `-1` | Implemented on the default Go lane for bounded scheduler-class control (`0=best-effort`, `1=critical`) |
+
 ## Related contracts
 
 - Process/thread + loader + auxv + argv/envp contract:

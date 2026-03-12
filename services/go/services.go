@@ -110,6 +110,18 @@ func diagServiceMain() {
 		logServiceSnapshot(serviceTime)
 		logServiceSnapshot(serviceDiag)
 		logServiceSnapshot(serviceShell)
+		if !logKernelTaskSnapshot(serviceTime) {
+			setServiceState(serviceDiag, stateFailed)
+			fail(msgDiagSvcErr[:])
+		}
+		if !logKernelTaskSnapshot(serviceDiag) {
+			setServiceState(serviceDiag, stateFailed)
+			fail(msgDiagSvcErr[:])
+		}
+		if !logKernelTaskSnapshot(serviceShell) {
+			setServiceState(serviceDiag, stateFailed)
+			fail(msgDiagSvcErr[:])
+		}
 
 		if sysIpcSend(uintptr(req[1]), &replyOK[0], uintptr(len(replyOK))) == sysErr {
 			setServiceState(serviceDiag, stateFailed)

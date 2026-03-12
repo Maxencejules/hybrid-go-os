@@ -28,6 +28,16 @@ Scheduler policy identifier: `rugo.scheduling_policy.v2`
 - Equal-priority runnable tasks must converge to near-equal service.
 - Lower-priority tasks may receive less service, but starvation is disallowed.
 
+## Scheduler control surface
+
+- `sys_sched_set(tid, class)` provides bounded scheduler-class control on the
+  default Go lane.
+- Supported live classes:
+  - `best-effort` (`0`)
+  - `critical` (`1`)
+- The default Go service manager applies `critical` class to `timesvc` and
+  `best-effort` to `diagsvc` and `shell` on the booted `image-go` path.
+
 ## Soak and regression contract
 
 - Soak campaigns must be reproducible from fixed seeds.
@@ -57,3 +67,4 @@ Scheduler policy identifier: `rugo.scheduling_policy.v2`
 - `tests/sched/test_priority_fairness_v2.py`
 - `tests/sched/test_scheduler_soak_v2.py`
 - `tests/sched/test_scheduler_gate_v2.py`
+- `tests/runtime/test_service_control_runtime_v1.py`

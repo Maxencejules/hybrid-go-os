@@ -66,3 +66,6 @@ Runtime-backed boot evidence:
 - `tests/runtime/test_process_scheduler_runtime_v2.py` verifies that the same
   init path blocks in `sys_wait`, reaps child services, and performs bounded
   restart on the live booted system.
+- `tests/runtime/test_service_control_runtime_v1.py` verifies that the same
+  boot path applies scheduler class to spawned services and exposes kernel task
+  snapshots through `diagsvc`.

@@ -128,15 +128,26 @@ var (
 	msgSvcMgrRetry = [...]byte{'G', 'O', 'S', 'V', 'C', 'M', ':', ' ', 'r', 'e', 's', 't', 'a', 'r', 't', ' '}
 	msgSvcMgrStop  = [...]byte{'G', 'O', 'S', 'V', 'C', 'M', ':', ' ', 's', 't', 'o', 'p', ' '}
 	msgSvcMgrWedge = [...]byte{'G', 'O', 'S', 'V', 'C', 'M', ':', ' ', 'w', 'e', 'd', 'g', 'e', ' '}
+	msgSvcMgrClass = [...]byte{'G', 'O', 'S', 'V', 'C', 'M', ':', ' ', 'c', 'l', 'a', 's', 's', ' '}
 	msgSvcMgrErr   = [...]byte{'G', 'O', 'S', 'V', 'C', 'M', ':', ' ', 'e', 'r', 'r', '\n'}
 
 	msgServicePrefix = [...]byte{'S', 'V', 'C', ':', ' '}
 	msgProcPrefix    = [...]byte{'P', 'R', 'O', 'C', ':', ' '}
+	msgTaskPrefix    = [...]byte{'T', 'A', 'S', 'K', ':', ' '}
 	msgMetricStarts  = [...]byte{'s', '='}
 	msgMetricRest    = [...]byte{'r', '='}
 	msgMetricFail    = [...]byte{'f', '='}
 	msgMetricReaps   = [...]byte{'x', '='}
 	msgMetricTick    = [...]byte{'t', '='}
+	msgMetricTid     = [...]byte{'t', 'i', 'd', '='}
+	msgMetricParent  = [...]byte{'p', 'a', 'r', 'e', 'n', 't', '='}
+	msgMetricClass   = [...]byte{'c', 'l', 's', '='}
+	msgMetricState   = [...]byte{'s', 't', '='}
+	msgMetricRun     = [...]byte{'r', 'u', 'n', '='}
+	msgMetricYield   = [...]byte{'y', '='}
+	msgMetricBlock   = [...]byte{'b', 'l', 'k', '='}
+	msgMetricSend    = [...]byte{'t', 'x', '='}
+	msgMetricRecv    = [...]byte{'r', 'x', '='}
 	msgSpace         = [...]byte{' '}
 	msgNewline       = [...]byte{'\n'}
 
@@ -147,6 +158,12 @@ var (
 	msgStateFailed   = [...]byte{'f', 'a', 'i', 'l', 'e', 'd'}
 	msgStateStopping = [...]byte{'s', 't', 'o', 'p', 'p', 'i', 'n', 'g'}
 	msgStateStopped  = [...]byte{'s', 't', 'o', 'p', 'p', 'e', 'd'}
+	msgTaskStateReady   = [...]byte{'r', 'e', 'a', 'd', 'y'}
+	msgTaskStateBlocked = [...]byte{'b', 'l', 'o', 'c', 'k', 'e', 'd'}
+	msgTaskStateExited  = [...]byte{'e', 'x', 'i', 't', 'e', 'd'}
+	msgTaskStateDead    = [...]byte{'d', 'e', 'a', 'd'}
+	msgClassCritical    = [...]byte{'c', 'r', 'i', 't', 'i', 'c', 'a', 'l'}
+	msgClassBestEffort  = [...]byte{'b', 'e', 's', 't', '-', 'e', 'f', 'f', 'o', 'r', 't'}
 )
 
 func bootRuntime() {
@@ -378,6 +395,9 @@ func launchService(serviceID uintptr) bool {
 			serviceTasks[serviceID] = taskUnset
 		} else {
 			serviceTasks[serviceID] = byte(tid)
+			if !applyServiceScheduling(serviceID, tid) {
+				fail(msgSvcMgrErr[:])
+			}
 		}
 
 		budget := uintptr(serviceManifest[serviceID].startBudget)
@@ -544,6 +564,19 @@ func logServiceAction(prefix []byte, serviceID uintptr) {
 	log(msgNewline[:])
 }
 
+func applyServiceScheduling(serviceID uintptr, tid uintptr) bool {
+	class := schedClassForService(serviceID)
+	if sysSchedSet(tid, class) == sysErr {
+		return false
+	}
+	log(msgSvcMgrClass[:])
+	log(serviceManifest[serviceID].name)
+	log(msgSpace[:])
+	log(schedClassLabel(class))
+	log(msgNewline[:])
+	return true
+}
+
 func stateLabel(state byte) []byte {
 	switch state {
 	case stateDeclared:
@@ -560,6 +593,35 @@ func stateLabel(state byte) []byte {
 		return msgStateStopped[:]
 	default:
 		return msgStateFailed[:]
+	}
+}
+
+func schedClassForService(serviceID uintptr) uintptr {
+	if serviceManifest[serviceID].class == classCritical {
+		return schedClassCritical
+	}
+	return schedClassBestEffort
+}
+
+func schedClassLabel(class uintptr) []byte {
+	if class == schedClassCritical {
+		return msgClassCritical[:]
+	}
+	return msgClassBestEffort[:]
+}
+
+func taskStateLabel(state uint64) []byte {
+	switch state {
+	case taskStateReady:
+		return msgTaskStateReady[:]
+	case taskStateRunning:
+		return msgStateRunning[:]
+	case taskStateBlocked:
+		return msgTaskStateBlocked[:]
+	case taskStateExited:
+		return msgTaskStateExited[:]
+	default:
+		return msgTaskStateDead[:]
 	}
 }
 
@@ -608,6 +670,50 @@ func logServiceSnapshot(serviceID uintptr) {
 	log(msgMetricTick[:])
 	logUint(serviceLastTick[serviceID])
 	log(msgNewline[:])
+}
+
+func logKernelTaskSnapshot(serviceID uintptr) bool {
+	tid := serviceTasks[serviceID]
+	if tid == taskUnset {
+		return false
+	}
+
+	var info taskInfo
+	if sysProcInfo(uintptr(tid), &info) == sysErr {
+		return false
+	}
+
+	log(msgTaskPrefix[:])
+	log(serviceManifest[serviceID].name)
+	log(msgSpace[:])
+	log(msgMetricTid[:])
+	logUint(uintptr(info.TID))
+	log(msgSpace[:])
+	log(msgMetricParent[:])
+	logUint(uintptr(info.ParentTID))
+	log(msgSpace[:])
+	log(msgMetricClass[:])
+	log(schedClassLabel(uintptr(info.SchedClass)))
+	log(msgSpace[:])
+	log(msgMetricState[:])
+	log(taskStateLabel(info.State))
+	log(msgSpace[:])
+	log(msgMetricRun[:])
+	logUint(uintptr(info.DispatchCount))
+	log(msgSpace[:])
+	log(msgMetricYield[:])
+	logUint(uintptr(info.YieldCount))
+	log(msgSpace[:])
+	log(msgMetricBlock[:])
+	logUint(uintptr(info.BlockCount))
+	log(msgSpace[:])
+	log(msgMetricSend[:])
+	logUint(uintptr(info.IpcSendCount))
+	log(msgSpace[:])
+	log(msgMetricRecv[:])
+	logUint(uintptr(info.IpcRecvCount))
+	log(msgNewline[:])
+	return true
 }
 
 //export goSpawnedThreadMain

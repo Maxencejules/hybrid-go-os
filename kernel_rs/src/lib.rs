@@ -717,6 +717,8 @@ unsafe fn syscall_dispatch(frame: *mut u64) {
             11 => { *frame.add(14) = sys_svc_register_r4(arg1, arg2, arg3); }
             12 => { *frame.add(14) = sys_svc_lookup_r4(arg1, arg2); }
             22 => { sys_wait_r4(frame, arg1, arg2, arg3); }
+            28 => { *frame.add(14) = sys_proc_info_r4(arg1, arg2, arg3); }
+            29 => { *frame.add(14) = sys_sched_set_r4(arg1, arg2); }
             _  => { *frame.add(14) = 0xFFFF_FFFF_FFFF_FFFF; }
         }
         return;
@@ -2077,6 +2079,10 @@ cfg_r4! {
     const MAX_THREADS_PER_PROC: usize = 16;
     const MAX_THREADS_GLOBAL: usize = 64;
     const R4_WAIT_NONE: i32 = -2;
+    const R4_SCHED_CLASS_BEST_EFFORT: u8 = 0;
+    const R4_SCHED_CLASS_CRITICAL: u8 = 1;
+    const R4_PROC_INFO_WORDS: usize = 13;
+    const R4_PROC_INFO_SIZE: usize = R4_PROC_INFO_WORDS * 8;
 
     #[cfg(any(feature = "stress_ipc_test", feature = "go_test"))]
     const R4_MAX_TASKS: usize = 4;
@@ -2101,6 +2107,12 @@ cfg_r4! {
         exit_status: u64,
         wait_target: i32,
         wait_status_ptr: u64,
+        sched_class: u8,
+        dispatch_count: u64,
+        yield_count: u64,
+        block_count: u64,
+        ipc_send_count: u64,
+        ipc_recv_count: u64,
     }
 
     impl R4Task {
@@ -2116,6 +2128,12 @@ cfg_r4! {
             exit_status: 0,
             wait_target: R4_WAIT_NONE,
             wait_status_ptr: 0,
+            sched_class: R4_SCHED_CLASS_BEST_EFFORT,
+            dispatch_count: 0,
+            yield_count: 0,
+            block_count: 0,
+            ipc_send_count: 0,
+            ipc_recv_count: 0,
         };
     }
 
@@ -2146,6 +2164,12 @@ cfg_r4! {
         R4_TASKS[tid].exit_status = 0;
         R4_TASKS[tid].wait_target = R4_WAIT_NONE;
         R4_TASKS[tid].wait_status_ptr = 0;
+        R4_TASKS[tid].sched_class = R4_SCHED_CLASS_BEST_EFFORT;
+        R4_TASKS[tid].dispatch_count = 0;
+        R4_TASKS[tid].yield_count = 0;
+        R4_TASKS[tid].block_count = 0;
+        R4_TASKS[tid].ipc_send_count = 0;
+        R4_TASKS[tid].ipc_recv_count = 0;
         #[cfg(feature = "go_test")]
         {
             R4_TASKS[tid].can_spawn = tid == 0;
@@ -2159,19 +2183,26 @@ cfg_r4! {
 
     unsafe fn r4_find_ready(exclude: usize) -> Option<usize> {
         if R4_NUM_TASKS == 0 { return None; }
+        let mut best: Option<usize> = None;
+        let mut best_class = R4_SCHED_CLASS_BEST_EFFORT;
         let mut i = (exclude + 1) % R4_NUM_TASKS;
         for _ in 0..R4_NUM_TASKS {
             if i != exclude && R4_TASKS[i].state == R4State::Ready {
-                return Some(i);
+                let class = R4_TASKS[i].sched_class;
+                if best.is_none() || class > best_class {
+                    best = Some(i);
+                    best_class = class;
+                }
             }
             i = (i + 1) % R4_NUM_TASKS;
         }
-        None
+        best
     }
 
     unsafe fn r4_switch_to(frame: *mut u64, tid: usize) {
         for i in 0..22 { *frame.add(i) = R4_TASKS[tid].saved_frame[i]; }
         R4_TASKS[tid].state = R4State::Running;
+        R4_TASKS[tid].dispatch_count += 1;
         R4_CURRENT = tid;
     }
 
@@ -2240,6 +2271,7 @@ cfg_r4! {
     unsafe fn r4_yield_and_switch(frame: *mut u64) {
         let cur = R4_CURRENT;
         r4_save_frame(frame, cur);
+        R4_TASKS[cur].yield_count += 1;
         R4_TASKS[cur].saved_frame[14] = 0;
         match r4_find_ready(cur) {
             Some(tid) => {
@@ -2301,6 +2333,91 @@ cfg_r4! {
         let tid = R4_NUM_TASKS;
         R4_NUM_TASKS += 1;
         Some(tid)
+    }
+
+    #[inline(always)]
+    unsafe fn r4_state_code(state: R4State) -> u64 {
+        match state {
+            R4State::Ready => 0,
+            R4State::Running => 1,
+            R4State::Blocked => 2,
+            R4State::Exited => 3,
+            R4State::Dead => 4,
+        }
+    }
+
+    #[inline(always)]
+    unsafe fn r4_can_control_task(requester: usize, target: usize) -> bool {
+        requester == target
+            || R4_TASKS[target].parent_tid == requester
+            || R4_TASKS[requester].can_spawn
+    }
+
+    unsafe fn sys_proc_info_r4(tid: u64, info_ptr: u64, info_len: u64) -> u64 {
+        let target = tid as usize;
+        if target >= R4_NUM_TASKS {
+            return 0xFFFF_FFFF_FFFF_FFFF;
+        }
+        if info_len < R4_PROC_INFO_SIZE as u64 {
+            return 0xFFFF_FFFF_FFFF_FFFF;
+        }
+        if !user_range_ok(info_ptr, R4_PROC_INFO_SIZE)
+            || !user_pages_ok(info_ptr, R4_PROC_INFO_SIZE, USER_PERM_WRITE)
+        {
+            return 0xFFFF_FFFF_FFFF_FFFF;
+        }
+        #[cfg(not(feature = "go_test"))]
+        {
+            if target != R4_CURRENT {
+                return 0xFFFF_FFFF_FFFF_FFFF;
+            }
+        }
+
+        let task = R4_TASKS[target];
+        let fields = [
+            target as u64,
+            task.parent_tid as u64,
+            r4_state_code(task.state),
+            task.sched_class as u64,
+            task.dispatch_count,
+            task.yield_count,
+            task.block_count,
+            task.ipc_send_count,
+            task.ipc_recv_count,
+            task.endpoint_count as u64,
+            task.shm_count as u64,
+            task.thread_count as u64,
+            task.exit_status,
+        ];
+        let mut out = [0u8; R4_PROC_INFO_SIZE];
+        for (idx, field) in fields.iter().enumerate() {
+            let start = idx * 8;
+            out[start..start + 8].copy_from_slice(&field.to_le_bytes());
+        }
+        if copyout_user(info_ptr, &out, out.len()).is_err() {
+            return 0xFFFF_FFFF_FFFF_FFFF;
+        }
+        0
+    }
+
+    unsafe fn sys_sched_set_r4(tid: u64, class: u64) -> u64 {
+        let target = tid as usize;
+        if target >= R4_NUM_TASKS {
+            return 0xFFFF_FFFF_FFFF_FFFF;
+        }
+        if R4_TASKS[target].state == R4State::Dead {
+            return 0xFFFF_FFFF_FFFF_FFFF;
+        }
+        let next_class = match class as u8 {
+            R4_SCHED_CLASS_BEST_EFFORT => R4_SCHED_CLASS_BEST_EFFORT,
+            R4_SCHED_CLASS_CRITICAL => R4_SCHED_CLASS_CRITICAL,
+            _ => return 0xFFFF_FFFF_FFFF_FFFF,
+        };
+        if !r4_can_control_task(R4_CURRENT, target) {
+            return 0xFFFF_FFFF_FFFF_FFFF;
+        }
+        R4_TASKS[target].sched_class = next_class;
+        0
     }
 
     unsafe fn sys_thread_spawn_r4(entry: u64) -> u64 {
@@ -2394,6 +2511,7 @@ cfg_r4! {
         r4_save_frame(frame, cur);
         R4_TASKS[cur].wait_target = target;
         R4_TASKS[cur].wait_status_ptr = status_ptr;
+        R4_TASKS[cur].block_count += 1;
         R4_TASKS[cur].state = R4State::Blocked;
         match r4_find_ready(cur) {
             Some(tid) => { r4_switch_to(frame, tid); }
@@ -2510,6 +2628,7 @@ cfg_r4! {
         if n > 0 {
             if copyin_user(&mut kbuf[..n], buf, n).is_err() { return 0xFFFF_FFFF_FFFF_FFFF; }
         }
+        R4_TASKS[R4_CURRENT].ipc_send_count += 1;
 
         // If someone is blocked on recv for this endpoint, deliver directly
         let waiter = R4_ENDPOINTS[ep].waiter;
@@ -2533,6 +2652,7 @@ cfg_r4! {
             }
             R4_TASKS[wt].saved_frame[14] = n as u64; // return value for recv
             R4_TASKS[wt].state = R4State::Ready;
+            R4_TASKS[wt].ipc_recv_count += 1;
             R4_ENDPOINTS[ep].waiter = -1;
             return 0;
         }
@@ -2577,6 +2697,7 @@ cfg_r4! {
                 return;
             }
             R4_ENDPOINTS[ep].has_msg = false;
+            R4_TASKS[R4_CURRENT].ipc_recv_count += 1;
             *frame.add(14) = n as u64;
             return;
         }
@@ -2592,6 +2713,7 @@ cfg_r4! {
         R4_TASKS[R4_CURRENT].recv_buf = buf;
         R4_TASKS[R4_CURRENT].recv_cap = cap_n as u64;
         r4_save_frame(frame, R4_CURRENT);
+        R4_TASKS[R4_CURRENT].block_count += 1;
         R4_TASKS[R4_CURRENT].state = R4State::Blocked;
         R4_ENDPOINTS[ep].waiter = R4_CURRENT as i32;
 

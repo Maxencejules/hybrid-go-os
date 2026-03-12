@@ -38,6 +38,8 @@ def test_service_and_init_docs_declare_required_contract_tokens():
         "Maximum restart attempts per window: `3`.",
         "Restart window seconds: `60`.",
         "Backoff sequence seconds: `1, 2, 4`.",
+        "apply per-service scheduler class through `sys_sched_set`",
+        "expose kernel-backed task snapshots through `diagsvc` and `sys_proc_info`",
         "Local gate: `make test-userspace-model-v2`",
     ]:
         assert token in service_doc
@@ -53,6 +55,7 @@ def test_service_and_init_docs_declare_required_contract_tokens():
         "Failure policy: failure of a `critical` service blocks `operational`.",
         "Determinism rule: identical manifests must produce identical start/shutdown",
         "Boot-to-operational timeout budget: `45s`.",
+        "`tests/runtime/test_service_control_runtime_v1.py` verifies that the same",
     ]:
         assert token in init_doc
 

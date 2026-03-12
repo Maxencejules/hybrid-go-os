@@ -45,5 +45,7 @@ def test_scheduling_policy_v2_doc_declares_quantum_contract():
         "Default quantum: 3 ticks.",
         "Preemption is timer-driven and mandatory at quantum boundary.",
         "Deterministic tie-breaker: lowest `tid`",
+        "sys_sched_set(tid, class)",
+        "timesvc` and",
     ]:
         assert token in policy
