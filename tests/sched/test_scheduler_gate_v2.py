@@ -17,6 +17,7 @@ def test_process_scheduler_v2_gate_wiring_and_artifacts():
         "docs/abi/scheduling_policy_v2.md",
         "tests/user/test_process_wait_kill_v2.py",
         "tests/user/test_signal_delivery_v2.py",
+        "tests/runtime/test_process_scheduler_runtime_v2.py",
         "tests/sched/v2_model.py",
         "tests/sched/test_preempt_timer_quantum_v2.py",
         "tests/sched/test_priority_fairness_v2.py",
@@ -32,12 +33,14 @@ def test_process_scheduler_v2_gate_wiring_and_artifacts():
     status = _read("docs/STATUS.md")
 
     assert "test-process-scheduler-v2" in makefile
+    assert "test-process-scheduler-v2: image-thread-spawn image-thread-exit image-yield image-user-fault image-go" in makefile
     for test_name in [
         "tests/sched/test_preempt_timer_quantum_v2.py",
         "tests/sched/test_priority_fairness_v2.py",
         "tests/sched/test_scheduler_soak_v2.py",
         "tests/user/test_process_wait_kill_v2.py",
         "tests/user/test_signal_delivery_v2.py",
+        "tests/runtime/test_process_scheduler_runtime_v2.py",
         "tests/sched/test_scheduler_gate_v2.py",
     ]:
         assert test_name in makefile

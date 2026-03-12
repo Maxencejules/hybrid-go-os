@@ -68,6 +68,16 @@ Required M25 checks:
 
 - `tests/runtime/test_service_model_docs_v2.py`
 - `tests/runtime/test_service_lifecycle_v2.py`
+- `tests/runtime/test_service_boot_runtime_v2.py`
 - `tests/runtime/test_service_dependency_order_v2.py`
 - `tests/runtime/test_restart_policy_v2.py`
 - `tests/runtime/test_userspace_model_gate_v2.py`
+
+Runtime-backed default-lane evidence:
+
+- `tests/runtime/test_service_boot_runtime_v2.py` boots `make image-go` and
+  verifies manifest-driven lifecycle markers from the real TinyGo init/service
+  path rather than only deterministic models.
+- The live boot path now reaps exited service tasks through `sys_wait` and
+  exercises bounded restart on the default shell service before the successful
+  run reaches `ready`.

@@ -56,6 +56,12 @@ main.sysTimeNow:
     int  0x80
     ret
 
+global main.sysWait
+main.sysWait:
+    mov  eax, 22
+    int  0x80
+    ret
+
 global main.sysSvcRegister
 main.sysSvcRegister:
     mov  eax, 11

@@ -16,8 +16,10 @@ M25 source of truth remains `docs/M21_M34_MATURITY_PARITY_ROADMAP.md`,
 
 - Service model and init contracts are now versioned in v2 runtime docs.
 - Deterministic lifecycle/dependency/restart semantics are test-backed.
-- Userspace model v2 gate is implemented and release-blocking in local and CI
-  lanes.
+- The default Go lane now boots through a manifest-driven service runtime in
+  `services/go/runtime.go` and `services/go/services.go`.
+- Userspace model v2 gate is implemented, boots `image-go`, and is
+  release-blocking in local and CI lanes.
 
 ## Execution Result
 
@@ -71,28 +73,34 @@ Enforce deterministic startup/shutdown/restart/failure behavior.
 
 - Add tests:
   - `tests/runtime/test_service_lifecycle_v2.py`
+  - `tests/runtime/test_service_boot_runtime_v2.py`
   - `tests/runtime/test_service_dependency_order_v2.py`
   - `tests/runtime/test_restart_policy_v2.py`
 
 ### Primary files
 
 - `tests/runtime/test_service_lifecycle_v2.py`
+- `tests/runtime/test_service_boot_runtime_v2.py`
 - `tests/runtime/test_service_dependency_order_v2.py`
 - `tests/runtime/test_restart_policy_v2.py`
 
 ### Acceptance checks
 
-- `python -m pytest tests/runtime/test_service_lifecycle_v2.py tests/runtime/test_service_dependency_order_v2.py tests/runtime/test_restart_policy_v2.py -v`
+- `python -m pytest tests/runtime/test_service_lifecycle_v2.py tests/runtime/test_service_boot_runtime_v2.py tests/runtime/test_service_dependency_order_v2.py tests/runtime/test_restart_policy_v2.py -v`
 
 ### Done criteria for PR-2
 
 - Boot-to-operational state is deterministic.
 - Failure and restart policies are executable and bounded.
+- The real `image-go` boot lane consumes the same init/service model described
+  by the docs.
 
 ### PR-2 completion summary
 
 - Added deterministic lifecycle coverage:
   - `tests/runtime/test_service_lifecycle_v2.py`
+- Added real-boot lifecycle coverage for the default Go lane:
+  - `tests/runtime/test_service_boot_runtime_v2.py`
 - Added dependency-order and cycle/invalid-graph checks:
   - `tests/runtime/test_service_dependency_order_v2.py`
 - Added bounded restart-policy checks:
@@ -136,6 +144,7 @@ Make userspace service model v2 release-blocking.
   - `tests/runtime/test_userspace_model_gate_v2.py`
 - Added local gate:
   - `make test-userspace-model-v2`
+  - builds `image-go` before running the M25 suite
   - JUnit output: `out/pytest-userspace-model-v2.xml`
 - Added CI gate + artifact upload:
   - step: `Userspace model v2 gate`

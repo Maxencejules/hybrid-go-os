@@ -141,7 +141,7 @@ jobs:
 
       - name: Security baseline v1 gate
         run: |
-          make image-sec-rights image-sec-filter
+          make image-sec-rights image-sec-filter image-go
           python3 tools/secure_boot_manifest_v1.py sign \
             --key "ci-boot-key-v1" \
             --key-id "ci-key-2026-03" \

@@ -1,37 +1,53 @@
 """G1 acceptance test: canonical Go userspace bootstrap path."""
 
 
+def _find_in_order(serial: str, markers: list[str]) -> None:
+    pos = -1
+    for marker in markers:
+        pos = serial.find(marker, pos + 1)
+        assert pos != -1, (
+            f"Expected '{marker}' in serial output.\n"
+            f"Full output:\n{serial}"
+        )
+
+
 def test_go_userspace_bootstrap(qemu_serial_go):
     """Kernel boot must reach Go init, launcher, shell, and syscall-backed service."""
     serial = qemu_serial_go.stdout
 
-    markers = [
-        "RUGO: boot ok",
-        "GOINIT: start",
-        "GOINIT: svcmgr up",
-        "GOSVCM: start",
-        "TIMESVC: start",
-        "TIMESVC: ready",
-        "GOSVCM: shell",
-        "GOSH: start",
-        "GOSH: lookup ok",
-        "TIMESVC: req ok",
-        "TIMESVC: time ok",
-        "GOSH: reply ok",
-        "GOINIT: ready",
-        "RUGO: halt ok",
-    ]
+    _find_in_order(
+        serial,
+        [
+            "RUGO: boot ok",
+            "GOINIT: start",
+            "GOINIT: bootstrap",
+            "GOINIT: svcmgr up",
+            "GOSVCM: start",
+            "SVC: timesvc declared",
+            "SVC: shell declared",
+            "SVC: timesvc starting",
+            "TIMESVC: start",
+            "SVC: timesvc running",
+            "TIMESVC: ready",
+            "GOINIT: operational",
+            "GOSVCM: shell",
+            "GOSH: recycle",
+            "GOSVCM: restart shell",
+            "GOSH: lookup ok",
+            "GOSH: recv deny",
+            "GOSH: reg deny",
+            "GOSH: spawn deny",
+            "TIMESVC: req ok",
+            "TIMESVC: time ok",
+            "GOSH: reply ok",
+            "GOSVCM: reap timesvc",
+            "GOINIT: ready",
+            "RUGO: halt ok",
+        ],
+    )
 
-    positions = []
-    for marker in markers:
-        assert marker in serial, (
-            f"Expected '{marker}' in serial output.\n"
-            f"Full output:\n{serial}"
-        )
-        positions.append(serial.index(marker))
-
-    assert positions == sorted(positions), (
-        "Expected canonical Go userspace markers in boot order.\n"
+    assert serial.count("GOSH: recycle") == 2, (
+        "Expected two shell recycle attempts before the successful run.\n"
         f"Full output:\n{serial}"
     )
 

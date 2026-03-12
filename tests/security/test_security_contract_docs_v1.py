@@ -26,6 +26,8 @@ def test_security_docs_and_syscall_contract():
     assert "27 => sys_sec_profile_set_v1(arg1)" in kernel_src
 
     assert "Per-handle rights" in rights_doc
+    assert "default go service lane" in rights_doc.lower()
+    assert "tests/security/test_go_service_policy_rights_v1.py" in rights_doc
     assert "Restricted profile" in filter_doc
     assert "key rotation" in boot_doc.lower()
     assert "security advisory" in ir_doc.lower()

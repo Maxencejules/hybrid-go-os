@@ -51,6 +51,15 @@ Required transitions:
 - `wait/kill semantics` ownership is parent process policy, not scheduler
   policy.
 
+## Default Go lane binding
+
+- The default Go init/service manager uses `sys_wait` to block on child service
+  exits.
+- Reaped child slots can be reused for bounded restart attempts in the same
+  boot session.
+- Runtime-backed default-lane evidence:
+  `tests/runtime/test_process_scheduler_runtime_v2.py`.
+
 ## Signal delivery boundaries
 
 - Delivery order for normal queued signals is FIFO.
@@ -73,4 +82,5 @@ Required transitions:
 
 - `tests/user/test_process_wait_kill_v2.py`
 - `tests/user/test_signal_delivery_v2.py`
+- `tests/runtime/test_process_scheduler_runtime_v2.py`
 - `tests/sched/test_scheduler_gate_v2.py`

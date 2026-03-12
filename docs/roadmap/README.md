@@ -6,6 +6,10 @@ matrix and [../archive/README.md](../archive/README.md) for historical
 execution records. Use
 [MILESTONE_FRAMEWORK.md](MILESTONE_FRAMEWORK.md) for the full three-track
 taxonomy, old-to-new mapping, rename guidance, and archive/foreground rules.
+Use
+[implementation_closure/README.md](implementation_closure/README.md) for the
+"what would literal implementation still require?" companion set covering the
+completed execution backlogs.
 
 ## Current Phase
 
@@ -16,6 +20,18 @@ The active framing is now three tracks rather than one flat milestone ladder.
 | Core Hybrid OS | Main scoreboard. Measures the default Rust-kernel plus Go-service runtime itself. | `C5` complete; next is `C6 Runtime Quality Under Load`. |
 | Tooling / Validation / Release Infrastructure | Secondary scoreboard. Measures confidence, qualification, release, and lifecycle discipline around the core lane. | `T4` complete; next is `T5 Advanced Trust and Compliance Infrastructure`. |
 | Expansion / Research / Platform Breadth | Secondary scoreboard. Measures compatibility breadth, hardware breadth, desktop breadth, and ecosystem growth. | `X4` complete; next is `X5 Next-Wave Breadth Research`. |
+
+## Implementation Closure Docs
+
+These companion docs cover every backlog-bearing milestone already marked
+`done` or `completed` in the flat ledger and translate those closures into a
+literal implementation bar:
+
+- [implementation_closure/README.md](implementation_closure/README.md)
+- [implementation_closure/core_runtime.md](implementation_closure/core_runtime.md)
+- [implementation_closure/tooling_and_release.md](implementation_closure/tooling_and_release.md)
+- [implementation_closure/expansion_breadth.md](implementation_closure/expansion_breadth.md)
+- [implementation_closure/next_wave_native.md](implementation_closure/next_wave_native.md)
 
 ## Observable Core Progress
 

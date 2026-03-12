@@ -112,7 +112,7 @@ build: $(ASM_OBJS) boot/linker.ld
 $(OUT):
 	mkdir -p $(OUT)
 
-$(GO_USER_BIN): tools/build_go.sh services/go/start.asm services/go/main.go services/go/linker.ld services/go/go.mod | $(OUT)
+$(GO_USER_BIN): tools/build_go.sh services/go/start.asm services/go/main.go services/go/runtime.go services/go/services.go services/go/syscalls.go services/go/linker.ld services/go/go.mod | $(OUT)
 	bash tools/build_go.sh
 
 $(GO_STD_BIN): tools/build_go_std_spike.sh tools/gostd_stock_builder/main.go services/go_std/main.go services/go_std/go.mod services/go_std/linker.ld services/go_std/start.asm services/go_std/rt0.asm services/go_std/runtime_stubs.asm services/go_std/syscalls.asm | $(OUT)
@@ -603,14 +603,14 @@ test-hw-matrix-v3: image-blk image-blk-badlen image-blk-badptr image-net
 	$(PYTHON) tools/collect_hw_diagnostics_v3.py --seed 20260306 --out $(OUT)/hw-diagnostics-v3.json
 	$(PYTHON) -m pytest tests/hw/test_hardware_matrix_v3.py tests/hw/test_driver_lifecycle_v3.py tests/hw/test_suspend_resume_v1.py tests/hw/test_hotplug_baseline_v1.py tests/hw/test_hw_gate_v3.py -v --junitxml=$(OUT)/pytest-hw-matrix-v3.xml
 
-test-process-scheduler-v2: image-thread-spawn image-thread-exit image-yield image-user-fault
-	$(PYTHON) -m pytest tests/sched/test_preempt_timer_quantum_v2.py tests/sched/test_priority_fairness_v2.py tests/sched/test_scheduler_soak_v2.py tests/user/test_process_wait_kill_v2.py tests/user/test_signal_delivery_v2.py tests/sched/test_scheduler_gate_v2.py -v --junitxml=$(OUT)/pytest-process-scheduler-v2.xml
+test-process-scheduler-v2: image-thread-spawn image-thread-exit image-yield image-user-fault image-go
+	$(PYTHON) -m pytest tests/sched/test_preempt_timer_quantum_v2.py tests/sched/test_priority_fairness_v2.py tests/sched/test_scheduler_soak_v2.py tests/user/test_process_wait_kill_v2.py tests/user/test_signal_delivery_v2.py tests/runtime/test_process_scheduler_runtime_v2.py tests/sched/test_scheduler_gate_v2.py -v --junitxml=$(OUT)/pytest-process-scheduler-v2.xml
 
 test-compat-v2: image-go-std image-pkg-hash
 	$(PYTHON) -m pytest tests/compat/test_abi_profile_v2_docs.py tests/compat/test_elf_loader_dynamic_v2.py tests/compat/test_posix_profile_v2.py tests/compat/test_external_apps_tier_v2.py tests/compat/test_compat_gate_v2.py -v --junitxml=$(OUT)/pytest-compat-v2.xml
 
-test-security-baseline: image-sec-rights image-sec-filter
-	$(PYTHON) -m pytest tests/security -v
+test-security-baseline: image-sec-rights image-sec-filter image-go
+	$(PYTHON) -m pytest tests/security -v --junitxml=$(OUT)/pytest-security.xml
 
 test-runtime-maturity: image-go-std image-stress-syscall image-pressure-shm image-thread-spawn image-vm-map
 	bash tools/bootstrap_go_port_v1.sh --check
@@ -673,8 +673,8 @@ test-perf-regression-v1:
 	$(PYTHON) tools/check_perf_regression_v1.py --baseline $(OUT)/perf-baseline-v1.json --seed 20260309 --out $(OUT)/perf-regression-v1.json
 	$(PYTHON) -m pytest tests/runtime/test_perf_budget_docs_v1.py tests/runtime/test_perf_regression_v1.py tests/runtime/test_perf_gate_v1.py -v --junitxml=$(OUT)/pytest-perf-regression-v1.xml
 
-test-userspace-model-v2:
-	$(PYTHON) -m pytest tests/runtime/test_service_model_docs_v2.py tests/runtime/test_service_lifecycle_v2.py tests/runtime/test_service_dependency_order_v2.py tests/runtime/test_restart_policy_v2.py tests/runtime/test_userspace_model_gate_v2.py -v --junitxml=$(OUT)/pytest-userspace-model-v2.xml
+test-userspace-model-v2: image-go
+	$(PYTHON) -m pytest tests/runtime/test_service_model_docs_v2.py tests/runtime/test_service_lifecycle_v2.py tests/runtime/test_service_boot_runtime_v2.py tests/runtime/test_service_dependency_order_v2.py tests/runtime/test_restart_policy_v2.py tests/runtime/test_userspace_model_gate_v2.py -v --junitxml=$(OUT)/pytest-userspace-model-v2.xml
 
 test-pkg-ecosystem-v3:
 	$(PYTHON) tools/repo_policy_check_v3.py --out $(OUT)/repo-policy-v3.json

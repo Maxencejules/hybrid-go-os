@@ -54,5 +54,15 @@ Required evidence tests:
 
 - `tests/runtime/test_service_model_docs_v2.py`
 - `tests/runtime/test_service_lifecycle_v2.py`
+- `tests/runtime/test_service_boot_runtime_v2.py`
 - `tests/runtime/test_service_dependency_order_v2.py`
 - `tests/runtime/test_restart_policy_v2.py`
+
+Runtime-backed boot evidence:
+
+- `tests/runtime/test_service_boot_runtime_v2.py` boots the default Go lane and
+  verifies that `bootstrap -> core -> services -> operational` is exercised by
+  the real service manager rather than only by model tests.
+- `tests/runtime/test_process_scheduler_runtime_v2.py` verifies that the same
+  init path blocks in `sys_wait`, reaps child services, and performs bounded
+  restart on the live booted system.

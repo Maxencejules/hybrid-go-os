@@ -100,6 +100,23 @@ Legacy-only note:
 - `G0` stays archived with the legacy lane. It should not appear on the
   default Rugo scoreboard.
 
+## Implementation Closure Companions
+
+The flat completion ledger and the three-track taxonomy still leave one
+important question open: what would it take for the completed backlogs to be
+literally implemented rather than merely closed by docs, gates, and artifacts?
+
+Use the companion set in
+[implementation_closure/README.md](implementation_closure/README.md):
+
+- [implementation_closure/core_runtime.md](implementation_closure/core_runtime.md)
+- [implementation_closure/tooling_and_release.md](implementation_closure/tooling_and_release.md)
+- [implementation_closure/expansion_breadth.md](implementation_closure/expansion_breadth.md)
+- [implementation_closure/next_wave_native.md](implementation_closure/next_wave_native.md)
+
+Those documents cover every backlog-bearing milestone currently marked done in
+the ledger, including `G2` and `M8-M54`.
+
 ## Recommended Renames
 
 The following labels are more accurate for the architecture-first story:

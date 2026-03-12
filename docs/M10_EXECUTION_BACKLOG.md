@@ -39,6 +39,8 @@ Adopt explicit fd-handle rights and enforce them in kernel syscall paths.
 
 - Extend fd table entries with rights bitsets.
 - Enforce rights in `sys_read/sys_write/sys_poll`.
+- Extend the default Go lane with owner-only IPC receive/control rights and
+  init-only service launch.
 - Add rights-management syscalls:
   - `sys_fd_rights_get` (24)
   - `sys_fd_rights_reduce` (25)
@@ -46,12 +48,16 @@ Adopt explicit fd-handle rights and enforce them in kernel syscall paths.
 - Add executable kernel acceptance path:
   - `sec_rights_test`
   - `tests/security/test_rights_enforcement.py`
+  - `tests/security/test_go_service_policy_rights_v1.py`
 
 ### Primary files
 
 - `kernel_rs/src/lib.rs`
 - `services/security/sec_rights.asm`
+- `services/go/runtime.go`
+- `services/go/services.go`
 - `tests/security/test_rights_enforcement.py`
+- `tests/security/test_go_service_policy_rights_v1.py`
 - `docs/security/rights_capability_model_v1.md`
 
 ## PR-2: Syscall Filtering + Secure Boot Manifest

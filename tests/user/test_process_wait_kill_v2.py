@@ -43,6 +43,8 @@ def test_process_thread_model_v2_doc_and_wait_contract():
     for token in [
         "State machine identifier: `rugo.process_thread_model.v2`",
         "wait/kill semantics",
+        "The default Go init/service manager uses `sys_wait` to block on child service",
+        "Runtime-backed default-lane evidence:",
         "Faulted user tasks are contained without scheduler collapse.",
         "Local gate: `make test-process-scheduler-v2`",
     ]:
@@ -50,6 +52,8 @@ def test_process_thread_model_v2_doc_and_wait_contract():
 
     assert "sys_wait_v1" in kernel_src
     assert "unsafe fn sys_wait_v1" in kernel_src
+    assert "sys_wait_r4" in kernel_src
+    assert "unsafe fn sys_wait_r4" in kernel_src
 
 
 def test_wait_kill_model_is_deterministic():

@@ -17,6 +17,7 @@ def test_userspace_model_v2_gate_wiring_and_artifacts():
         "docs/runtime/init_contract_v2.md",
         "tests/runtime/test_service_model_docs_v2.py",
         "tests/runtime/test_service_lifecycle_v2.py",
+        "tests/runtime/test_service_boot_runtime_v2.py",
         "tests/runtime/test_service_dependency_order_v2.py",
         "tests/runtime/test_restart_policy_v2.py",
         "tests/runtime/test_userspace_model_gate_v2.py",
@@ -33,10 +34,11 @@ def test_userspace_model_v2_gate_wiring_and_artifacts():
     readme = _read("README.md")
 
     assert "test-userspace-model-v2" in roadmap
-    assert "test-userspace-model-v2" in makefile
+    assert "test-userspace-model-v2: image-go" in makefile
     for entry in [
         "tests/runtime/test_service_model_docs_v2.py",
         "tests/runtime/test_service_lifecycle_v2.py",
+        "tests/runtime/test_service_boot_runtime_v2.py",
         "tests/runtime/test_service_dependency_order_v2.py",
         "tests/runtime/test_restart_policy_v2.py",
         "tests/runtime/test_userspace_model_gate_v2.py",

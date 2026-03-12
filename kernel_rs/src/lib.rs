@@ -650,7 +650,7 @@ unsafe fn handle_user_fault(frame: *mut u64) {
     // R4: kill current task and switch to next
     #[cfg(any(feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_recv_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "ipc_waiter_busy_test", feature = "svc_overwrite_test", feature = "svc_full_test", feature = "svc_bad_endpoint_test", feature = "stress_ipc_test", feature = "quota_endpoints_test", feature = "quota_shm_test", feature = "quota_threads_test", feature = "go_test"))]
     {
-        r4_kill_and_switch(frame);
+        r4_exit_and_switch(frame, 1);
         return;
     }
 
@@ -703,7 +703,7 @@ unsafe fn syscall_dispatch(frame: *mut u64) {
         match nr {
             0  => { *frame.add(14) = sys_debug_write(arg1, arg2); }
             1  => { *frame.add(14) = sys_thread_spawn_r4(arg1); }
-            2  => { r4_kill_and_switch(frame); }
+            2  => { r4_exit_and_switch(frame, 0); }
             3  => { r4_yield_and_switch(frame); }
             17 => { *frame.add(14) = sys_ipc_endpoint_create_r4(); }
             6  => { *frame.add(14) = sys_shm_create_r4(arg1); }
@@ -714,6 +714,7 @@ unsafe fn syscall_dispatch(frame: *mut u64) {
             10 => { *frame.add(14) = sys_time_now(); }
             11 => { *frame.add(14) = sys_svc_register_r4(arg1, arg2, arg3); }
             12 => { *frame.add(14) = sys_svc_lookup_r4(arg1, arg2); }
+            22 => { sys_wait_r4(frame, arg1, arg2, arg3); }
             _  => { *frame.add(14) = 0xFFFF_FFFF_FFFF_FFFF; }
         }
         return;
@@ -2073,6 +2074,7 @@ cfg_r4! {
     const MAX_SHM_PER_PROC: usize = 32;
     const MAX_THREADS_PER_PROC: usize = 16;
     const MAX_THREADS_GLOBAL: usize = 64;
+    const R4_WAIT_NONE: i32 = -2;
 
     #[cfg(any(feature = "stress_ipc_test", feature = "go_test"))]
     const R4_MAX_TASKS: usize = 4;
@@ -2080,7 +2082,7 @@ cfg_r4! {
     const R4_MAX_TASKS: usize = 2;
 
     #[derive(Clone, Copy, PartialEq)]
-    enum R4State { Ready, Running, Blocked, Dead }
+    enum R4State { Ready, Running, Blocked, Exited, Dead }
 
     #[derive(Clone, Copy)]
     struct R4Task {
@@ -2092,6 +2094,11 @@ cfg_r4! {
         endpoint_count: usize,
         shm_count: usize,
         thread_count: usize,
+        can_spawn: bool,
+        parent_tid: usize,
+        exit_status: u64,
+        wait_target: i32,
+        wait_status_ptr: u64,
     }
 
     impl R4Task {
@@ -2102,6 +2109,11 @@ cfg_r4! {
             endpoint_count: 0,
             shm_count: 0,
             thread_count: 0,
+            can_spawn: false,
+            parent_tid: 0,
+            exit_status: 0,
+            wait_target: R4_WAIT_NONE,
+            wait_status_ptr: 0,
         };
     }
 
@@ -2115,7 +2127,7 @@ cfg_r4! {
         USER_STACK_TOP - (slot as u64) * 0x1000
     }
 
-    unsafe fn r4_init_task(tid: usize, code_va: u64, stk_top: u64) {
+    unsafe fn r4_init_task(tid: usize, code_va: u64, stk_top: u64, parent_tid: usize) {
         R4_TASKS[tid].saved_frame = [0u64; 22];
         R4_TASKS[tid].saved_frame[17] = code_va;  // RIP
         R4_TASKS[tid].saved_frame[18] = 0x23;     // CS (user code RPL=3)
@@ -2128,6 +2140,18 @@ cfg_r4! {
         R4_TASKS[tid].endpoint_count = 0;
         R4_TASKS[tid].shm_count = 0;
         R4_TASKS[tid].thread_count = 0;
+        R4_TASKS[tid].parent_tid = parent_tid;
+        R4_TASKS[tid].exit_status = 0;
+        R4_TASKS[tid].wait_target = R4_WAIT_NONE;
+        R4_TASKS[tid].wait_status_ptr = 0;
+        #[cfg(feature = "go_test")]
+        {
+            R4_TASKS[tid].can_spawn = tid == 0;
+        }
+        #[cfg(not(feature = "go_test"))]
+        {
+            R4_TASKS[tid].can_spawn = false;
+        }
         R4_TASKS[tid].state = R4State::Ready;
     }
 
@@ -2153,6 +2177,64 @@ cfg_r4! {
         for i in 0..22 { R4_TASKS[tid].saved_frame[i] = *frame.add(i); }
     }
 
+    #[inline(always)]
+    unsafe fn r4_wait_matches(target: i32, child_tid: usize) -> bool {
+        target == -1 || target == child_tid as i32
+    }
+
+    #[inline(always)]
+    unsafe fn r4_copy_wait_status(status_ptr: u64, status: u64) -> bool {
+        if status_ptr == 0 {
+            return true;
+        }
+        let st = status.to_le_bytes();
+        copyout_user(status_ptr, &st, st.len()).is_ok()
+    }
+
+    unsafe fn r4_has_waitable_child(parent_tid: usize, target: i32) -> bool {
+        for tid in 0..R4_NUM_TASKS {
+            if tid == parent_tid || R4_TASKS[tid].parent_tid != parent_tid {
+                continue;
+            }
+            if !r4_wait_matches(target, tid) {
+                continue;
+            }
+            if R4_TASKS[tid].state != R4State::Dead {
+                return true;
+            }
+        }
+        false
+    }
+
+    unsafe fn r4_find_exited_child(parent_tid: usize, target: i32) -> Option<usize> {
+        for tid in 0..R4_NUM_TASKS {
+            if tid == parent_tid || R4_TASKS[tid].parent_tid != parent_tid {
+                continue;
+            }
+            if !r4_wait_matches(target, tid) {
+                continue;
+            }
+            if R4_TASKS[tid].state == R4State::Exited {
+                return Some(tid);
+            }
+        }
+        None
+    }
+
+    unsafe fn r4_wake_waiter(parent_tid: usize, child_tid: usize) {
+        let status_ptr = R4_TASKS[parent_tid].wait_status_ptr;
+        if r4_copy_wait_status(status_ptr, R4_TASKS[child_tid].exit_status) {
+            R4_TASKS[parent_tid].saved_frame[14] = child_tid as u64;
+        } else {
+            R4_TASKS[parent_tid].saved_frame[14] = 0xFFFF_FFFF_FFFF_FFFF;
+        }
+        R4_TASKS[parent_tid].wait_target = R4_WAIT_NONE;
+        R4_TASKS[parent_tid].wait_status_ptr = 0;
+        R4_TASKS[parent_tid].state = R4State::Ready;
+        R4_TASKS[child_tid].state = R4State::Dead;
+        R4_TASKS[child_tid].exit_status = 0;
+    }
+
     unsafe fn r4_yield_and_switch(frame: *mut u64) {
         let cur = R4_CURRENT;
         r4_save_frame(frame, cur);
@@ -2169,8 +2251,19 @@ cfg_r4! {
         }
     }
 
-    unsafe fn r4_kill_and_switch(frame: *mut u64) {
-        R4_TASKS[R4_CURRENT].state = R4State::Dead;
+    unsafe fn r4_exit_and_switch(frame: *mut u64, exit_status: u64) {
+        let cur = R4_CURRENT;
+        let parent = R4_TASKS[cur].parent_tid;
+        R4_TASKS[cur].exit_status = exit_status;
+        R4_TASKS[cur].state = R4State::Exited;
+        if parent != cur
+            && parent < R4_NUM_TASKS
+            && R4_TASKS[parent].state == R4State::Blocked
+            && R4_TASKS[parent].wait_target != R4_WAIT_NONE
+            && r4_wait_matches(R4_TASKS[parent].wait_target, cur)
+        {
+            r4_wake_waiter(parent, cur);
+        }
         match r4_find_ready(R4_CURRENT) {
             Some(tid) => { r4_switch_to(frame, tid); }
             None => {
@@ -2194,6 +2287,20 @@ cfg_r4! {
         loop { unsafe { core::arch::asm!("cli; hlt", options(nomem, nostack)); } }
     }
 
+    unsafe fn r4_find_spawn_slot() -> Option<usize> {
+        for tid in 1..R4_NUM_TASKS {
+            if R4_TASKS[tid].state == R4State::Dead {
+                return Some(tid);
+            }
+        }
+        if R4_NUM_TASKS >= R4_MAX_TASKS {
+            return None;
+        }
+        let tid = R4_NUM_TASKS;
+        R4_NUM_TASKS += 1;
+        Some(tid)
+    }
+
     unsafe fn sys_thread_spawn_r4(entry: u64) -> u64 {
         #[cfg(feature = "quota_threads_test")]
         {
@@ -2214,17 +2321,21 @@ cfg_r4! {
             if entry >= 0x0000_8000_0000_0000 {
                 return 0xFFFF_FFFF_FFFF_FFFF;
             }
+            if !R4_TASKS[R4_CURRENT].can_spawn {
+                return 0xFFFF_FFFF_FFFF_FFFF;
+            }
             if !user_pages_ok(entry, 1, USER_PERM_READ) {
                 return 0xFFFF_FFFF_FFFF_FFFF;
             }
-            if R4_NUM_TASKS >= R4_MAX_TASKS {
+            let tid = match r4_find_spawn_slot() {
+                Some(tid) => tid,
+                None => return 0xFFFF_FFFF_FFFF_FFFF,
+            };
+            if tid >= R4_MAX_TASKS {
                 return 0xFFFF_FFFF_FFFF_FFFF;
             }
-
-            let tid = R4_NUM_TASKS;
-            r4_init_task(tid, entry, r4_stack_top_for_slot(tid));
+            r4_init_task(tid, entry, r4_stack_top_for_slot(tid), R4_CURRENT);
             R4_TASKS[tid].state = R4State::Ready;
-            R4_NUM_TASKS += 1;
             R4_THREADS_CREATED += 1;
             tid as u64
         }
@@ -2234,6 +2345,64 @@ cfg_r4! {
             0xFFFF_FFFF_FFFF_FFFF
         }
     }
+
+    unsafe fn sys_wait_r4(frame: *mut u64, pid: u64, status_ptr: u64, options: u64) {
+        if options != 0 {
+            *frame.add(14) = 0xFFFF_FFFF_FFFF_FFFF;
+            return;
+        }
+
+        let target = if pid == u64::MAX {
+            -1
+        } else if (pid as usize) < R4_NUM_TASKS {
+            pid as i32
+        } else {
+            *frame.add(14) = 0xFFFF_FFFF_FFFF_FFFF;
+            return;
+        };
+
+        if status_ptr != 0
+            && (!user_range_ok(status_ptr, 8)
+                || !user_pages_ok(status_ptr, 8, USER_PERM_WRITE))
+        {
+            *frame.add(14) = 0xFFFF_FFFF_FFFF_FFFF;
+            return;
+        }
+
+        let cur = R4_CURRENT;
+        if let Some(child) = r4_find_exited_child(cur, target) {
+            if !r4_copy_wait_status(status_ptr, R4_TASKS[child].exit_status) {
+                *frame.add(14) = 0xFFFF_FFFF_FFFF_FFFF;
+                return;
+            }
+            R4_TASKS[child].state = R4State::Dead;
+            R4_TASKS[child].exit_status = 0;
+            *frame.add(14) = child as u64;
+            return;
+        }
+
+        if !r4_has_waitable_child(cur, target) {
+            *frame.add(14) = 0xFFFF_FFFF_FFFF_FFFF;
+            return;
+        }
+
+        r4_save_frame(frame, cur);
+        R4_TASKS[cur].wait_target = target;
+        R4_TASKS[cur].wait_status_ptr = status_ptr;
+        R4_TASKS[cur].state = R4State::Blocked;
+        match r4_find_ready(cur) {
+            Some(tid) => { r4_switch_to(frame, tid); }
+            None => {
+                serial_write(b"R4: deadlock\n");
+                let kstack = &stack_top as *const u8 as u64;
+                *frame.add(17) = r4_all_done as *const () as u64;
+                *frame.add(18) = 0x08;
+                *frame.add(19) = 0x02;
+                *frame.add(20) = kstack;
+                *frame.add(21) = 0x10;
+            }
+        }
+    }
 }
 
 // --------------- R4: IPC endpoints -------------------------------------------
@@ -2241,6 +2410,8 @@ cfg_r4! {
 cfg_r4! {
     const R4_MAX_ENDPOINTS: usize = 16;
     const R4_MAX_MSG_LEN: usize = 256;
+    const R4_EP_RIGHT_RECV: u8 = 1 << 0;
+    const R4_EP_RIGHT_CONTROL: u8 = 1 << 1;
 
     #[derive(Clone, Copy)]
     struct IpcEndpoint {
@@ -2249,6 +2420,8 @@ cfg_r4! {
         msg_data: [u8; R4_MAX_MSG_LEN],
         msg_len: usize,
         waiter: i32, // task id blocked on recv, or -1
+        owner_tid: usize,
+        owner_rights: u8,
     }
 
     impl IpcEndpoint {
@@ -2256,11 +2429,28 @@ cfg_r4! {
             active: false, has_msg: false,
             msg_data: [0u8; R4_MAX_MSG_LEN], msg_len: 0,
             waiter: -1,
+            owner_tid: 0,
+            owner_rights: 0,
         };
     }
 
     static mut R4_ENDPOINTS: [IpcEndpoint; R4_MAX_ENDPOINTS] =
         [IpcEndpoint::EMPTY; R4_MAX_ENDPOINTS];
+
+    #[inline(always)]
+    unsafe fn r4_endpoint_owner_has_right(ep: usize, right: u8) -> bool {
+        #[cfg(feature = "go_test")]
+        {
+            R4_ENDPOINTS[ep].owner_tid == R4_CURRENT
+                && (R4_ENDPOINTS[ep].owner_rights & right) != 0
+        }
+        #[cfg(not(feature = "go_test"))]
+        {
+            let _ = ep;
+            let _ = right;
+            true
+        }
+    }
 
     unsafe fn sys_ipc_endpoint_create_r4() -> u64 {
         #[cfg(any(feature = "quota_endpoints_test", feature = "go_test"))]
@@ -2274,6 +2464,8 @@ cfg_r4! {
                     R4_ENDPOINTS[i].has_msg = false;
                     R4_ENDPOINTS[i].msg_len = 0;
                     R4_ENDPOINTS[i].waiter = -1;
+                    R4_ENDPOINTS[i].owner_tid = R4_CURRENT;
+                    R4_ENDPOINTS[i].owner_rights = R4_EP_RIGHT_RECV | R4_EP_RIGHT_CONTROL;
                     R4_TASKS[R4_CURRENT].endpoint_count += 1;
                     return i as u64;
                 }
@@ -2343,6 +2535,10 @@ cfg_r4! {
     unsafe fn sys_ipc_recv_r4(frame: *mut u64, endpoint: u64, buf: u64, cap: u64) {
         let ep = endpoint as usize;
         if ep >= R4_MAX_ENDPOINTS || !R4_ENDPOINTS[ep].active {
+            *frame.add(14) = 0xFFFF_FFFF_FFFF_FFFF;
+            return;
+        }
+        if !r4_endpoint_owner_has_right(ep, R4_EP_RIGHT_RECV) {
             *frame.add(14) = 0xFFFF_FFFF_FFFF_FFFF;
             return;
         }
@@ -2431,6 +2627,9 @@ cfg_r4! {
         if copyin_user(&mut name[..n], name_ptr, n).is_err() { return 0xFFFF_FFFF_FFFF_FFFF; }
         let ep = endpoint as usize;
         if ep >= R4_MAX_ENDPOINTS || !R4_ENDPOINTS[ep].active {
+            return 0xFFFF_FFFF_FFFF_FFFF;
+        }
+        if !r4_endpoint_owner_has_right(ep, R4_EP_RIGHT_CONTROL) {
             return 0xFFFF_FFFF_FFFF_FFFF;
         }
         // Overwrite if name already registered
@@ -4791,8 +4990,8 @@ pub extern "C" fn kmain() -> ! {
 
         // Init tasks: task 0 = pong, task 1 = ping
         R4_NUM_TASKS = 2;
-        r4_init_task(0, USER_CODE_VA, USER_STACK_TOP);
-        r4_init_task(1, USER_CODE2_VA, USER_STACK2_TOP);
+        r4_init_task(0, USER_CODE_VA, USER_STACK_TOP, 0);
+        r4_init_task(1, USER_CODE2_VA, USER_STACK2_TOP, 1);
         R4_TASKS[0].state = R4State::Running;
         R4_CURRENT = 0;
 
@@ -4818,10 +5017,10 @@ pub extern "C" fn kmain() -> ! {
         R4_ENDPOINTS[1].active = true;
 
         R4_NUM_TASKS = 4;
-        r4_init_task(0, USER_CODE_VA, USER_STACK_TOP);
-        r4_init_task(1, USER_CODE2_VA, USER_STACK2_TOP);
-        r4_init_task(2, USER_CODE3_VA, USER_STACK3_TOP);
-        r4_init_task(3, USER_CODE4_VA, USER_STACK4_TOP);
+        r4_init_task(0, USER_CODE_VA, USER_STACK_TOP, 0);
+        r4_init_task(1, USER_CODE2_VA, USER_STACK2_TOP, 1);
+        r4_init_task(2, USER_CODE3_VA, USER_STACK3_TOP, 2);
+        r4_init_task(3, USER_CODE4_VA, USER_STACK4_TOP, 3);
         R4_TASKS[0].state = R4State::Running;
         R4_CURRENT = 0;
 
@@ -4838,7 +5037,7 @@ pub extern "C" fn kmain() -> ! {
         {
             setup_r4_pages(&SHM_PRESSURE_BLOB, &SHM_PRESSURE_BLOB);
             R4_NUM_TASKS = 1;
-            r4_init_task(0, USER_CODE_VA, USER_STACK_TOP);
+            r4_init_task(0, USER_CODE_VA, USER_STACK_TOP, 0);
             R4_TASKS[0].state = R4State::Running;
             R4_CURRENT = 0;
             enter_ring3_at(USER_CODE_VA, USER_STACK_TOP);
@@ -4853,8 +5052,8 @@ pub extern "C" fn kmain() -> ! {
 
             // Init tasks: task 0 = writer, task 1 = reader
             R4_NUM_TASKS = 2;
-            r4_init_task(0, USER_CODE_VA, USER_STACK_TOP);
-            r4_init_task(1, USER_CODE2_VA, USER_STACK2_TOP);
+            r4_init_task(0, USER_CODE_VA, USER_STACK_TOP, 0);
+            r4_init_task(1, USER_CODE2_VA, USER_STACK2_TOP, 1);
             R4_TASKS[0].state = R4State::Running;
             R4_CURRENT = 0;
 
@@ -4874,7 +5073,7 @@ pub extern "C" fn kmain() -> ! {
 
         // Single task
         R4_NUM_TASKS = 1;
-        r4_init_task(0, USER_CODE_VA, USER_STACK_TOP);
+        r4_init_task(0, USER_CODE_VA, USER_STACK_TOP, 0);
         R4_TASKS[0].state = R4State::Running;
         R4_CURRENT = 0;
 
@@ -4893,7 +5092,7 @@ pub extern "C" fn kmain() -> ! {
 
         // Single task
         R4_NUM_TASKS = 1;
-        r4_init_task(0, USER_CODE_VA, USER_STACK_TOP);
+        r4_init_task(0, USER_CODE_VA, USER_STACK_TOP, 0);
         R4_TASKS[0].state = R4State::Running;
         R4_CURRENT = 0;
 
@@ -4909,7 +5108,7 @@ pub extern "C" fn kmain() -> ! {
 
         // Single task (no endpoints needed for svc_register)
         R4_NUM_TASKS = 1;
-        r4_init_task(0, USER_CODE_VA, USER_STACK_TOP);
+        r4_init_task(0, USER_CODE_VA, USER_STACK_TOP, 0);
         R4_TASKS[0].state = R4State::Running;
         R4_CURRENT = 0;
 
@@ -4928,7 +5127,7 @@ pub extern "C" fn kmain() -> ! {
 
         // Single task
         R4_NUM_TASKS = 1;
-        r4_init_task(0, USER_CODE_VA, USER_STACK_TOP);
+        r4_init_task(0, USER_CODE_VA, USER_STACK_TOP, 0);
         R4_TASKS[0].state = R4State::Running;
         R4_CURRENT = 0;
 
@@ -4947,8 +5146,8 @@ pub extern "C" fn kmain() -> ! {
 
         // task 0 blocks first, task 1 verifies deterministic -1 behavior
         R4_NUM_TASKS = 2;
-        r4_init_task(0, USER_CODE_VA, USER_STACK_TOP);
-        r4_init_task(1, USER_CODE2_VA, USER_STACK2_TOP);
+        r4_init_task(0, USER_CODE_VA, USER_STACK_TOP, 0);
+        r4_init_task(1, USER_CODE2_VA, USER_STACK2_TOP, 1);
         R4_TASKS[0].state = R4State::Running;
         R4_CURRENT = 0;
 
@@ -4968,7 +5167,7 @@ pub extern "C" fn kmain() -> ! {
 
         // Single task
         R4_NUM_TASKS = 1;
-        r4_init_task(0, USER_CODE_VA, USER_STACK_TOP);
+        r4_init_task(0, USER_CODE_VA, USER_STACK_TOP, 0);
         R4_TASKS[0].state = R4State::Running;
         R4_CURRENT = 0;
 
@@ -4991,7 +5190,7 @@ pub extern "C" fn kmain() -> ! {
 
         // Single task
         R4_NUM_TASKS = 1;
-        r4_init_task(0, USER_CODE_VA, USER_STACK_TOP);
+        r4_init_task(0, USER_CODE_VA, USER_STACK_TOP, 0);
         R4_TASKS[0].state = R4State::Running;
         R4_CURRENT = 0;
 
@@ -5007,7 +5206,7 @@ pub extern "C" fn kmain() -> ! {
 
         // Single task; no endpoints are pre-created on purpose.
         R4_NUM_TASKS = 1;
-        r4_init_task(0, USER_CODE_VA, USER_STACK_TOP);
+        r4_init_task(0, USER_CODE_VA, USER_STACK_TOP, 0);
         R4_TASKS[0].state = R4State::Running;
         R4_CURRENT = 0;
 
@@ -5022,7 +5221,7 @@ pub extern "C" fn kmain() -> ! {
         setup_r4_pages(&QUOTA_ENDPOINTS_BLOB, &QUOTA_ENDPOINTS_BLOB);
 
         R4_NUM_TASKS = 1;
-        r4_init_task(0, USER_CODE_VA, USER_STACK_TOP);
+        r4_init_task(0, USER_CODE_VA, USER_STACK_TOP, 0);
         R4_TASKS[0].state = R4State::Running;
         R4_CURRENT = 0;
 
@@ -5037,7 +5236,7 @@ pub extern "C" fn kmain() -> ! {
         setup_r4_pages(&QUOTA_SHM_BLOB, &QUOTA_SHM_BLOB);
 
         R4_NUM_TASKS = 1;
-        r4_init_task(0, USER_CODE_VA, USER_STACK_TOP);
+        r4_init_task(0, USER_CODE_VA, USER_STACK_TOP, 0);
         R4_TASKS[0].state = R4State::Running;
         R4_CURRENT = 0;
 
@@ -5052,7 +5251,7 @@ pub extern "C" fn kmain() -> ! {
         setup_r4_pages(&QUOTA_THREADS_BLOB, &QUOTA_THREADS_BLOB);
 
         R4_NUM_TASKS = 1;
-        r4_init_task(0, USER_CODE_VA, USER_STACK_TOP);
+        r4_init_task(0, USER_CODE_VA, USER_STACK_TOP, 0);
         R4_TASKS[0].state = R4State::Running;
         R4_CURRENT = 0;
 
@@ -5297,7 +5496,7 @@ pub extern "C" fn kmain() -> ! {
         tss_init(kstack);
         setup_r4_pages4(GO_USER_BIN, GO_USER_BIN, GO_USER_BIN, GO_USER_BIN);
         R4_NUM_TASKS = 1;
-        r4_init_task(0, USER_CODE_VA, USER_STACK_TOP);
+        r4_init_task(0, USER_CODE_VA, USER_STACK_TOP, 0);
         R4_TASKS[0].state = R4State::Running;
         R4_CURRENT = 0;
         enter_ring3_at(USER_CODE_VA, USER_STACK_TOP);
