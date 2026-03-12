@@ -58,11 +58,23 @@ Global policy checks:
 - Controller drift events: `<= 0`
 - Throttle fairness ratio: `>= 0.98`
 
+## Default-Lane Runtime Evidence
+
+The shipped `image-go` lane now exercises a bounded runtime-backed resource
+control profile alongside the original synthetic M42 campaigns:
+
+- per-service fd, socket, and endpoint ceilings are configured at launch
+- storage and network access are capability-gated
+- quota-denial markers are emitted before cleanup verification
+- task snapshots expose live `fd=` and `sock=` counts
+- runtime gate: `make test-reliable-isolated-runtime-c5`
+
 ## Gate wiring
 
 - Resource-control runner: `tools/run_resource_control_campaign_v1.py`
 - Isolation campaign runner: `tools/run_isolation_campaign_v1.py`
 - Local gate: `make test-isolation-baseline-v1`
 - Local sub-gate: `make test-namespace-cgroup-v1`
+- Runtime closure gate: `make test-reliable-isolated-runtime-c5`
 - CI gate: `Isolation baseline v1 gate`
 - CI sub-gate: `Namespace cgroup v1 gate`

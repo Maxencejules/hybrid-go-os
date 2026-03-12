@@ -8,6 +8,15 @@ Milestone: M18 Storage Reliability v2
 Provide a deterministic workflow for storage integrity checks, journal recovery
 classification, and release-gate evidence collection.
 
+## Boot-backed C4 recovery baseline
+
+- Local gate: `make test-connected-runtime-c4`
+- The default `image-go` lane boots with an attached raw disk, stages
+  `c4-recover` into `/runtime/journal.bin`, reboots, emits `RECOV: replay ok`,
+  then flushes `c4-fsync` through `sys_fsync` and emits `BLK: flush ordered`.
+- `tests/runtime/test_connected_runtime_c4.py` validates both the serial
+  markers and the on-disk journal/state sectors across two boots.
+
 ## Recovery workflow
 
 1. Run recovery checker:

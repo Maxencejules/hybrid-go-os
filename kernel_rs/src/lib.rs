@@ -244,19 +244,19 @@ unsafe fn inb(port: u16) -> u8 {
     val
 }
 
-#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "net_test"))]
+#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "net_test", feature = "go_test"))]
 #[inline(always)]
 unsafe fn outw(port: u16, value: u16) {
     core::arch::asm!("out dx, ax", in("dx") port, in("ax") value, options(nomem, nostack));
 }
 
-#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "net_test"))]
+#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "net_test", feature = "go_test"))]
 #[inline(always)]
 unsafe fn outl(port: u16, value: u32) {
     core::arch::asm!("out dx, eax", in("dx") port, in("eax") value, options(nomem, nostack));
 }
 
-#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "net_test"))]
+#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "net_test", feature = "go_test"))]
 #[inline(always)]
 unsafe fn inl(port: u16) -> u32 {
     let val: u32;
@@ -264,7 +264,7 @@ unsafe fn inl(port: u16) -> u32 {
     val
 }
 
-#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "net_test"))]
+#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "net_test", feature = "go_test"))]
 #[inline(always)]
 unsafe fn inw(port: u16) -> u16 {
     let val: u16;
@@ -716,9 +716,25 @@ unsafe fn syscall_dispatch(frame: *mut u64) {
             10 => { *frame.add(14) = sys_time_now(); }
             11 => { *frame.add(14) = sys_svc_register_r4(arg1, arg2, arg3); }
             12 => { *frame.add(14) = sys_svc_lookup_r4(arg1, arg2); }
+            18 => { *frame.add(14) = sys_open_v1(arg1, arg2, arg3); }
+            19 => { *frame.add(14) = sys_read_v1(arg1, arg2, arg3); }
+            20 => { *frame.add(14) = sys_write_v1(arg1, arg2, arg3); }
+            21 => { *frame.add(14) = sys_close_v1(arg1); }
             22 => { sys_wait_r4(frame, arg1, arg2, arg3); }
             28 => { *frame.add(14) = sys_proc_info_r4(arg1, arg2, arg3); }
             29 => { *frame.add(14) = sys_sched_set_r4(arg1, arg2); }
+            30 => { *frame.add(14) = sys_fsync_v1(arg1); }
+            31 => { *frame.add(14) = sys_socket_open_r4(arg1, arg2); }
+            32 => { *frame.add(14) = sys_socket_bind_r4(arg1, arg2, arg3); }
+            33 => { *frame.add(14) = sys_socket_listen_r4(arg1, arg2); }
+            34 => { *frame.add(14) = sys_socket_connect_r4(arg1, arg2, arg3); }
+            35 => { *frame.add(14) = sys_socket_accept_r4(arg1, arg2, arg3); }
+            36 => { *frame.add(14) = sys_socket_send_r4(arg1, arg2, arg3); }
+            37 => { *frame.add(14) = sys_socket_recv_r4(arg1, arg2, arg3); }
+            38 => { *frame.add(14) = sys_socket_close_r4(arg1); }
+            39 => { *frame.add(14) = sys_net_if_config_r4(arg1, arg2, arg3); }
+            40 => { *frame.add(14) = sys_net_route_add_r4(arg1, arg2, arg3); }
+            41 => { *frame.add(14) = sys_isolation_config_r4(arg1, arg2, arg3); }
             _  => { *frame.add(14) = 0xFFFF_FFFF_FFFF_FFFF; }
         }
         return;
@@ -789,6 +805,8 @@ unsafe fn syscall_dispatch(frame: *mut u64) {
             26 => sys_fd_rights_transfer_v1(arg1, arg2),
             #[cfg(any(feature = "user_hello_test", feature = "syscall_test", feature = "thread_exit_test", feature = "thread_spawn_test", feature = "vm_map_test", feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test", feature = "user_fault_test", feature = "blk_test", feature = "fs_test", feature = "go_test", feature = "go_std_test", feature = "sec_rights_test", feature = "sec_filter_test"))]
             27 => sys_sec_profile_set_v1(arg1),
+            #[cfg(any(feature = "user_hello_test", feature = "syscall_test", feature = "thread_exit_test", feature = "thread_spawn_test", feature = "vm_map_test", feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test", feature = "user_fault_test", feature = "blk_test", feature = "fs_test", feature = "go_test", feature = "go_std_test", feature = "sec_rights_test", feature = "sec_filter_test"))]
+            30 => sys_fsync_v1(arg1),
             _  => 0xFFFF_FFFF_FFFF_FFFF,
         };
         *frame.add(14) = ret;
@@ -978,6 +996,10 @@ cfg_m3! {
             return fd;
         }
         if m8_path_matches(bytes, b"/compat/hello.txt") {
+            #[cfg(feature = "go_test")]
+            if !r4_current_has_cap(R4_TASK_CAP_STORAGE) {
+                return 0xFFFF_FFFF_FFFF_FFFF;
+            }
             let max = m10_rights_for_kind(M8FdKind::CompatFile);
             let effective = requested | M10_RIGHT_POLL;
             if effective & !max != 0 {
@@ -990,6 +1012,41 @@ cfg_m3! {
             M8_FD_TABLE[fd as usize].rights = effective;
             return fd;
         }
+        #[cfg(feature = "go_test")]
+        {
+            if r4_storage_available() && m8_path_matches(bytes, b"/runtime/journal.bin") {
+                if !r4_current_has_cap(R4_TASK_CAP_STORAGE) {
+                    return 0xFFFF_FFFF_FFFF_FFFF;
+                }
+                let max = m10_rights_for_kind(M8FdKind::JournalFile);
+                let effective = requested | M10_RIGHT_POLL;
+                if effective & !max != 0 {
+                    return 0xFFFF_FFFF_FFFF_FFFF;
+                }
+                let fd = m8_alloc_fd(M8FdKind::JournalFile);
+                if fd == 0xFFFF_FFFF_FFFF_FFFF {
+                    return fd;
+                }
+                M8_FD_TABLE[fd as usize].rights = effective;
+                return fd;
+            }
+            if r4_storage_available() && m8_path_matches(bytes, b"/runtime/state.bin") {
+                if !r4_current_has_cap(R4_TASK_CAP_STORAGE) {
+                    return 0xFFFF_FFFF_FFFF_FFFF;
+                }
+                let max = m10_rights_for_kind(M8FdKind::StateFile);
+                let effective = requested | M10_RIGHT_POLL;
+                if effective & !max != 0 {
+                    return 0xFFFF_FFFF_FFFF_FFFF;
+                }
+                let fd = m8_alloc_fd(M8FdKind::StateFile);
+                if fd == 0xFFFF_FFFF_FFFF_FFFF {
+                    return fd;
+                }
+                M8_FD_TABLE[fd as usize].rights = effective;
+                return fd;
+            }
+        }
         0xFFFF_FFFF_FFFF_FFFF
     }
 
@@ -998,6 +1055,10 @@ cfg_m3! {
         if len > 4096 { return 0xFFFF_FFFF_FFFF_FFFF; }
         let idx = fd as usize;
         if idx >= M8_FD_MAX { return 0xFFFF_FFFF_FFFF_FFFF; }
+        #[cfg(feature = "go_test")]
+        if !r4_fd_owner_ok(idx) {
+            return 0xFFFF_FFFF_FFFF_FFFF;
+        }
         if M8_FD_TABLE[idx].rights & M10_RIGHT_READ == 0 {
             return 0xFFFF_FFFF_FFFF_FFFF;
         }
@@ -1019,6 +1080,28 @@ cfg_m3! {
                 M8_FD_TABLE[idx].offset += n;
                 n as u64
             }
+            #[cfg(feature = "go_test")]
+            M8FdKind::JournalFile => 0xFFFF_FFFF_FFFF_FFFF,
+            #[cfg(feature = "go_test")]
+            M8FdKind::StateFile => {
+                let total = r4_storage_state_len();
+                let off = M8_FD_TABLE[idx].offset;
+                if off >= total {
+                    return 0;
+                }
+                let req = len as usize;
+                let remaining = total - off;
+                let n = if req < remaining { req } else { remaining };
+                let mut kbuf = [0u8; 496];
+                if !r4_storage_copy_state(off, &mut kbuf[..n]) {
+                    return 0xFFFF_FFFF_FFFF_FFFF;
+                }
+                if copyout_user(buf, &kbuf[..n], n).is_err() {
+                    return 0xFFFF_FFFF_FFFF_FFFF;
+                }
+                M8_FD_TABLE[idx].offset += n;
+                n as u64
+            }
         }
     }
 
@@ -1027,6 +1110,10 @@ cfg_m3! {
         if len > 256 { return 0xFFFF_FFFF_FFFF_FFFF; }
         let idx = fd as usize;
         if idx >= M8_FD_MAX { return 0xFFFF_FFFF_FFFF_FFFF; }
+        #[cfg(feature = "go_test")]
+        if !r4_fd_owner_ok(idx) {
+            return 0xFFFF_FFFF_FFFF_FFFF;
+        }
         if M8_FD_TABLE[idx].rights & M10_RIGHT_WRITE == 0 {
             return 0xFFFF_FFFF_FFFF_FFFF;
         }
@@ -1043,6 +1130,40 @@ cfg_m3! {
                 serial_write(&kbuf[..n]);
                 len
             }
+            #[cfg(feature = "go_test")]
+            M8FdKind::JournalFile => {
+                let n = len as usize;
+                let mut kbuf = [0u8; 256];
+                if copyin_user(&mut kbuf[..n], buf, n).is_err() {
+                    return 0xFFFF_FFFF_FFFF_FFFF;
+                }
+                if !r4_storage_write_journal(&kbuf[..n]) {
+                    return 0xFFFF_FFFF_FFFF_FFFF;
+                }
+                M8_FD_TABLE[idx].offset = n;
+                len
+            }
+            #[cfg(feature = "go_test")]
+            M8FdKind::StateFile => 0xFFFF_FFFF_FFFF_FFFF,
+        }
+    }
+
+    unsafe fn sys_fsync_v1(fd: u64) -> u64 {
+        let idx = fd as usize;
+        if idx >= M8_FD_MAX { return 0xFFFF_FFFF_FFFF_FFFF; }
+        #[cfg(feature = "go_test")]
+        if !r4_fd_owner_ok(idx) {
+            return 0xFFFF_FFFF_FFFF_FFFF;
+        }
+        match M8_FD_TABLE[idx].kind {
+            #[cfg(feature = "go_test")]
+            M8FdKind::JournalFile => {
+                if M8_FD_TABLE[idx].rights & M10_RIGHT_WRITE == 0 {
+                    return 0xFFFF_FFFF_FFFF_FFFF;
+                }
+                if r4_storage_fsync() { 0 } else { 0xFFFF_FFFF_FFFF_FFFF }
+            }
+            _ => 0xFFFF_FFFF_FFFF_FFFF,
         }
     }
 
@@ -1055,6 +1176,16 @@ cfg_m3! {
         }
         if M8_FD_TABLE[idx].kind == M8FdKind::Free {
             return 0xFFFF_FFFF_FFFF_FFFF;
+        }
+        #[cfg(feature = "go_test")]
+        {
+            if !r4_fd_owner_ok(idx) {
+                return 0xFFFF_FFFF_FFFF_FFFF;
+            }
+            let owner_tid = M8_FD_TABLE[idx].owner_tid;
+            if owner_tid < R4_NUM_TASKS && R4_TASKS[owner_tid].fd_count != 0 {
+                R4_TASKS[owner_tid].fd_count -= 1;
+            }
         }
         M8_FD_TABLE[idx] = M8FdEntry::EMPTY;
         0
@@ -1138,6 +1269,21 @@ cfg_m3! {
                             if events & POLLIN != 0
                                 && rights & M10_RIGHT_READ != 0
                                 && M8_FD_TABLE[idx].offset < M8_COMPAT_FILE.len()
+                            {
+                                revents |= POLLIN;
+                            }
+                        }
+                        #[cfg(feature = "go_test")]
+                        M8FdKind::JournalFile => {
+                            if events & POLLOUT != 0 && rights & M10_RIGHT_WRITE != 0 {
+                                revents |= POLLOUT;
+                            }
+                        }
+                        #[cfg(feature = "go_test")]
+                        M8FdKind::StateFile => {
+                            if events & POLLIN != 0
+                                && rights & M10_RIGHT_READ != 0
+                                && M8_FD_TABLE[idx].offset < r4_storage_state_len()
                             {
                                 revents |= POLLIN;
                             }
@@ -1487,17 +1633,23 @@ cfg_m3! {
     const M10_OPEN_RDWR: u64 = 2;
 
     #[derive(Clone, Copy, PartialEq)]
-    enum M8FdKind { Free, Console, CompatFile }
+    enum M8FdKind { Free, Console, CompatFile, JournalFile, StateFile }
 
     #[derive(Clone, Copy)]
     struct M8FdEntry {
         kind: M8FdKind,
         rights: u64,
         offset: usize,
+        owner_tid: usize,
     }
 
     impl M8FdEntry {
-        const EMPTY: Self = Self { kind: M8FdKind::Free, rights: 0, offset: 0 };
+        const EMPTY: Self = Self {
+            kind: M8FdKind::Free,
+            rights: 0,
+            offset: 0,
+            owner_tid: 0,
+        };
     }
 
     static mut M8_FD_TABLE: [M8FdEntry; M8_FD_MAX] = [M8FdEntry::EMPTY; M8_FD_MAX];
@@ -1572,9 +1724,24 @@ cfg_m3! {
         }
         // Keep stdio-like descriptors deterministic across every user-mode reset.
         let console_rights = m10_rights_for_kind(M8FdKind::Console);
-        M8_FD_TABLE[0] = M8FdEntry { kind: M8FdKind::Console, rights: console_rights, offset: 0 };
-        M8_FD_TABLE[1] = M8FdEntry { kind: M8FdKind::Console, rights: console_rights, offset: 0 };
-        M8_FD_TABLE[2] = M8FdEntry { kind: M8FdKind::Console, rights: console_rights, offset: 0 };
+        M8_FD_TABLE[0] = M8FdEntry {
+            kind: M8FdKind::Console,
+            rights: console_rights,
+            offset: 0,
+            owner_tid: 0,
+        };
+        M8_FD_TABLE[1] = M8FdEntry {
+            kind: M8FdKind::Console,
+            rights: console_rights,
+            offset: 0,
+            owner_tid: 0,
+        };
+        M8_FD_TABLE[2] = M8FdEntry {
+            kind: M8FdKind::Console,
+            rights: console_rights,
+            offset: 0,
+            owner_tid: 0,
+        };
     }
 
     unsafe fn m3_bootstrap_main_thread(frame: *mut u64) {
@@ -1658,6 +1825,8 @@ cfg_m3! {
             M8FdKind::Free => 0,
             M8FdKind::Console => M10_RIGHT_WRITE | M10_RIGHT_POLL,
             M8FdKind::CompatFile => M10_RIGHT_READ | M10_RIGHT_POLL,
+            M8FdKind::JournalFile => M10_RIGHT_WRITE | M10_RIGHT_POLL,
+            M8FdKind::StateFile => M10_RIGHT_READ | M10_RIGHT_POLL,
         }
     }
 
@@ -1708,6 +1877,10 @@ cfg_m3! {
         if M8_FD_TABLE[idx].kind == M8FdKind::Free {
             return 0xFFFF_FFFF_FFFF_FFFF;
         }
+        #[cfg(feature = "go_test")]
+        if !r4_fd_owner_ok(idx) {
+            return 0xFFFF_FFFF_FFFF_FFFF;
+        }
         M8_FD_TABLE[idx].rights & M10_RIGHT_MASK
     }
 
@@ -1719,6 +1892,10 @@ cfg_m3! {
             return 0xFFFF_FFFF_FFFF_FFFF;
         }
         if M8_FD_TABLE[idx].kind == M8FdKind::Free {
+            return 0xFFFF_FFFF_FFFF_FFFF;
+        }
+        #[cfg(feature = "go_test")]
+        if !r4_fd_owner_ok(idx) {
             return 0xFFFF_FFFF_FFFF_FFFF;
         }
         let req = match runtime::security::monotonic_rights(M8_FD_TABLE[idx].rights, rights) {
@@ -1739,6 +1916,10 @@ cfg_m3! {
         if src.kind == M8FdKind::Free {
             return 0xFFFF_FFFF_FFFF_FFFF;
         }
+        #[cfg(feature = "go_test")]
+        if !r4_fd_owner_ok(idx) {
+            return 0xFFFF_FFFF_FFFF_FFFF;
+        }
         let req = runtime::security::clamp_rights(rights);
         if req == 0 {
             return 0xFFFF_FFFF_FFFF_FFFF;
@@ -1752,6 +1933,7 @@ cfg_m3! {
                     kind: src.kind,
                     rights: req,
                     offset: src.offset,
+                    owner_tid: src.owner_tid,
                 };
                 M8_FD_TABLE[idx] = M8FdEntry::EMPTY;
                 return i as u64;
@@ -1760,12 +1942,53 @@ cfg_m3! {
         0xFFFF_FFFF_FFFF_FFFF
     }
 
+    #[cfg(feature = "go_test")]
+    #[inline(always)]
+    unsafe fn r4_fd_owner_ok(idx: usize) -> bool {
+        idx < 3
+            || (M8_FD_TABLE[idx].kind != M8FdKind::Free
+                && M8_FD_TABLE[idx].owner_tid == R4_CURRENT)
+    }
+
+    #[cfg(feature = "go_test")]
+    unsafe fn r4_release_owned_fds(owner_tid: usize) {
+        for idx in 3..M8_FD_MAX {
+            if M8_FD_TABLE[idx].kind != M8FdKind::Free
+                && M8_FD_TABLE[idx].owner_tid == owner_tid
+            {
+                M8_FD_TABLE[idx] = M8FdEntry::EMPTY;
+            }
+        }
+        if owner_tid < R4_NUM_TASKS {
+            R4_TASKS[owner_tid].fd_count = 0;
+        }
+    }
+
     unsafe fn m8_alloc_fd(kind: M8FdKind) -> u64 {
+        #[cfg(not(feature = "go_test"))]
+        let owner_tid = 0usize;
+        #[cfg(feature = "go_test")]
+        let owner_tid: usize;
+        #[cfg(feature = "go_test")]
+        {
+            if !runtime::isolation::under_quota(
+                R4_TASKS[R4_CURRENT].fd_count,
+                R4_TASKS[R4_CURRENT].fd_limit as usize,
+            ) {
+                return 0xFFFF_FFFF_FFFF_FFFF;
+            }
+            owner_tid = R4_CURRENT;
+        }
         for i in 3..M8_FD_MAX {
             if M8_FD_TABLE[i].kind == M8FdKind::Free {
                 M8_FD_TABLE[i].kind = kind;
                 M8_FD_TABLE[i].rights = m10_rights_for_kind(kind);
                 M8_FD_TABLE[i].offset = 0;
+                M8_FD_TABLE[i].owner_tid = owner_tid;
+                #[cfg(feature = "go_test")]
+                {
+                    R4_TASKS[R4_CURRENT].fd_count += 1;
+                }
                 return i as u64;
             }
         }
@@ -2045,6 +2268,22 @@ cfg_r4! {
     static mut USER_CODE_PAGE_4:  Page = Page([0; 4096]);
     #[cfg(any(feature = "stress_ipc_test", feature = "go_test"))]
     static mut USER_STACK_PAGE_4: Page = Page([0; 4096]);
+    #[cfg(feature = "go_test")]
+    static mut USER_STACK_PAGE_5: Page = Page([0; 4096]);
+    #[cfg(feature = "go_test")]
+    static mut USER_STACK_PAGE_6: Page = Page([0; 4096]);
+    #[cfg(feature = "go_test")]
+    static mut USER_STACK_PAGE_7: Page = Page([0; 4096]);
+    #[cfg(feature = "go_test")]
+    static mut USER_STACK_PAGE_8: Page = Page([0; 4096]);
+    #[cfg(feature = "go_test")]
+    static mut USER_HEAP_PAGE_1: Page = Page([0; 4096]);
+    #[cfg(feature = "go_test")]
+    static mut USER_HEAP_PAGE_2: Page = Page([0; 4096]);
+    #[cfg(feature = "go_test")]
+    static mut USER_HEAP_PAGE_3: Page = Page([0; 4096]);
+    #[cfg(feature = "go_test")]
+    static mut USER_HEAP_PAGE_4: Page = Page([0; 4096]);
 }
 
 // --------------- R4: SHM backing pages ---------------------------------------
@@ -2081,8 +2320,16 @@ cfg_r4! {
     const R4_WAIT_NONE: i32 = -2;
     const R4_SCHED_CLASS_BEST_EFFORT: u8 = 0;
     const R4_SCHED_CLASS_CRITICAL: u8 = 1;
-    const R4_PROC_INFO_WORDS: usize = 13;
-    const R4_PROC_INFO_SIZE: usize = R4_PROC_INFO_WORDS * 8;
+    const R4_PROC_INFO_BASE_WORDS: usize = 13;
+    const R4_PROC_INFO_BASE_SIZE: usize = R4_PROC_INFO_BASE_WORDS * 8;
+    const R4_PROC_INFO_EXT_WORDS: usize = 17;
+    const R4_PROC_INFO_EXT_SIZE: usize = R4_PROC_INFO_EXT_WORDS * 8;
+    const R4_TASK_CAP_STORAGE: u8 = 1 << 0;
+    const R4_TASK_CAP_NETWORK: u8 = 1 << 1;
+    const R4_TASK_CAP_MASK: u8 = R4_TASK_CAP_STORAGE | R4_TASK_CAP_NETWORK;
+    const R4_TASK_DEFAULT_FD_LIMIT: u8 = 8;
+    const R4_TASK_DEFAULT_SOCKET_LIMIT: u8 = 4;
+    const R4_TASK_DEFAULT_ENDPOINT_LIMIT: u8 = 4;
 
     #[cfg(any(feature = "stress_ipc_test", feature = "go_test"))]
     const R4_MAX_TASKS: usize = 4;
@@ -2108,6 +2355,13 @@ cfg_r4! {
         wait_target: i32,
         wait_status_ptr: u64,
         sched_class: u8,
+        isolation_domain: u8,
+        cap_flags: u8,
+        fd_count: usize,
+        fd_limit: u8,
+        socket_count: usize,
+        socket_limit: u8,
+        endpoint_limit: u8,
         dispatch_count: u64,
         yield_count: u64,
         block_count: u64,
@@ -2129,6 +2383,13 @@ cfg_r4! {
             wait_target: R4_WAIT_NONE,
             wait_status_ptr: 0,
             sched_class: R4_SCHED_CLASS_BEST_EFFORT,
+            isolation_domain: 0,
+            cap_flags: 0,
+            fd_count: 0,
+            fd_limit: 0,
+            socket_count: 0,
+            socket_limit: 0,
+            endpoint_limit: 0,
             dispatch_count: 0,
             yield_count: 0,
             block_count: 0,
@@ -2144,7 +2405,14 @@ cfg_r4! {
 
     #[inline(always)]
     unsafe fn r4_stack_top_for_slot(slot: usize) -> u64 {
-        USER_STACK_TOP - (slot as u64) * 0x1000
+        #[cfg(feature = "go_test")]
+        {
+            USER_STACK_TOP - (slot as u64) * 0x2000
+        }
+        #[cfg(not(feature = "go_test"))]
+        {
+            USER_STACK_TOP - (slot as u64) * 0x1000
+        }
     }
 
     unsafe fn r4_init_task(tid: usize, code_va: u64, stk_top: u64, parent_tid: usize) {
@@ -2165,6 +2433,21 @@ cfg_r4! {
         R4_TASKS[tid].wait_target = R4_WAIT_NONE;
         R4_TASKS[tid].wait_status_ptr = 0;
         R4_TASKS[tid].sched_class = R4_SCHED_CLASS_BEST_EFFORT;
+        if tid == parent_tid {
+            R4_TASKS[tid].isolation_domain = 0;
+            R4_TASKS[tid].cap_flags = R4_TASK_CAP_MASK;
+            R4_TASKS[tid].fd_limit = R4_TASK_DEFAULT_FD_LIMIT;
+            R4_TASKS[tid].socket_limit = R4_TASK_DEFAULT_SOCKET_LIMIT;
+            R4_TASKS[tid].endpoint_limit = R4_TASK_DEFAULT_ENDPOINT_LIMIT;
+        } else {
+            R4_TASKS[tid].isolation_domain = R4_TASKS[parent_tid].isolation_domain;
+            R4_TASKS[tid].cap_flags = R4_TASKS[parent_tid].cap_flags;
+            R4_TASKS[tid].fd_limit = R4_TASKS[parent_tid].fd_limit;
+            R4_TASKS[tid].socket_limit = R4_TASKS[parent_tid].socket_limit;
+            R4_TASKS[tid].endpoint_limit = R4_TASKS[parent_tid].endpoint_limit;
+        }
+        R4_TASKS[tid].fd_count = 0;
+        R4_TASKS[tid].socket_count = 0;
         R4_TASKS[tid].dispatch_count = 0;
         R4_TASKS[tid].yield_count = 0;
         R4_TASKS[tid].block_count = 0;
@@ -2288,6 +2571,7 @@ cfg_r4! {
     unsafe fn r4_exit_and_switch(frame: *mut u64, exit_status: u64) {
         let cur = R4_CURRENT;
         let parent = R4_TASKS[cur].parent_tid;
+        r4_cleanup_task_resources(cur);
         R4_TASKS[cur].exit_status = exit_status;
         R4_TASKS[cur].state = R4State::Exited;
         if parent != cur
@@ -2353,16 +2637,66 @@ cfg_r4! {
             || R4_TASKS[requester].can_spawn
     }
 
+    #[inline(always)]
+    unsafe fn r4_current_has_cap(flag: u8) -> bool {
+        R4_TASKS[R4_CURRENT].cap_flags & flag != 0
+    }
+
+    unsafe fn r4_cleanup_task_resources(tid: usize) {
+        #[cfg(feature = "go_test")]
+        {
+            r4_release_owned_fds(tid);
+            r4_release_owned_sockets(tid);
+            r4_release_owned_endpoints(tid);
+            r4_release_stale_services();
+        }
+    }
+
+    unsafe fn r4_copy_isolation_config(
+        cfg_ptr: u64,
+        cfg_len: u64,
+    ) -> Option<(u8, u8, u8, u8, u8)> {
+        if cfg_len < 24 {
+            return None;
+        }
+        let mut raw = [0u8; 24];
+        let raw_len = raw.len();
+        if copyin_user(&mut raw, cfg_ptr, raw_len).is_err() {
+            return None;
+        }
+        let domain = u64::from_le_bytes(raw[0..8].try_into().ok()?) as u8;
+        let flags = u64::from_le_bytes(raw[8..16].try_into().ok()?) as u8;
+        let limits = u64::from_le_bytes(raw[16..24].try_into().ok()?);
+        if flags & !R4_TASK_CAP_MASK != 0 {
+            return None;
+        }
+        let fd_limit = (limits & 0xFF) as u8;
+        let socket_limit = ((limits >> 8) & 0xFF) as u8;
+        let endpoint_limit = ((limits >> 16) & 0xFF) as u8;
+        if fd_limit as usize > M8_FD_MAX.saturating_sub(3)
+            || socket_limit as usize > R4_NET_SOCKET_MAX
+            || endpoint_limit as usize > R4_MAX_ENDPOINTS
+        {
+            return None;
+        }
+        Some((domain, flags, fd_limit, socket_limit, endpoint_limit))
+    }
+
     unsafe fn sys_proc_info_r4(tid: u64, info_ptr: u64, info_len: u64) -> u64 {
         let target = tid as usize;
         if target >= R4_NUM_TASKS {
             return 0xFFFF_FFFF_FFFF_FFFF;
         }
-        if info_len < R4_PROC_INFO_SIZE as u64 {
+        if info_len < R4_PROC_INFO_BASE_SIZE as u64 {
             return 0xFFFF_FFFF_FFFF_FFFF;
         }
-        if !user_range_ok(info_ptr, R4_PROC_INFO_SIZE)
-            || !user_pages_ok(info_ptr, R4_PROC_INFO_SIZE, USER_PERM_WRITE)
+        let copy_len = if info_len >= R4_PROC_INFO_EXT_SIZE as u64 {
+            R4_PROC_INFO_EXT_SIZE
+        } else {
+            R4_PROC_INFO_BASE_SIZE
+        };
+        if !user_range_ok(info_ptr, copy_len)
+            || !user_pages_ok(info_ptr, copy_len, USER_PERM_WRITE)
         {
             return 0xFFFF_FFFF_FFFF_FFFF;
         }
@@ -2388,15 +2722,46 @@ cfg_r4! {
             task.shm_count as u64,
             task.thread_count as u64,
             task.exit_status,
+            task.isolation_domain as u64,
+            task.cap_flags as u64,
+            task.fd_count as u64,
+            task.socket_count as u64,
         ];
-        let mut out = [0u8; R4_PROC_INFO_SIZE];
+        let mut out = [0u8; R4_PROC_INFO_EXT_SIZE];
         for (idx, field) in fields.iter().enumerate() {
             let start = idx * 8;
             out[start..start + 8].copy_from_slice(&field.to_le_bytes());
         }
-        if copyout_user(info_ptr, &out, out.len()).is_err() {
+        if copyout_user(info_ptr, &out[..copy_len], copy_len).is_err() {
             return 0xFFFF_FFFF_FFFF_FFFF;
         }
+        0
+    }
+
+    unsafe fn sys_isolation_config_r4(tid: u64, cfg_ptr: u64, cfg_len: u64) -> u64 {
+        let target = tid as usize;
+        if target >= R4_NUM_TASKS {
+            return 0xFFFF_FFFF_FFFF_FFFF;
+        }
+        if !r4_can_control_task(R4_CURRENT, target) {
+            return 0xFFFF_FFFF_FFFF_FFFF;
+        }
+        let (domain, flags, fd_limit, socket_limit, endpoint_limit) =
+            match r4_copy_isolation_config(cfg_ptr, cfg_len) {
+                Some(v) => v,
+                None => return 0xFFFF_FFFF_FFFF_FFFF,
+            };
+        if R4_TASKS[target].fd_count > fd_limit as usize
+            || R4_TASKS[target].socket_count > socket_limit as usize
+            || R4_TASKS[target].endpoint_count > endpoint_limit as usize
+        {
+            return 0xFFFF_FFFF_FFFF_FFFF;
+        }
+        R4_TASKS[target].isolation_domain = domain;
+        R4_TASKS[target].cap_flags = flags;
+        R4_TASKS[target].fd_limit = fd_limit;
+        R4_TASKS[target].socket_limit = socket_limit;
+        R4_TASKS[target].endpoint_limit = endpoint_limit;
         0
     }
 
@@ -2579,12 +2944,41 @@ cfg_r4! {
         }
     }
 
+    #[cfg(feature = "go_test")]
+    unsafe fn r4_release_owned_endpoints(owner_tid: usize) {
+        for ep in 0..R4_MAX_ENDPOINTS {
+            if !R4_ENDPOINTS[ep].active || R4_ENDPOINTS[ep].owner_tid != owner_tid {
+                continue;
+            }
+            let waiter = R4_ENDPOINTS[ep].waiter;
+            if waiter >= 0 {
+                let wt = waiter as usize;
+                if wt < R4_NUM_TASKS && R4_TASKS[wt].state == R4State::Blocked {
+                    R4_TASKS[wt].recv_ep = 0;
+                    R4_TASKS[wt].recv_buf = 0;
+                    R4_TASKS[wt].recv_cap = 0;
+                    R4_TASKS[wt].saved_frame[14] = 0xFFFF_FFFF_FFFF_FFFF;
+                    R4_TASKS[wt].state = R4State::Ready;
+                }
+            }
+            R4_ENDPOINTS[ep] = IpcEndpoint::EMPTY;
+        }
+        if owner_tid < R4_NUM_TASKS {
+            R4_TASKS[owner_tid].endpoint_count = 0;
+        }
+    }
+
     unsafe fn sys_ipc_endpoint_create_r4() -> u64 {
         #[cfg(any(feature = "quota_endpoints_test", feature = "go_test"))]
         {
+            let limit = if cfg!(feature = "go_test") {
+                R4_TASKS[R4_CURRENT].endpoint_limit as usize
+            } else {
+                MAX_ENDPOINTS_PER_PROC
+            };
             if !runtime::isolation::under_quota(
                 R4_TASKS[R4_CURRENT].endpoint_count,
-                MAX_ENDPOINTS_PER_PROC,
+                limit,
             ) {
                 return 0xFFFF_FFFF_FFFF_FFFF;
             }
@@ -2754,11 +3148,26 @@ cfg_r4! {
     static mut R4_SERVICES: [ServiceEntry; R4_MAX_SERVICES] =
         [ServiceEntry::EMPTY, ServiceEntry::EMPTY, ServiceEntry::EMPTY, ServiceEntry::EMPTY];
 
+    #[cfg(feature = "go_test")]
+    unsafe fn r4_release_stale_services() {
+        for idx in 0..R4_MAX_SERVICES {
+            if !R4_SERVICES[idx].active {
+                continue;
+            }
+            let ep = R4_SERVICES[idx].endpoint as usize;
+            if ep >= R4_MAX_ENDPOINTS || !R4_ENDPOINTS[ep].active {
+                R4_SERVICES[idx] = ServiceEntry::EMPTY;
+            }
+        }
+    }
+
     unsafe fn sys_svc_register_r4(name_ptr: u64, name_len: u64, endpoint: u64) -> u64 {
         let n = name_len as usize;
         if n == 0 || n > 16 { return 0xFFFF_FFFF_FFFF_FFFF; }
         let mut name = [0u8; 16];
         if copyin_user(&mut name[..n], name_ptr, n).is_err() { return 0xFFFF_FFFF_FFFF_FFFF; }
+        #[cfg(feature = "go_test")]
+        r4_release_stale_services();
         let ep = endpoint as usize;
         if ep >= R4_MAX_ENDPOINTS || !R4_ENDPOINTS[ep].active {
             return 0xFFFF_FFFF_FFFF_FFFF;
@@ -2793,6 +3202,8 @@ cfg_r4! {
         if n == 0 || n > 16 { return 0xFFFF_FFFF_FFFF_FFFF; }
         let mut name = [0u8; 16];
         if copyin_user(&mut name[..n], name_ptr, n).is_err() { return 0xFFFF_FFFF_FFFF_FFFF; }
+        #[cfg(feature = "go_test")]
+        r4_release_stale_services();
         for i in 0..R4_MAX_SERVICES {
             if R4_SERVICES[i].active && R4_SERVICES[i].name_len == n
                 && R4_SERVICES[i].name[..n] == name[..n]
@@ -3061,6 +3472,14 @@ cfg_r4! {
         *pt_stack.add(510) = kv2p(USER_STACK_PAGE_2.0.as_ptr() as u64) | 0x07;
         *pt_stack.add(509) = kv2p(USER_STACK_PAGE_3.0.as_ptr() as u64) | 0x07;
         *pt_stack.add(508) = kv2p(USER_STACK_PAGE_4.0.as_ptr() as u64) | 0x07;
+        *pt_stack.add(507) = kv2p(USER_STACK_PAGE_5.0.as_ptr() as u64) | 0x07;
+        *pt_stack.add(506) = kv2p(USER_STACK_PAGE_6.0.as_ptr() as u64) | 0x07;
+        *pt_stack.add(505) = kv2p(USER_STACK_PAGE_7.0.as_ptr() as u64) | 0x07;
+        *pt_stack.add(504) = kv2p(USER_STACK_PAGE_8.0.as_ptr() as u64) | 0x07;
+        *pt_stack.add(503) = kv2p(USER_HEAP_PAGE_1.0.as_ptr() as u64) | 0x07;
+        *pt_stack.add(502) = kv2p(USER_HEAP_PAGE_2.0.as_ptr() as u64) | 0x07;
+        *pt_stack.add(501) = kv2p(USER_HEAP_PAGE_3.0.as_ptr() as u64) | 0x07;
+        *pt_stack.add(500) = kv2p(USER_HEAP_PAGE_4.0.as_ptr() as u64) | 0x07;
 
         *new_pml4 = kv2p(USER_PDPT.0.as_ptr() as u64) | 0x07;
 
@@ -3103,12 +3522,12 @@ cfg_r4! {
 
 // --------------- M5: PCI config space access ---------------------------------
 
-#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "net_test"))]
+#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "net_test", feature = "go_test"))]
 const PCI_CONFIG_ADDR: u16 = 0xCF8;
-#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "net_test"))]
+#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "net_test", feature = "go_test"))]
 const PCI_CONFIG_DATA: u16 = 0xCFC;
 
-#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "net_test"))]
+#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "net_test", feature = "go_test"))]
 unsafe fn pci_read32(bus: u8, dev: u8, func: u8, offset: u8) -> u32 {
     let addr: u32 = (1u32 << 31)
         | ((bus as u32) << 16)
@@ -3119,7 +3538,7 @@ unsafe fn pci_read32(bus: u8, dev: u8, func: u8, offset: u8) -> u32 {
     inl(PCI_CONFIG_DATA)
 }
 
-#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "net_test"))]
+#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "net_test", feature = "go_test"))]
 unsafe fn pci_write32(bus: u8, dev: u8, func: u8, offset: u8, value: u32) {
     let addr: u32 = (1u32 << 31)
         | ((bus as u32) << 16)
@@ -3130,7 +3549,7 @@ unsafe fn pci_write32(bus: u8, dev: u8, func: u8, offset: u8, value: u32) {
     outl(PCI_CONFIG_DATA, value);
 }
 
-#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "net_test"))]
+#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "net_test", feature = "go_test"))]
 #[derive(Clone, Copy)]
 struct PciBdf {
     bus: u8,
@@ -3138,21 +3557,21 @@ struct PciBdf {
     func: u8,
 }
 
-#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "net_test"))]
+#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "net_test", feature = "go_test"))]
 const PCI_CLAIM_NONE: u16 = 0xFFFF;
-#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "net_test"))]
+#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "net_test", feature = "go_test"))]
 const PCI_CLAIM_SLOTS: usize = 4;
-#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "net_test"))]
+#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "net_test", feature = "go_test"))]
 static mut PCI_CLAIMED: [u16; PCI_CLAIM_SLOTS] = [PCI_CLAIM_NONE; PCI_CLAIM_SLOTS];
 
-#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "net_test"))]
+#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "net_test", feature = "go_test"))]
 fn pci_bdf_key(bdf: PciBdf) -> u16 {
     ((bdf.bus as u16) << 8) | ((bdf.dev as u16) << 3) | (bdf.func as u16)
 }
 
 /// Claim a PCI function once so one function does not get initialized by
 /// multiple in-kernel drivers.
-#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "net_test"))]
+#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "net_test", feature = "go_test"))]
 unsafe fn pci_claim_device(bdf: PciBdf) -> bool {
     let key = pci_bdf_key(bdf);
     let mut i = 0usize;
@@ -3170,7 +3589,7 @@ unsafe fn pci_claim_device(bdf: PciBdf) -> bool {
     false
 }
 
-#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "net_test"))]
+#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "net_test", feature = "go_test"))]
 unsafe fn pci_find_device(vendor: u16, device: u16) -> Option<PciBdf> {
     for dev in 0..32u8 {
         let id = pci_read32(0, dev, 0, 0);
@@ -3183,7 +3602,7 @@ unsafe fn pci_find_device(vendor: u16, device: u16) -> Option<PciBdf> {
     None
 }
 
-#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "net_test"))]
+#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "net_test", feature = "go_test"))]
 unsafe fn pci_enable_io_bus_master(bdf: PciBdf) {
     let cmd_reg = pci_read32(bdf.bus, bdf.dev, bdf.func, 0x04);
     let mut cmd = (cmd_reg & 0xFFFF) as u16;
@@ -3192,7 +3611,7 @@ unsafe fn pci_enable_io_bus_master(bdf: PciBdf) {
     pci_write32(bdf.bus, bdf.dev, bdf.func, 0x04, new_cmd_reg);
 }
 
-#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "net_test"))]
+#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "net_test", feature = "go_test"))]
 unsafe fn pci_bar0_iobase(bdf: PciBdf) -> Option<u16> {
     let bar0_raw = pci_read32(bdf.bus, bdf.dev, bdf.func, 0x10);
     if (bar0_raw & 1) == 0 {
@@ -3205,7 +3624,7 @@ unsafe fn pci_bar0_iobase(bdf: PciBdf) -> Option<u16> {
     Some(iobase)
 }
 
-#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "net_test"))]
+#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "net_test", feature = "go_test"))]
 unsafe fn pci_find_virtio_legacy_iobase(device: u16) -> Option<u16> {
     let bdf = pci_find_device(0x1AF4, device)?;
     let iobase = pci_bar0_iobase(bdf)?;
@@ -3218,45 +3637,45 @@ unsafe fn pci_find_virtio_legacy_iobase(device: u16) -> Option<u16> {
 
 /// Scan PCI bus 0 for VirtIO block device (vendor 0x1AF4, device 0x1001).
 /// Returns the I/O base address (BAR0) if found.
-#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test"))]
+#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "go_test"))]
 unsafe fn pci_find_virtio_blk() -> Option<u16> {
     pci_find_virtio_legacy_iobase(0x1001)
 }
 
 // --------------- M5: VirtIO legacy transport registers -----------------------
 
-#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "net_test"))]
+#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "net_test", feature = "go_test"))]
 const VIRTIO_DEVICE_FEATURES: u16 = 0;
-#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "net_test"))]
+#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "net_test", feature = "go_test"))]
 const VIRTIO_GUEST_FEATURES: u16 = 4;
-#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "net_test"))]
+#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "net_test", feature = "go_test"))]
 const VIRTIO_QUEUE_PFN: u16 = 8;
-#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "net_test"))]
+#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "net_test", feature = "go_test"))]
 const VIRTIO_QUEUE_SIZE: u16 = 12;
-#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "net_test"))]
+#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "net_test", feature = "go_test"))]
 const VIRTIO_QUEUE_SEL: u16 = 14;
-#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "net_test"))]
+#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "net_test", feature = "go_test"))]
 const VIRTIO_QUEUE_NOTIFY: u16 = 16;
-#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "net_test"))]
+#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "net_test", feature = "go_test"))]
 const VIRTIO_DEVICE_STATUS: u16 = 18;
-#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "net_test"))]
+#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "net_test", feature = "go_test"))]
 const VIRTIO_ISR_STATUS: u16 = 19;
 
 // Descriptor flags
-#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "net_test"))]
+#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "net_test", feature = "go_test"))]
 const VRING_DESC_F_NEXT: u16 = 1;
-#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "net_test"))]
+#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "net_test", feature = "go_test"))]
 const VRING_DESC_F_WRITE: u16 = 2;
 
 // Block request types
-#[cfg(any(feature = "blk_test", feature = "fs_test"))]
+#[cfg(any(feature = "blk_test", feature = "fs_test", feature = "go_test"))]
 const VIRTIO_BLK_T_IN: u32 = 0;  // read
-#[cfg(any(feature = "blk_test", feature = "fs_test"))]
+#[cfg(any(feature = "blk_test", feature = "fs_test", feature = "go_test"))]
 const VIRTIO_BLK_T_OUT: u32 = 1; // write
 
 // --------------- M5: Virtqueue descriptor ------------------------------------
 
-#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test"))]
+#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "go_test"))]
 #[repr(C, packed)]
 struct VringDesc {
     addr: u64,
@@ -3273,45 +3692,45 @@ struct VringDesc {
 // --------------- M5: Static memory for VirtIO --------------------------------
 
 // Virtqueue area: 4 pages (16 KiB), enough for queue_size up to 256
-#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test"))]
+#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "go_test"))]
 #[repr(C, align(4096))]
 struct VqMem([u8; 16384]);
 
-#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test"))]
+#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "go_test"))]
 static mut VQ_MEM: VqMem = VqMem([0; 16384]);
 
 // DMA buffers: request header+status (1 page), data (1 page)
-#[cfg(any(feature = "blk_test", feature = "fs_test"))]
+#[cfg(any(feature = "blk_test", feature = "fs_test", feature = "go_test"))]
 static mut BLK_REQ_PAGE: Page = Page([0; 4096]);
-#[cfg(any(feature = "blk_test", feature = "fs_test"))]
+#[cfg(any(feature = "blk_test", feature = "fs_test", feature = "go_test"))]
 static mut BLK_DATA_PAGE: Page = Page([0; 4096]);
 
 // Driver state
-#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test"))]
+#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "go_test"))]
 static mut BLK_IOBASE: u16 = 0;
-#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test"))]
+#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "go_test"))]
 static mut BLK_QUEUE_SIZE: u16 = 0;
-#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test"))]
+#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "go_test"))]
 static mut BLK_DESCS: *mut VringDesc = core::ptr::null_mut();
-#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test"))]
+#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "go_test"))]
 static mut BLK_AVAIL: *mut u8 = core::ptr::null_mut();
-#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test"))]
+#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "go_test"))]
 static mut BLK_USED: *const u8 = core::ptr::null();
-#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test"))]
+#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "go_test"))]
 static mut BLK_LAST_USED: u16 = 0;
-#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test"))]
+#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "go_test"))]
 static mut BLK_KV2P_DELTA: u64 = 0; // kphys - kvirt (wrapping)
-#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test"))]
+#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "go_test"))]
 const BLK_MAX_QUEUE_SIZE: u16 = 256;
 
-#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test"))]
+#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "go_test"))]
 unsafe fn blk_kv2p(va: u64) -> u64 {
     va.wrapping_add(BLK_KV2P_DELTA)
 }
 
 // --------------- M5: VirtIO block init ---------------------------------------
 
-#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test"))]
+#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "go_test"))]
 unsafe fn virtio_blk_init(iobase: u16) -> bool {
     BLK_IOBASE = iobase;
 
@@ -3382,7 +3801,7 @@ unsafe fn virtio_blk_init(iobase: u16) -> bool {
 /// `len` must be a multiple of 512, max 4096.
 /// For writes, data must already be in BLK_DATA_PAGE.
 /// For reads, data is placed in BLK_DATA_PAGE.
-#[cfg(any(feature = "blk_test", feature = "fs_test"))]
+#[cfg(any(feature = "blk_test", feature = "fs_test", feature = "go_test"))]
 unsafe fn virtio_blk_io(write: bool, sector: u64, len: usize) -> bool {
     let iobase = BLK_IOBASE;
     let qsz = BLK_QUEUE_SIZE as usize;
@@ -4501,18 +4920,18 @@ static SHM_PRESSURE_BLOB: [u8; 264] = [
 
 // --------------- M7: VirtIO net device config --------------------------------
 
-#[cfg(feature = "net_test")]
+#[cfg(any(feature = "net_test", feature = "go_test"))]
 const VIRTIO_NET_HDR_SIZE: usize = 10; // legacy, no MRG_RXBUF
 
-#[cfg(feature = "net_test")]
+#[cfg(any(feature = "net_test", feature = "go_test"))]
 const NET_GUEST_IP: [u8; 4] = [10, 0, 2, 15]; // QEMU SLIRP default
 
-#[cfg(feature = "net_test")]
+#[cfg(any(feature = "net_test", feature = "go_test"))]
 const NET_ECHO_PORT: u16 = runtime::networking::UDP_ECHO_PORT;
 
 // --------------- M7: PCI scan for virtio-net ---------------------------------
 
-#[cfg(feature = "net_test")]
+#[cfg(any(feature = "net_test", feature = "go_test"))]
 unsafe fn pci_find_virtio_net() -> Option<u16> {
     // VirtIO-net transitional: vendor 0x1AF4, device 0x1000
     pci_find_virtio_legacy_iobase(0x1000)
@@ -4520,61 +4939,61 @@ unsafe fn pci_find_virtio_net() -> Option<u16> {
 
 // --------------- M7: Static memory for VirtIO net ----------------------------
 
-#[cfg(feature = "net_test")]
+#[cfg(any(feature = "net_test", feature = "go_test"))]
 #[repr(C, align(4096))]
 struct NetVqPages([u8; 16384]); // 4 pages per virtqueue
 
-#[cfg(feature = "net_test")]
+#[cfg(any(feature = "net_test", feature = "go_test"))]
 #[repr(C, align(4096))]
 struct NetBuf([u8; 4096]);
 
-#[cfg(feature = "net_test")]
+#[cfg(any(feature = "net_test", feature = "go_test"))]
 static mut NET_IOBASE: u16 = 0;
-#[cfg(feature = "net_test")]
+#[cfg(any(feature = "net_test", feature = "go_test"))]
 static mut NET_MAC: [u8; 6] = [0; 6];
-#[cfg(feature = "net_test")]
+#[cfg(any(feature = "net_test", feature = "go_test"))]
 static mut NET_KV2P_DELTA: u64 = 0;
 
 // RX queue
-#[cfg(feature = "net_test")]
+#[cfg(any(feature = "net_test", feature = "go_test"))]
 static mut NET_RXQ_MEM: NetVqPages = NetVqPages([0; 16384]);
-#[cfg(feature = "net_test")]
+#[cfg(any(feature = "net_test", feature = "go_test"))]
 static mut NET_RX_BUF: NetBuf = NetBuf([0; 4096]);
-#[cfg(feature = "net_test")]
+#[cfg(any(feature = "net_test", feature = "go_test"))]
 static mut NET_RX_DESCS: *mut u8 = core::ptr::null_mut();
-#[cfg(feature = "net_test")]
+#[cfg(any(feature = "net_test", feature = "go_test"))]
 static mut NET_RX_AVAIL: *mut u8 = core::ptr::null_mut();
-#[cfg(feature = "net_test")]
+#[cfg(any(feature = "net_test", feature = "go_test"))]
 static mut NET_RX_USED: *const u8 = core::ptr::null();
-#[cfg(feature = "net_test")]
+#[cfg(any(feature = "net_test", feature = "go_test"))]
 static mut NET_RX_LAST_USED: u16 = 0;
-#[cfg(feature = "net_test")]
+#[cfg(any(feature = "net_test", feature = "go_test"))]
 static mut NET_RX_QSIZE: u16 = 0;
 
 // TX queue
-#[cfg(feature = "net_test")]
+#[cfg(any(feature = "net_test", feature = "go_test"))]
 static mut NET_TXQ_MEM: NetVqPages = NetVqPages([0; 16384]);
-#[cfg(feature = "net_test")]
+#[cfg(any(feature = "net_test", feature = "go_test"))]
 static mut NET_TX_BUF: NetBuf = NetBuf([0; 4096]);
-#[cfg(feature = "net_test")]
+#[cfg(any(feature = "net_test", feature = "go_test"))]
 static mut NET_TX_DESCS: *mut u8 = core::ptr::null_mut();
-#[cfg(feature = "net_test")]
+#[cfg(any(feature = "net_test", feature = "go_test"))]
 static mut NET_TX_AVAIL: *mut u8 = core::ptr::null_mut();
-#[cfg(feature = "net_test")]
+#[cfg(any(feature = "net_test", feature = "go_test"))]
 static mut NET_TX_USED: *const u8 = core::ptr::null();
-#[cfg(feature = "net_test")]
+#[cfg(any(feature = "net_test", feature = "go_test"))]
 static mut NET_TX_LAST_USED: u16 = 0;
-#[cfg(feature = "net_test")]
+#[cfg(any(feature = "net_test", feature = "go_test"))]
 static mut NET_TX_QSIZE: u16 = 0;
 
-#[cfg(feature = "net_test")]
+#[cfg(any(feature = "net_test", feature = "go_test"))]
 unsafe fn net_kv2p(va: u64) -> u64 {
     va.wrapping_add(NET_KV2P_DELTA)
 }
 
 // --------------- M7: VirtIO net init -----------------------------------------
 
-#[cfg(feature = "net_test")]
+#[cfg(any(feature = "net_test", feature = "go_test"))]
 unsafe fn virtio_net_init(iobase: u16) -> bool {
     NET_IOBASE = iobase;
 
@@ -4643,7 +5062,7 @@ unsafe fn virtio_net_init(iobase: u16) -> bool {
 
 // --------------- M7: RX buffer posting ---------------------------------------
 
-#[cfg(feature = "net_test")]
+#[cfg(any(feature = "net_test", feature = "go_test"))]
 unsafe fn virtio_net_post_rx() {
     let buf_phys = net_kv2p(NET_RX_BUF.0.as_ptr() as u64);
     // Descriptor 0: device-writable, receives virtio_net_hdr + frame
@@ -4669,7 +5088,7 @@ unsafe fn virtio_net_post_rx() {
 // --------------- M7: Receive frame -------------------------------------------
 
 /// Non-blocking receive. Returns frame length (excluding virtio_net_hdr), or 0.
-#[cfg(feature = "net_test")]
+#[cfg(any(feature = "net_test", feature = "go_test"))]
 unsafe fn virtio_net_recv(buf: &mut [u8]) -> usize {
     let used = NET_RX_USED;
     let used_idx = core::ptr::read_volatile((used as *const u16).add(1));
@@ -4708,7 +5127,7 @@ unsafe fn virtio_net_recv(buf: &mut [u8]) -> usize {
 // --------------- M7: Send frame ----------------------------------------------
 
 /// Send an Ethernet frame. Prepends virtio_net_hdr (all zeros). Returns true on success.
-#[cfg(feature = "net_test")]
+#[cfg(any(feature = "net_test", feature = "go_test"))]
 unsafe fn virtio_net_send(frame: &[u8]) -> bool {
     let total_len = VIRTIO_NET_HDR_SIZE + frame.len();
     if total_len > NET_TX_BUF.0.len() {
@@ -4915,6 +5334,950 @@ fn net_ip_checksum(data: &[u8]) -> u16 {
         sum = (sum & 0xFFFF) + (sum >> 16);
     }
     !(sum as u16)
+}
+
+// --------------- C4: go_test durable storage runtime -------------------------
+
+#[cfg(feature = "go_test")]
+const R4_STORAGE_JOURNAL_MAGIC: u32 = 0x4A52_4E31;
+#[cfg(feature = "go_test")]
+const R4_STORAGE_STATE_MAGIC: u32 = 0x5354_4131;
+#[cfg(feature = "go_test")]
+const R4_STORAGE_JOURNAL_SECTOR: u64 = 8;
+#[cfg(feature = "go_test")]
+const R4_STORAGE_STATE_SECTOR: u64 = 9;
+#[cfg(feature = "go_test")]
+const R4_STORAGE_MAX_BYTES: usize = 480;
+
+#[cfg(feature = "go_test")]
+static mut R4_STORAGE_READY: bool = false;
+#[cfg(feature = "go_test")]
+static mut R4_STORAGE_RECOVERED: bool = false;
+#[cfg(feature = "go_test")]
+static mut R4_STORAGE_SEQ: u32 = 0;
+#[cfg(feature = "go_test")]
+static mut R4_STORAGE_DURABLE_LEN: usize = 0;
+#[cfg(feature = "go_test")]
+static mut R4_STORAGE_DURABLE: [u8; R4_STORAGE_MAX_BYTES] = [0; R4_STORAGE_MAX_BYTES];
+#[cfg(feature = "go_test")]
+static mut R4_STORAGE_JOURNAL_LEN: usize = 0;
+#[cfg(feature = "go_test")]
+static mut R4_STORAGE_JOURNAL: [u8; R4_STORAGE_MAX_BYTES] = [0; R4_STORAGE_MAX_BYTES];
+
+#[cfg(feature = "go_test")]
+unsafe fn r4_storage_available() -> bool {
+    R4_STORAGE_READY
+}
+
+#[cfg(feature = "go_test")]
+unsafe fn r4_storage_state_len() -> usize {
+    R4_STORAGE_DURABLE_LEN
+}
+
+#[cfg(feature = "go_test")]
+unsafe fn r4_storage_copy_state(offset: usize, dst: &mut [u8]) -> bool {
+    if offset > R4_STORAGE_DURABLE_LEN || offset + dst.len() > R4_STORAGE_DURABLE_LEN {
+        return false;
+    }
+    dst.copy_from_slice(&R4_STORAGE_DURABLE[offset..offset + dst.len()]);
+    true
+}
+
+#[cfg(feature = "go_test")]
+unsafe fn r4_storage_reset_cache() {
+    R4_STORAGE_READY = false;
+    R4_STORAGE_RECOVERED = false;
+    R4_STORAGE_SEQ = 0;
+    R4_STORAGE_DURABLE_LEN = 0;
+    R4_STORAGE_JOURNAL_LEN = 0;
+    core::ptr::write_bytes(R4_STORAGE_DURABLE.as_mut_ptr(), 0, R4_STORAGE_DURABLE.len());
+    core::ptr::write_bytes(R4_STORAGE_JOURNAL.as_mut_ptr(), 0, R4_STORAGE_JOURNAL.len());
+}
+
+#[cfg(feature = "go_test")]
+unsafe fn r4_storage_write_record(
+    sector: u64,
+    magic: u32,
+    flags: u32,
+    seq: u32,
+    data: &[u8],
+) -> bool {
+    if data.len() > R4_STORAGE_MAX_BYTES {
+        return false;
+    }
+    core::ptr::write_bytes(BLK_DATA_PAGE.0.as_mut_ptr(), 0, 512);
+    BLK_DATA_PAGE.0[0..4].copy_from_slice(&magic.to_le_bytes());
+    BLK_DATA_PAGE.0[4..8].copy_from_slice(&flags.to_le_bytes());
+    BLK_DATA_PAGE.0[8..12].copy_from_slice(&(data.len() as u32).to_le_bytes());
+    BLK_DATA_PAGE.0[12..16].copy_from_slice(&seq.to_le_bytes());
+    if !data.is_empty() {
+        BLK_DATA_PAGE.0[16..16 + data.len()].copy_from_slice(data);
+    }
+    virtio_blk_io(true, sector, 512)
+}
+
+#[cfg(feature = "go_test")]
+unsafe fn r4_storage_load_state_cache() {
+    R4_STORAGE_DURABLE_LEN = 0;
+    if !virtio_blk_io(false, R4_STORAGE_STATE_SECTOR, 512) {
+        return;
+    }
+    let magic = u32::from_le_bytes([
+        BLK_DATA_PAGE.0[0],
+        BLK_DATA_PAGE.0[1],
+        BLK_DATA_PAGE.0[2],
+        BLK_DATA_PAGE.0[3],
+    ]);
+    if magic != R4_STORAGE_STATE_MAGIC {
+        return;
+    }
+    let len = u32::from_le_bytes([
+        BLK_DATA_PAGE.0[8],
+        BLK_DATA_PAGE.0[9],
+        BLK_DATA_PAGE.0[10],
+        BLK_DATA_PAGE.0[11],
+    ]) as usize;
+    if len > R4_STORAGE_MAX_BYTES {
+        return;
+    }
+    let seq = u32::from_le_bytes([
+        BLK_DATA_PAGE.0[12],
+        BLK_DATA_PAGE.0[13],
+        BLK_DATA_PAGE.0[14],
+        BLK_DATA_PAGE.0[15],
+    ]);
+    R4_STORAGE_SEQ = seq;
+    R4_STORAGE_DURABLE_LEN = len;
+    if len != 0 {
+        R4_STORAGE_DURABLE[..len].copy_from_slice(&BLK_DATA_PAGE.0[16..16 + len]);
+    }
+}
+
+#[cfg(feature = "go_test")]
+unsafe fn r4_storage_clear_journal() -> bool {
+    R4_STORAGE_JOURNAL_LEN = 0;
+    core::ptr::write_bytes(R4_STORAGE_JOURNAL.as_mut_ptr(), 0, R4_STORAGE_JOURNAL.len());
+    r4_storage_write_record(R4_STORAGE_JOURNAL_SECTOR, R4_STORAGE_JOURNAL_MAGIC, 0, R4_STORAGE_SEQ, &[])
+}
+
+#[cfg(feature = "go_test")]
+unsafe fn r4_storage_commit_state(data: &[u8]) -> bool {
+    if data.len() > R4_STORAGE_MAX_BYTES {
+        return false;
+    }
+    if !r4_storage_write_record(
+        R4_STORAGE_STATE_SECTOR,
+        R4_STORAGE_STATE_MAGIC,
+        0,
+        R4_STORAGE_SEQ,
+        data,
+    ) {
+        return false;
+    }
+    R4_STORAGE_DURABLE_LEN = data.len();
+    if !data.is_empty() {
+        R4_STORAGE_DURABLE[..data.len()].copy_from_slice(data);
+    }
+    true
+}
+
+#[cfg(feature = "go_test")]
+unsafe fn r4_storage_boot_recover() {
+    if !virtio_blk_io(false, R4_STORAGE_JOURNAL_SECTOR, 512) {
+        r4_storage_load_state_cache();
+        return;
+    }
+    let magic = u32::from_le_bytes([
+        BLK_DATA_PAGE.0[0],
+        BLK_DATA_PAGE.0[1],
+        BLK_DATA_PAGE.0[2],
+        BLK_DATA_PAGE.0[3],
+    ]);
+    let flags = u32::from_le_bytes([
+        BLK_DATA_PAGE.0[4],
+        BLK_DATA_PAGE.0[5],
+        BLK_DATA_PAGE.0[6],
+        BLK_DATA_PAGE.0[7],
+    ]);
+    let len = u32::from_le_bytes([
+        BLK_DATA_PAGE.0[8],
+        BLK_DATA_PAGE.0[9],
+        BLK_DATA_PAGE.0[10],
+        BLK_DATA_PAGE.0[11],
+    ]) as usize;
+    let seq = u32::from_le_bytes([
+        BLK_DATA_PAGE.0[12],
+        BLK_DATA_PAGE.0[13],
+        BLK_DATA_PAGE.0[14],
+        BLK_DATA_PAGE.0[15],
+    ]);
+    if seq > R4_STORAGE_SEQ {
+        R4_STORAGE_SEQ = seq;
+    }
+    if magic == R4_STORAGE_JOURNAL_MAGIC && flags == 1 && len <= R4_STORAGE_MAX_BYTES {
+        R4_STORAGE_JOURNAL_LEN = len;
+        if len != 0 {
+            R4_STORAGE_JOURNAL[..len].copy_from_slice(&BLK_DATA_PAGE.0[16..16 + len]);
+        }
+        if r4_storage_commit_state(&R4_STORAGE_JOURNAL[..len]) && r4_storage_clear_journal() {
+            R4_STORAGE_RECOVERED = true;
+            serial_write(b"RECOV: replay ok\n");
+        }
+    }
+    r4_storage_load_state_cache();
+}
+
+#[cfg(feature = "go_test")]
+unsafe fn r4_storage_write_journal(data: &[u8]) -> bool {
+    if !R4_STORAGE_READY || data.is_empty() || data.len() > R4_STORAGE_MAX_BYTES {
+        return false;
+    }
+    R4_STORAGE_SEQ = R4_STORAGE_SEQ.wrapping_add(1);
+    R4_STORAGE_JOURNAL_LEN = data.len();
+    R4_STORAGE_JOURNAL[..data.len()].copy_from_slice(data);
+    r4_storage_write_record(
+        R4_STORAGE_JOURNAL_SECTOR,
+        R4_STORAGE_JOURNAL_MAGIC,
+        1,
+        R4_STORAGE_SEQ,
+        data,
+    )
+}
+
+#[cfg(feature = "go_test")]
+unsafe fn r4_storage_fsync() -> bool {
+    if !R4_STORAGE_READY || R4_STORAGE_JOURNAL_LEN == 0 {
+        return false;
+    }
+    let len = R4_STORAGE_JOURNAL_LEN;
+    if !r4_storage_commit_state(&R4_STORAGE_JOURNAL[..len]) {
+        return false;
+    }
+    if !r4_storage_clear_journal() {
+        return false;
+    }
+    serial_write(b"BLK: flush ordered\n");
+    true
+}
+
+#[cfg(feature = "go_test")]
+unsafe fn r4_storage_boot_probe() {
+    r4_storage_reset_cache();
+    let hhdm_resp_ptr = core::ptr::read_volatile(core::ptr::addr_of!(HHDM_REQUEST.response));
+    let kaddr_resp_ptr = core::ptr::read_volatile(core::ptr::addr_of!(KADDR_REQUEST.response));
+    let kphys = (*kaddr_resp_ptr).physical_base;
+    let kvirt = (*kaddr_resp_ptr).virtual_base;
+    let _hhdm = (*hhdm_resp_ptr).offset;
+    BLK_KV2P_DELTA = kphys.wrapping_sub(kvirt);
+
+    if let Some(iobase) = pci_find_virtio_blk() {
+        if virtio_blk_init(iobase) {
+            R4_STORAGE_READY = true;
+            serial_write(b"STORC4: block ready\n");
+            r4_storage_boot_recover();
+        }
+    }
+}
+
+// --------------- C4: go_test socket/runtime network --------------------------
+
+#[cfg(feature = "go_test")]
+const R4_NET_AF_INET: u64 = 2;
+#[cfg(feature = "go_test")]
+const R4_NET_AF_INET6: u64 = 10;
+#[cfg(feature = "go_test")]
+const R4_NET_SOCK_STREAM: u64 = 1;
+#[cfg(feature = "go_test")]
+const R4_NET_IF_MAX: usize = 2;
+#[cfg(feature = "go_test")]
+const R4_NET_ROUTE_MAX: usize = 8;
+#[cfg(feature = "go_test")]
+const R4_NET_SOCKET_MAX: usize = 16;
+#[cfg(feature = "go_test")]
+const R4_NET_RX_MAX: usize = 256;
+
+#[cfg(feature = "go_test")]
+#[derive(Clone, Copy)]
+struct R4NetInterface {
+    active: bool,
+    has_ipv4: bool,
+    ipv4: [u8; 4],
+    ipv4_prefix: u8,
+    has_ipv6: bool,
+    ipv6: [u8; 16],
+    ipv6_prefix: u8,
+}
+
+#[cfg(feature = "go_test")]
+impl R4NetInterface {
+    const EMPTY: Self = Self {
+        active: false,
+        has_ipv4: false,
+        ipv4: [0; 4],
+        ipv4_prefix: 0,
+        has_ipv6: false,
+        ipv6: [0; 16],
+        ipv6_prefix: 0,
+    };
+}
+
+#[cfg(feature = "go_test")]
+#[derive(Clone, Copy)]
+struct R4NetRoute {
+    active: bool,
+    family: u8,
+    prefix_len: u8,
+    if_index: u8,
+    dest: [u8; 16],
+}
+
+#[cfg(feature = "go_test")]
+impl R4NetRoute {
+    const EMPTY: Self = Self {
+        active: false,
+        family: 0,
+        prefix_len: 0,
+        if_index: 0,
+        dest: [0; 16],
+    };
+}
+
+#[cfg(feature = "go_test")]
+#[derive(Clone, Copy)]
+struct R4Socket {
+    active: bool,
+    owner_tid: usize,
+    domain: u8,
+    kind: u8,
+    state: u8,
+    if_index: u8,
+    backlog: u8,
+    peer: i16,
+    pending_accept: i16,
+    local_port: u16,
+    remote_port: u16,
+    local_addr: [u8; 16],
+    remote_addr: [u8; 16],
+    rx_len: usize,
+    rx_buf: [u8; R4_NET_RX_MAX],
+}
+
+#[cfg(feature = "go_test")]
+impl R4Socket {
+    const EMPTY: Self = Self {
+        active: false,
+        owner_tid: 0,
+        domain: 0,
+        kind: 0,
+        state: 0,
+        if_index: 0,
+        backlog: 0,
+        peer: -1,
+        pending_accept: -1,
+        local_port: 0,
+        remote_port: 0,
+        local_addr: [0; 16],
+        remote_addr: [0; 16],
+        rx_len: 0,
+        rx_buf: [0; R4_NET_RX_MAX],
+    };
+}
+
+#[cfg(feature = "go_test")]
+static mut R4_NET_INTERFACES: [R4NetInterface; R4_NET_IF_MAX] =
+    [R4NetInterface::EMPTY; R4_NET_IF_MAX];
+#[cfg(feature = "go_test")]
+static mut R4_NET_ROUTES: [R4NetRoute; R4_NET_ROUTE_MAX] =
+    [R4NetRoute::EMPTY; R4_NET_ROUTE_MAX];
+#[cfg(feature = "go_test")]
+static mut R4_SOCKETS: [R4Socket; R4_NET_SOCKET_MAX] =
+    [R4Socket::EMPTY; R4_NET_SOCKET_MAX];
+#[cfg(feature = "go_test")]
+static mut R4_NET_NIC_READY: bool = false;
+
+#[cfg(feature = "go_test")]
+unsafe fn r4_net_reset(has_nic: bool) {
+    R4_NET_NIC_READY = has_nic;
+    for idx in 0..R4_NET_IF_MAX {
+        R4_NET_INTERFACES[idx] = R4NetInterface::EMPTY;
+    }
+    for idx in 0..R4_NET_ROUTE_MAX {
+        R4_NET_ROUTES[idx] = R4NetRoute::EMPTY;
+    }
+    for idx in 0..R4_NET_SOCKET_MAX {
+        R4_SOCKETS[idx] = R4Socket::EMPTY;
+    }
+    R4_NET_INTERFACES[0].active = true;
+    R4_NET_INTERFACES[0].has_ipv4 = true;
+    R4_NET_INTERFACES[0].ipv4 = [127, 0, 0, 1];
+    R4_NET_INTERFACES[0].ipv4_prefix = 8;
+    R4_NET_INTERFACES[0].has_ipv6 = true;
+    R4_NET_INTERFACES[0].ipv6 = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1];
+    R4_NET_INTERFACES[0].ipv6_prefix = 128;
+    if has_nic {
+        R4_NET_INTERFACES[1].active = true;
+    }
+}
+
+#[cfg(feature = "go_test")]
+fn r4_net_family_ok(family: u8) -> bool {
+    family as u64 == R4_NET_AF_INET || family as u64 == R4_NET_AF_INET6
+}
+
+#[cfg(feature = "go_test")]
+fn r4_net_prefix_ok(family: u8, prefix: u8) -> bool {
+    if family as u64 == R4_NET_AF_INET {
+        prefix <= 32
+    } else if family as u64 == R4_NET_AF_INET6 {
+        prefix <= 128
+    } else {
+        false
+    }
+}
+
+#[cfg(feature = "go_test")]
+fn r4_net_prefix_match(family: u8, left: &[u8; 16], right: &[u8; 16], prefix: u8) -> bool {
+    let total_bits = if family as u64 == R4_NET_AF_INET { 32 } else { 128 };
+    if prefix > total_bits {
+        return false;
+    }
+    let compare_len = if family as u64 == R4_NET_AF_INET { 4 } else { 16 };
+    let mut bits_left = prefix as usize;
+    for idx in 0..compare_len {
+        if bits_left == 0 {
+            return true;
+        }
+        let bit_count = if bits_left >= 8 { 8 } else { bits_left };
+        let mask = (!0u8) << (8 - bit_count);
+        if (left[idx] & mask) != (right[idx] & mask) {
+            return false;
+        }
+        bits_left -= bit_count;
+    }
+    true
+}
+
+#[cfg(feature = "go_test")]
+unsafe fn r4_net_copy_record(ptr: u64, len: u64, out: &mut [u8]) -> bool {
+    if len < out.len() as u64 {
+        return false;
+    }
+    copyin_user(out, ptr, out.len()).is_ok()
+}
+
+#[cfg(feature = "go_test")]
+unsafe fn r4_net_copy_sockaddr(ptr: u64, len: u64) -> Option<(u8, u16, [u8; 16])> {
+    let mut raw = [0u8; 32];
+    if !r4_net_copy_record(ptr, len, &mut raw) {
+        return None;
+    }
+    let family = u64::from_le_bytes(raw[0..8].try_into().ok()?) as u8;
+    let port = u64::from_le_bytes(raw[8..16].try_into().ok()?) as u16;
+    if !r4_net_family_ok(family) || port == 0 {
+        return None;
+    }
+    let mut addr = [0u8; 16];
+    addr.copy_from_slice(&raw[16..32]);
+    Some((family, port, addr))
+}
+
+#[cfg(feature = "go_test")]
+unsafe fn r4_net_copy_cfg(ptr: u64, len: u64) -> Option<(u8, u8, [u8; 16])> {
+    let mut raw = [0u8; 32];
+    if !r4_net_copy_record(ptr, len, &mut raw) {
+        return None;
+    }
+    let family = u64::from_le_bytes(raw[0..8].try_into().ok()?) as u8;
+    let prefix_len = u64::from_le_bytes(raw[8..16].try_into().ok()?) as u8;
+    if !r4_net_family_ok(family) || !r4_net_prefix_ok(family, prefix_len) {
+        return None;
+    }
+    let mut addr = [0u8; 16];
+    addr.copy_from_slice(&raw[16..32]);
+    Some((family, prefix_len, addr))
+}
+
+#[cfg(feature = "go_test")]
+unsafe fn r4_net_interface_addr(family: u8, if_index: usize) -> Option<[u8; 16]> {
+    if if_index >= R4_NET_IF_MAX || !R4_NET_INTERFACES[if_index].active {
+        return None;
+    }
+    if family as u64 == R4_NET_AF_INET {
+        if !R4_NET_INTERFACES[if_index].has_ipv4 {
+            return None;
+        }
+        let mut out = [0u8; 16];
+        out[0..4].copy_from_slice(&R4_NET_INTERFACES[if_index].ipv4);
+        return Some(out);
+    }
+    if !R4_NET_INTERFACES[if_index].has_ipv6 {
+        return None;
+    }
+    Some(R4_NET_INTERFACES[if_index].ipv6)
+}
+
+#[cfg(feature = "go_test")]
+unsafe fn r4_net_addr_on_interface(family: u8, if_index: usize, addr: &[u8; 16]) -> bool {
+    match r4_net_interface_addr(family, if_index) {
+        Some(bound) => bound == *addr,
+        None => false,
+    }
+}
+
+#[cfg(feature = "go_test")]
+unsafe fn r4_net_find_route(family: u8, dest: &[u8; 16]) -> Option<usize> {
+    let mut best: Option<usize> = None;
+    let mut best_prefix = 0u8;
+    for idx in 0..R4_NET_ROUTE_MAX {
+        if !R4_NET_ROUTES[idx].active || R4_NET_ROUTES[idx].family != family {
+            continue;
+        }
+        if !r4_net_prefix_match(family, &R4_NET_ROUTES[idx].dest, dest, R4_NET_ROUTES[idx].prefix_len) {
+            continue;
+        }
+        if best.is_none() || R4_NET_ROUTES[idx].prefix_len >= best_prefix {
+            best = Some(idx);
+            best_prefix = R4_NET_ROUTES[idx].prefix_len;
+        }
+    }
+    best
+}
+
+#[cfg(feature = "go_test")]
+unsafe fn r4_net_alloc_socket() -> Option<usize> {
+    for idx in 0..R4_NET_SOCKET_MAX {
+        if !R4_SOCKETS[idx].active {
+            R4_SOCKETS[idx] = R4Socket::EMPTY;
+            R4_SOCKETS[idx].active = true;
+            return Some(idx);
+        }
+    }
+    None
+}
+
+#[cfg(feature = "go_test")]
+#[inline(always)]
+unsafe fn r4_socket_owner_ok(socket_id: usize) -> bool {
+    socket_id < R4_NET_SOCKET_MAX
+        && R4_SOCKETS[socket_id].active
+        && R4_SOCKETS[socket_id].owner_tid == R4_CURRENT
+}
+
+#[cfg(feature = "go_test")]
+unsafe fn r4_release_socket(socket_id: usize) {
+    if socket_id >= R4_NET_SOCKET_MAX || !R4_SOCKETS[socket_id].active {
+        return;
+    }
+
+    let owner_tid = R4_SOCKETS[socket_id].owner_tid;
+    let peer = R4_SOCKETS[socket_id].peer;
+    let pending_accept = R4_SOCKETS[socket_id].pending_accept;
+
+    R4_SOCKETS[socket_id] = R4Socket::EMPTY;
+
+    if owner_tid < R4_NUM_TASKS && R4_TASKS[owner_tid].socket_count != 0 {
+        R4_TASKS[owner_tid].socket_count -= 1;
+    }
+
+    if peer >= 0 {
+        let pid = peer as usize;
+        if pid < R4_NET_SOCKET_MAX
+            && R4_SOCKETS[pid].active
+            && R4_SOCKETS[pid].peer == socket_id as i16
+        {
+            R4_SOCKETS[pid].peer = -1;
+        }
+    }
+
+    if pending_accept >= 0 {
+        let acc = pending_accept as usize;
+        if acc < R4_NET_SOCKET_MAX && R4_SOCKETS[acc].active {
+            r4_release_socket(acc);
+        }
+    }
+}
+
+#[cfg(feature = "go_test")]
+unsafe fn r4_release_owned_sockets(owner_tid: usize) {
+    for socket_id in 0..R4_NET_SOCKET_MAX {
+        if R4_SOCKETS[socket_id].active && R4_SOCKETS[socket_id].owner_tid == owner_tid {
+            r4_release_socket(socket_id);
+        }
+    }
+    if owner_tid < R4_NUM_TASKS {
+        R4_TASKS[owner_tid].socket_count = 0;
+    }
+}
+
+#[cfg(feature = "go_test")]
+unsafe fn r4_net_port_in_use(family: u8, addr: &[u8; 16], port: u16) -> bool {
+    for idx in 0..R4_NET_SOCKET_MAX {
+        if !R4_SOCKETS[idx].active {
+            continue;
+        }
+        if R4_SOCKETS[idx].domain == family
+            && R4_SOCKETS[idx].local_port == port
+            && R4_SOCKETS[idx].local_addr == *addr
+            && R4_SOCKETS[idx].state >= 2
+        {
+            return true;
+        }
+    }
+    false
+}
+
+#[cfg(feature = "go_test")]
+unsafe fn r4_net_find_listener(family: u8, addr: &[u8; 16], port: u16, if_index: u8) -> Option<usize> {
+    for idx in 0..R4_NET_SOCKET_MAX {
+        if !R4_SOCKETS[idx].active {
+            continue;
+        }
+        if R4_SOCKETS[idx].domain != family
+            || R4_SOCKETS[idx].kind as u64 != R4_NET_SOCK_STREAM
+            || R4_SOCKETS[idx].state != 3
+        {
+            continue;
+        }
+        if R4_SOCKETS[idx].local_port == port
+            && R4_SOCKETS[idx].local_addr == *addr
+            && R4_SOCKETS[idx].if_index == if_index
+        {
+            return Some(idx);
+        }
+    }
+    None
+}
+
+#[cfg(feature = "go_test")]
+unsafe fn sys_socket_open_r4(domain: u64, kind: u64) -> u64 {
+    let dom = domain as u8;
+    let typ = kind as u8;
+    if !r4_net_family_ok(dom) || kind != R4_NET_SOCK_STREAM {
+        return 0xFFFF_FFFF_FFFF_FFFF;
+    }
+    if !r4_current_has_cap(R4_TASK_CAP_NETWORK) {
+        return 0xFFFF_FFFF_FFFF_FFFF;
+    }
+    if !runtime::isolation::under_quota(
+        R4_TASKS[R4_CURRENT].socket_count,
+        R4_TASKS[R4_CURRENT].socket_limit as usize,
+    ) {
+        return 0xFFFF_FFFF_FFFF_FFFF;
+    }
+    match r4_net_alloc_socket() {
+        Some(idx) => {
+            R4_SOCKETS[idx].owner_tid = R4_CURRENT;
+            R4_SOCKETS[idx].domain = dom;
+            R4_SOCKETS[idx].kind = typ;
+            R4_SOCKETS[idx].state = 1;
+            R4_TASKS[R4_CURRENT].socket_count += 1;
+            idx as u64
+        }
+        None => 0xFFFF_FFFF_FFFF_FFFF,
+    }
+}
+
+#[cfg(feature = "go_test")]
+unsafe fn sys_socket_bind_r4(socket_id: u64, addr_ptr: u64, addr_len: u64) -> u64 {
+    let sid = socket_id as usize;
+    if sid >= R4_NET_SOCKET_MAX || !R4_SOCKETS[sid].active {
+        return 0xFFFF_FFFF_FFFF_FFFF;
+    }
+    if !r4_socket_owner_ok(sid) {
+        return 0xFFFF_FFFF_FFFF_FFFF;
+    }
+    let (family, port, addr) = match r4_net_copy_sockaddr(addr_ptr, addr_len) {
+        Some(v) => v,
+        None => return 0xFFFF_FFFF_FFFF_FFFF,
+    };
+    if R4_SOCKETS[sid].domain != family || !r4_net_family_ok(family) {
+        return 0xFFFF_FFFF_FFFF_FFFF;
+    }
+    let mut found_if = None;
+    for if_index in 0..R4_NET_IF_MAX {
+        if r4_net_addr_on_interface(family, if_index, &addr) {
+            found_if = Some(if_index as u8);
+            break;
+        }
+    }
+    let if_index = match found_if {
+        Some(idx) => idx,
+        None => return 0xFFFF_FFFF_FFFF_FFFF,
+    };
+    if r4_net_port_in_use(family, &addr, port) {
+        return 0xFFFF_FFFF_FFFF_FFFF;
+    }
+    R4_SOCKETS[sid].if_index = if_index;
+    R4_SOCKETS[sid].local_addr = addr;
+    R4_SOCKETS[sid].local_port = port;
+    R4_SOCKETS[sid].state = 2;
+    0
+}
+
+#[cfg(feature = "go_test")]
+unsafe fn sys_socket_listen_r4(socket_id: u64, backlog: u64) -> u64 {
+    let sid = socket_id as usize;
+    if sid >= R4_NET_SOCKET_MAX || !R4_SOCKETS[sid].active {
+        return 0xFFFF_FFFF_FFFF_FFFF;
+    }
+    if !r4_socket_owner_ok(sid) {
+        return 0xFFFF_FFFF_FFFF_FFFF;
+    }
+    if R4_SOCKETS[sid].kind as u64 != R4_NET_SOCK_STREAM || R4_SOCKETS[sid].state != 2 {
+        return 0xFFFF_FFFF_FFFF_FFFF;
+    }
+    R4_SOCKETS[sid].backlog = if backlog == 0 { 1 } else { backlog as u8 };
+    R4_SOCKETS[sid].pending_accept = -1;
+    R4_SOCKETS[sid].state = 3;
+    0
+}
+
+#[cfg(feature = "go_test")]
+unsafe fn sys_socket_connect_r4(socket_id: u64, addr_ptr: u64, addr_len: u64) -> u64 {
+    let sid = socket_id as usize;
+    if sid >= R4_NET_SOCKET_MAX || !R4_SOCKETS[sid].active {
+        return 0xFFFF_FFFF_FFFF_FFFF;
+    }
+    if !r4_socket_owner_ok(sid) {
+        return 0xFFFF_FFFF_FFFF_FFFF;
+    }
+    let (family, port, addr) = match r4_net_copy_sockaddr(addr_ptr, addr_len) {
+        Some(v) => v,
+        None => return 0xFFFF_FFFF_FFFF_FFFF,
+    };
+    if R4_SOCKETS[sid].domain != family || R4_SOCKETS[sid].kind as u64 != R4_NET_SOCK_STREAM {
+        return 0xFFFF_FFFF_FFFF_FFFF;
+    }
+    let route_idx = match r4_net_find_route(family, &addr) {
+        Some(idx) => idx,
+        None => return 0xFFFF_FFFF_FFFF_FFFF,
+    };
+    let if_index = R4_NET_ROUTES[route_idx].if_index;
+    let listener = match r4_net_find_listener(family, &addr, port, if_index) {
+        Some(idx) => idx,
+        None => return 0xFFFF_FFFF_FFFF_FFFF,
+    };
+    if R4_SOCKETS[listener].pending_accept >= 0 {
+        return 0xFFFF_FFFF_FFFF_FFFF;
+    }
+    let listener_owner = R4_SOCKETS[listener].owner_tid;
+    if listener_owner >= R4_NUM_TASKS
+        || !runtime::isolation::under_quota(
+            R4_TASKS[listener_owner].socket_count,
+            R4_TASKS[listener_owner].socket_limit as usize,
+        )
+    {
+        return 0xFFFF_FFFF_FFFF_FFFF;
+    }
+    let accepted = match r4_net_alloc_socket() {
+        Some(idx) => idx,
+        None => return 0xFFFF_FFFF_FFFF_FFFF,
+    };
+    let local_addr = match r4_net_interface_addr(family, if_index as usize) {
+        Some(addr) => addr,
+        None => return 0xFFFF_FFFF_FFFF_FFFF,
+    };
+    let local_port = if R4_SOCKETS[sid].local_port == 0 {
+        40000u16.wrapping_add(sid as u16)
+    } else {
+        R4_SOCKETS[sid].local_port
+    };
+    R4_SOCKETS[sid].if_index = if_index;
+    R4_SOCKETS[sid].local_addr = local_addr;
+    R4_SOCKETS[sid].local_port = local_port;
+    R4_SOCKETS[sid].remote_addr = addr;
+    R4_SOCKETS[sid].remote_port = port;
+    R4_SOCKETS[sid].peer = accepted as i16;
+    R4_SOCKETS[sid].state = 4;
+
+    R4_SOCKETS[accepted].owner_tid = listener_owner;
+    R4_SOCKETS[accepted].domain = family;
+    R4_SOCKETS[accepted].kind = R4_NET_SOCK_STREAM as u8;
+    R4_SOCKETS[accepted].state = 4;
+    R4_SOCKETS[accepted].if_index = if_index;
+    R4_SOCKETS[accepted].local_addr = addr;
+    R4_SOCKETS[accepted].local_port = port;
+    R4_SOCKETS[accepted].remote_addr = local_addr;
+    R4_SOCKETS[accepted].remote_port = local_port;
+    R4_SOCKETS[accepted].peer = sid as i16;
+    R4_TASKS[listener_owner].socket_count += 1;
+
+    R4_SOCKETS[listener].pending_accept = accepted as i16;
+    0
+}
+
+#[cfg(feature = "go_test")]
+unsafe fn sys_socket_accept_r4(socket_id: u64, addr_ptr: u64, addr_len_ptr: u64) -> u64 {
+    let sid = socket_id as usize;
+    if sid >= R4_NET_SOCKET_MAX || !R4_SOCKETS[sid].active || R4_SOCKETS[sid].state != 3 {
+        return 0xFFFF_FFFF_FFFF_FFFF;
+    }
+    if !r4_socket_owner_ok(sid) {
+        return 0xFFFF_FFFF_FFFF_FFFF;
+    }
+    let accepted = R4_SOCKETS[sid].pending_accept;
+    if accepted < 0 {
+        return 0xFFFF_FFFF_FFFF_FFFF;
+    }
+    let acc = accepted as usize;
+    let mut raw = [0u8; 32];
+    raw[0..8].copy_from_slice(&(R4_SOCKETS[acc].domain as u64).to_le_bytes());
+    raw[8..16].copy_from_slice(&(R4_SOCKETS[acc].remote_port as u64).to_le_bytes());
+    raw[16..32].copy_from_slice(&R4_SOCKETS[acc].remote_addr);
+    if copyout_user(addr_ptr, &raw, raw.len()).is_err() {
+        return 0xFFFF_FFFF_FFFF_FFFF;
+    }
+    if copyout_user(addr_len_ptr, &(32u64).to_le_bytes(), 8).is_err() {
+        return 0xFFFF_FFFF_FFFF_FFFF;
+    }
+    R4_SOCKETS[sid].pending_accept = -1;
+    acc as u64
+}
+
+#[cfg(feature = "go_test")]
+unsafe fn sys_socket_send_r4(socket_id: u64, buf: u64, len: u64) -> u64 {
+    let sid = socket_id as usize;
+    if sid >= R4_NET_SOCKET_MAX || !R4_SOCKETS[sid].active || R4_SOCKETS[sid].state != 4 {
+        return 0xFFFF_FFFF_FFFF_FFFF;
+    }
+    if !r4_socket_owner_ok(sid) {
+        return 0xFFFF_FFFF_FFFF_FFFF;
+    }
+    let peer = R4_SOCKETS[sid].peer;
+    if peer < 0 {
+        return 0xFFFF_FFFF_FFFF_FFFF;
+    }
+    let pid = peer as usize;
+    if pid >= R4_NET_SOCKET_MAX || !R4_SOCKETS[pid].active {
+        return 0xFFFF_FFFF_FFFF_FFFF;
+    }
+    let n = len as usize;
+    if n == 0 || n > R4_NET_RX_MAX || R4_SOCKETS[pid].rx_len != 0 {
+        return 0xFFFF_FFFF_FFFF_FFFF;
+    }
+    if copyin_user(&mut R4_SOCKETS[pid].rx_buf[..n], buf, n).is_err() {
+        return 0xFFFF_FFFF_FFFF_FFFF;
+    }
+    R4_SOCKETS[pid].rx_len = n;
+    len
+}
+
+#[cfg(feature = "go_test")]
+unsafe fn sys_socket_recv_r4(socket_id: u64, buf: u64, len: u64) -> u64 {
+    let sid = socket_id as usize;
+    if sid >= R4_NET_SOCKET_MAX || !R4_SOCKETS[sid].active || R4_SOCKETS[sid].state != 4 {
+        return 0xFFFF_FFFF_FFFF_FFFF;
+    }
+    if !r4_socket_owner_ok(sid) {
+        return 0xFFFF_FFFF_FFFF_FFFF;
+    }
+    let n = R4_SOCKETS[sid].rx_len;
+    if n == 0 || len < n as u64 {
+        return 0xFFFF_FFFF_FFFF_FFFF;
+    }
+    if copyout_user(buf, &R4_SOCKETS[sid].rx_buf[..n], n).is_err() {
+        return 0xFFFF_FFFF_FFFF_FFFF;
+    }
+    R4_SOCKETS[sid].rx_len = 0;
+    n as u64
+}
+
+#[cfg(feature = "go_test")]
+unsafe fn sys_socket_close_r4(socket_id: u64) -> u64 {
+    let sid = socket_id as usize;
+    if sid >= R4_NET_SOCKET_MAX || !R4_SOCKETS[sid].active {
+        return 0xFFFF_FFFF_FFFF_FFFF;
+    }
+    if !r4_socket_owner_ok(sid) {
+        return 0xFFFF_FFFF_FFFF_FFFF;
+    }
+    r4_release_socket(sid);
+    0
+}
+
+#[cfg(feature = "go_test")]
+unsafe fn sys_net_if_config_r4(if_index: u64, cfg_ptr: u64, cfg_len: u64) -> u64 {
+    if !r4_current_has_cap(R4_TASK_CAP_NETWORK) {
+        return 0xFFFF_FFFF_FFFF_FFFF;
+    }
+    let idx = if_index as usize;
+    if idx >= R4_NET_IF_MAX || !R4_NET_INTERFACES[idx].active {
+        return 0xFFFF_FFFF_FFFF_FFFF;
+    }
+    let (family, prefix_len, addr) = match r4_net_copy_cfg(cfg_ptr, cfg_len) {
+        Some(v) => v,
+        None => return 0xFFFF_FFFF_FFFF_FFFF,
+    };
+    if family as u64 == R4_NET_AF_INET {
+        R4_NET_INTERFACES[idx].has_ipv4 = true;
+        R4_NET_INTERFACES[idx].ipv4.copy_from_slice(&addr[0..4]);
+        R4_NET_INTERFACES[idx].ipv4_prefix = prefix_len;
+        return 0;
+    }
+    R4_NET_INTERFACES[idx].has_ipv6 = true;
+    R4_NET_INTERFACES[idx].ipv6 = addr;
+    R4_NET_INTERFACES[idx].ipv6_prefix = prefix_len;
+    0
+}
+
+#[cfg(feature = "go_test")]
+unsafe fn sys_net_route_add_r4(if_index: u64, route_ptr: u64, route_len: u64) -> u64 {
+    if !r4_current_has_cap(R4_TASK_CAP_NETWORK) {
+        return 0xFFFF_FFFF_FFFF_FFFF;
+    }
+    let idx = if_index as usize;
+    if idx >= R4_NET_IF_MAX || !R4_NET_INTERFACES[idx].active {
+        return 0xFFFF_FFFF_FFFF_FFFF;
+    }
+    let (family, prefix_len, dest) = match r4_net_copy_cfg(route_ptr, route_len) {
+        Some(v) => v,
+        None => return 0xFFFF_FFFF_FFFF_FFFF,
+    };
+    if r4_net_interface_addr(family, idx).is_none() {
+        return 0xFFFF_FFFF_FFFF_FFFF;
+    }
+    for slot in 0..R4_NET_ROUTE_MAX {
+        if R4_NET_ROUTES[slot].active
+            && R4_NET_ROUTES[slot].family == family
+            && R4_NET_ROUTES[slot].prefix_len == prefix_len
+            && R4_NET_ROUTES[slot].if_index == idx as u8
+            && R4_NET_ROUTES[slot].dest == dest
+        {
+            return 0;
+        }
+    }
+    for slot in 0..R4_NET_ROUTE_MAX {
+        if !R4_NET_ROUTES[slot].active {
+            R4_NET_ROUTES[slot].active = true;
+            R4_NET_ROUTES[slot].family = family;
+            R4_NET_ROUTES[slot].prefix_len = prefix_len;
+            R4_NET_ROUTES[slot].if_index = idx as u8;
+            R4_NET_ROUTES[slot].dest = dest;
+            return 0;
+        }
+    }
+    0xFFFF_FFFF_FFFF_FFFF
+}
+
+#[cfg(feature = "go_test")]
+unsafe fn r4_c4_runtime_init() {
+    r4_storage_boot_probe();
+
+    let hhdm_resp_ptr = core::ptr::read_volatile(core::ptr::addr_of!(HHDM_REQUEST.response));
+    let kaddr_resp_ptr = core::ptr::read_volatile(core::ptr::addr_of!(KADDR_REQUEST.response));
+    let kphys = (*kaddr_resp_ptr).physical_base;
+    let kvirt = (*kaddr_resp_ptr).virtual_base;
+    let _hhdm = (*hhdm_resp_ptr).offset;
+    NET_KV2P_DELTA = kphys.wrapping_sub(kvirt);
+
+    let mut nic_ready = false;
+    if let Some(iobase) = pci_find_virtio_net() {
+        if virtio_net_init(iobase) {
+            nic_ready = true;
+            serial_write(b"NETC4: nic ready\n");
+        }
+    }
+    r4_net_reset(nic_ready);
 }
 
 // --------------- Paging verification ---------------
@@ -5709,6 +7072,7 @@ pub extern "C" fn kmain() -> ! {
     unsafe {
         let kstack = &stack_top as *const u8 as u64;
         tss_init(kstack);
+        r4_c4_runtime_init();
         setup_go_user_pages(GO_USER_BIN);
         R4_NUM_TASKS = 1;
         r4_init_task(0, USER_CODE_VA, USER_STACK_TOP, 0);

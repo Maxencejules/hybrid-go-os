@@ -38,12 +38,15 @@ def test_process_scheduler_runtime_v2_waits_reaps_and_restarts(qemu_serial_go):
             "TIMESVC: req ok",
             "TIMESVC: time ok",
             "GOSH: reply ok",
+            "SOAKC5: mixed ok",
             "SVC: shell stopping",
             "SVC: shell stopped",
-            "SVC: timesvc stopping",
-            "SVC: timesvc stopped",
+            "ISOC5: cleanup ok",
             "GOSVCM: reap shell",
             "GOSVCM: stop diagsvc",
+            "GOSVCM: stop timesvc",
+            "SVC: timesvc stopping",
+            "SVC: timesvc stopped",
             "GOSVCM: reap timesvc",
             "GOINIT: ready",
         ],
@@ -57,5 +60,7 @@ def test_process_scheduler_runtime_v2_waits_reaps_and_restarts(qemu_serial_go):
     assert serial.count("GOSVCM: reap shell") == 3
     assert serial.count("SVC: timesvc stopped") == 1
     assert serial.count("GOSVCM: stop diagsvc") == 1
+    assert serial.count("GOSVCM: stop timesvc") == 1
     assert "R4: deadlock" not in serial, f"Unexpected deadlock marker.\nFull output:\n{serial}"
     assert "GOSVCM: err" not in serial, f"Unexpected service-manager error.\nFull output:\n{serial}"
+    assert "R4: mgr" not in serial, f"Unexpected manager debug marker.\nFull output:\n{serial}"

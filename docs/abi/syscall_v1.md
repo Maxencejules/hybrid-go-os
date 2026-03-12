@@ -62,8 +62,8 @@ Changing any of those is a breaking change and is not allowed in `v1.x`.
 
 ### Syscall ID policy
 
-- `0..31`: core runtime/process/file/network primitives.
-- `32..127`: future stable extensions.
+- `0..63`: core runtime/process/file/socket/network primitives.
+- `64..127`: future stable extensions.
 - `128..255`: experimental range; no compatibility promise.
 
 IDs in the experimental range must not be required by Compatibility Profile v1.
@@ -161,12 +161,12 @@ They are defined as stable in the v1.x line.
 
 | # | Name | Args | Returns | PR-2 status |
 |---|------|------|---------|-------------|
-| 18 | `sys_open` | `rdi=path_ptr`, `rsi=flags`, `rdx=mode` | `fd` or `-1` | Implemented (v1 baseline paths: `/dev/console`, `/compat/hello.txt`) |
+| 18 | `sys_open` | `rdi=path_ptr`, `rsi=flags`, `rdx=mode` | `fd` or `-1` | Implemented (v1 baseline paths: `/dev/console`, `/compat/hello.txt`; the `go_test` C4 lane also exposes `/runtime/journal.bin` and `/runtime/state.bin` when block storage is present) |
 | 19 | `sys_read` | `rdi=fd`, `rsi=buf`, `rdx=len` | bytes read or `-1` | Implemented (deterministic fd-table v1 behavior) |
-| 20 | `sys_write` | `rdi=fd`, `rsi=buf`, `rdx=len` | bytes written or `-1` | Implemented (console write path; deterministic errors) |
+| 20 | `sys_write` | `rdi=fd`, `rsi=buf`, `rdx=len` | bytes written or `-1` | Implemented (console write path plus C4 journal staging; deterministic errors) |
 | 21 | `sys_close` | `rdi=fd` | `0` or `-1` | Implemented |
 | 22 | `sys_wait` | `rdi=pid`, `rsi=status_ptr`, `rdx=options` | child pid or `-1` | Implemented (wait baseline semantics) |
-| 23 | `sys_poll` | `rdi=pollfd_ptr`, `rsi=nfds`, `rdx=timeout_ticks` | ready count or `-1` | Implemented (poll baseline equivalent wait primitive) |
+| 23 | `sys_poll` | `rdi=pollfd_ptr`, `rsi=nfds`, `rdx=timeout_ticks` | ready count or `-1` | Implemented (poll baseline equivalent wait primitive; current live readiness proof is file-backed) |
 
 ## Security baseline extensions in v1 (M10)
 
@@ -190,6 +190,36 @@ currently exercised on the `go_test` boot path.
 | 28 | `sys_proc_info` | `rdi=tid`, `rsi=info_ptr`, `rdx=info_len` | `0` or `-1` | Implemented on the default Go lane for task identity, parent, state, scheduler class, and accounting snapshots |
 | 29 | `sys_sched_set` | `rdi=tid`, `rsi=class_id` | `0` or `-1` | Implemented on the default Go lane for bounded scheduler-class control (`0=best-effort`, `1=critical`) |
 
+## C4 durable storage and connected runtime extensions
+
+These syscall IDs expose the boot-backed durable-storage and socket/runtime
+network surface used by the default Go service lane when `image-go` boots with
+attached block and network devices.
+
+| # | Name | Args | Returns | C4 status |
+|---|------|------|---------|-----------|
+| 30 | `sys_fsync` | `rdi=fd` | `0` or `-1` | Implemented for ordered flush of the staged C4 journal file into durable state |
+| 31 | `sys_socket_open` | `rdi=domain`, `rsi=kind` | socket handle or `-1` | Implemented for `AF_INET`/`AF_INET6` stream sockets on the default Go lane |
+| 32 | `sys_socket_bind` | `rdi=socket`, `rsi=addr_ptr`, `rdx=addr_len` | `0` or `-1` | Implemented |
+| 33 | `sys_socket_listen` | `rdi=socket`, `rsi=backlog` | `0` or `-1` | Implemented |
+| 34 | `sys_socket_connect` | `rdi=socket`, `rsi=addr_ptr`, `rdx=addr_len` | `0` or `-1` | Implemented |
+| 35 | `sys_socket_accept` | `rdi=socket`, `rsi=addr_ptr`, `rdx=addr_len_ptr` | accepted socket or `-1` | Implemented |
+| 36 | `sys_socket_send` | `rdi=socket`, `rsi=buf`, `rdx=len` | bytes sent or `-1` | Implemented |
+| 37 | `sys_socket_recv` | `rdi=socket`, `rsi=buf`, `rdx=len` | bytes received or `-1` | Implemented |
+| 38 | `sys_socket_close` | `rdi=socket` | `0` or `-1` | Implemented |
+| 39 | `sys_net_if_config` | `rdi=if_index`, `rsi=cfg_ptr`, `rdx=cfg_len` | `0` or `-1` | Implemented for deterministic interface address configuration on the default Go lane |
+| 40 | `sys_net_route_add` | `rdi=if_index`, `rsi=cfg_ptr`, `rdx=cfg_len` | `0` or `-1` | Implemented for deterministic static route installation on the default Go lane |
+
+## C5 reliability and isolation extensions
+
+These syscall IDs extend the same default Go lane with runtime-backed
+isolation-profile control and observability needed by the reliable/isolated
+service OS closure.
+
+| # | Name | Args | Returns | C5 status |
+|---|------|------|---------|-----------|
+| 41 | `sys_isolation_config` | `rdi=tid`, `rsi=cfg_ptr`, `rdx=cfg_len` | `0` or `-1` | Implemented on the default Go lane for per-task isolation domain, capability, and resource-limit configuration |
+
 ## Related contracts
 
 - Process/thread + loader + auxv + argv/envp contract:
@@ -200,6 +230,10 @@ currently exercised on the `go_test` boot path.
   `docs/security/rights_capability_model_v1.md`
 - Syscall filtering contract:
   `docs/security/syscall_filtering_v1.md`
+- Connected runtime contract:
+  `docs/net/network_stack_contract_v2.md`
+- Recovery contract:
+  `docs/storage/recovery_playbook_v2.md`
 
 ## Conformance references
 

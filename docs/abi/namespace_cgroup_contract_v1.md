@@ -36,6 +36,18 @@ multi-tenant service workloads in M42.
 - Unsupported containment bypass operations must not silently succeed.
 - Escape and privilege-escalation checks are release-blocking on policy drift.
 
+## Default-Lane Runtime Evidence
+
+The default `image-go` lane now carries a bounded runtime-backed isolation
+proof in addition to the historical namespace/cgroup campaign artifacts:
+
+- service domains are applied at launch time
+- storage and network capabilities are task-bounded
+- fd, socket, and endpoint limits are enforced on the live kernel path
+- task snapshots expose `dom=`, `cap=`, `fd=`, and `sock=` markers
+- shell exit cleanup is verified with `ISOC5: cleanup ok`
+- runtime gate: `make test-reliable-isolated-runtime-c5`
+
 ## Gate requirements
 
 - Isolation campaign command:
@@ -44,6 +56,7 @@ multi-tenant service workloads in M42.
   - `python tools/run_resource_control_campaign_v1.py --out out/resource-control-v1.json`
 - Local gate: `make test-isolation-baseline-v1`.
 - Local sub-gate: `make test-namespace-cgroup-v1`.
+- Runtime closure gate: `make test-reliable-isolated-runtime-c5`.
 - CI gate: `Isolation baseline v1 gate`.
 - CI sub-gate: `Namespace cgroup v1 gate`.
 

@@ -52,7 +52,7 @@ endif
        build-sec-filter image-sec-filter \
        test-security-baseline test-runtime-maturity test-process-scheduler-v2 test-compat-v2 test-network-stack-v1 test-network-stack-v2 \
        test-storage-reliability-v1 test-storage-reliability-v2 test-release-engineering-v1 test-release-ops-v2 test-abi-stability-v3 test-kernel-reliability-v1 \
-       test-firmware-attestation-v1 test-perf-regression-v1 test-userspace-model-v2 test-pkg-ecosystem-v3 test-update-trust-v1 test-app-compat-v3 test-security-hardening-v3 test-vuln-response-v1 \
+       test-firmware-attestation-v1 test-perf-regression-v1 test-userspace-model-v2 test-connected-runtime-c4 test-reliable-isolated-runtime-c5 test-pkg-ecosystem-v3 test-update-trust-v1 test-app-compat-v3 test-security-hardening-v3 test-vuln-response-v1 \
        test-observability-v2 test-crash-dump-v1 test-ops-ux-v3 test-release-lifecycle-v2 test-supply-chain-revalidation-v1 test-conformance-v1 test-fleet-ops-v1 test-fleet-rollout-safety-v1 test-maturity-qual-v1 test-desktop-stack-v1 test-gui-app-compat-v1 \
        test-compat-surface-v1 test-posix-gap-closure-v1 test-hw-matrix-v4 test-hw-baremetal-promotion-v1 test-storage-platform-v1 test-storage-feature-contract-v1 test-ecosystem-scale-v1 test-app-catalog-health-v1 \
        test-evidence-integrity-v1 test-synthetic-evidence-ban-v1 test-process-readiness-parity-v1 test-posix-gap-closure-v2 test-isolation-baseline-v1 test-namespace-cgroup-v1 \
@@ -675,6 +675,12 @@ test-perf-regression-v1:
 
 test-userspace-model-v2: image-go
 	$(PYTHON) -m pytest tests/runtime/test_service_model_docs_v2.py tests/runtime/test_service_lifecycle_v2.py tests/runtime/test_service_boot_runtime_v2.py tests/runtime/test_service_dependency_order_v2.py tests/runtime/test_restart_policy_v2.py tests/runtime/test_service_control_runtime_v1.py tests/runtime/test_userspace_model_gate_v2.py -v --junitxml=$(OUT)/pytest-userspace-model-v2.xml
+
+test-connected-runtime-c4: image-go
+	$(PYTHON) -m pytest tests/runtime/test_connected_runtime_c4.py tests/runtime/test_c4_status_docs.py -v --junitxml=$(OUT)/pytest-connected-runtime-c4.xml
+
+test-reliable-isolated-runtime-c5: image-go
+	$(PYTHON) -m pytest tests/runtime/test_reliable_isolated_runtime_c5.py tests/runtime/test_c5_status_docs.py -v --junitxml=$(OUT)/pytest-reliable-isolated-runtime-c5.xml
 
 test-pkg-ecosystem-v3:
 	$(PYTHON) tools/repo_policy_check_v3.py --out $(OUT)/repo-policy-v3.json

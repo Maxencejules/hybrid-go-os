@@ -9,6 +9,10 @@ Status: active release gate
 Define the M19 network baseline as a versioned, executable contract with
 stronger interop and soak evidence than v1.
 
+The default `image-go` lane now also carries a boot-backed C4 proof path: it
+configures interfaces and routes in-kernel and exercises the IPv6 stream-socket
+lifecycle on every boot with deterministic `NETC4:*` markers.
+
 ## Scope (v2 lane)
 
 - L3:
@@ -28,9 +32,23 @@ stronger interop and soak evidence than v1.
 - Raw frame syscalls remain in ABI:
   - `sys_net_send` (`docs/abi/syscall_v1.md` #15)
   - `sys_net_recv` (`docs/abi/syscall_v1.md` #16)
+- Default-lane socket/runtime syscalls are additive in ABI:
+  - `sys_socket_open` .. `sys_socket_close` (`docs/abi/syscall_v1.md` #31-38)
+  - `sys_net_if_config` (`docs/abi/syscall_v1.md` #39)
+  - `sys_net_route_add` (`docs/abi/syscall_v1.md` #40)
 - Socket/DNS semantics for M19 are versioned in:
   - `docs/net/socket_contract_v2.md`
   - `docs/net/tcp_profile_v2.md`
+
+## Boot-backed default-lane evidence
+
+- `image-go` configures interface addresses and static routes before opening
+  the socket pair used by the default Go shell service.
+- The live kernel path executes `bind`, `listen`, `connect`, `accept`, `send`,
+  and `recv` on an IPv6 stream socket pair and emits deterministic `NETC4`
+  markers to serial.
+- This runtime proof complements, rather than replaces, the broader interop and
+  soak artifacts required by the historical M19 closure.
 
 ## Deterministic behavior requirements
 
@@ -42,14 +60,17 @@ stronger interop and soak evidence than v1.
 ## Required release gates
 
 - Local gate: `make test-network-stack-v2`
+- Runtime-backed default-lane gate: `make test-connected-runtime-c4`
 - CI gate: `Network stack v2 gate`
 - Test suite:
   - `tests/net/test_tcp_interop_v2.py`
   - `tests/net/test_ipv6_interop_v2.py`
   - `tests/net/test_dns_stub_v2.py`
   - `tests/net/test_network_gate_v2.py`
+  - `tests/runtime/test_connected_runtime_c4.py`
 
 ## Required artifacts
 
 - `out/net-interop-v2.json`
 - `out/net-soak-v2.json`
+- `out/pytest-connected-runtime-c4.xml`

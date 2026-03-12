@@ -13,8 +13,9 @@ Use the implementation class to tell the difference between:
   wiring.
 
 The repo does have real anchors here: the Rust kernel boots, enters user mode,
-supports syscalls and IPC, exposes VirtIO block and basic VirtIO net paths, and
-boots the default Go lane through a manifest-driven service runtime.
+supports syscalls and IPC, exposes block and network runtime surfaces, persists
+journal-backed state across reboots, and boots the default Go lane through a
+manifest-driven service runtime.
 
 ## Historical Closure Sequence
 
@@ -25,9 +26,10 @@ boots the default Go lane through a manifest-driven service runtime.
    runtime instead of a one-off demo path.
 3. `M12` and `M13` closed next as the first connected and durable runtime
    backlogs, but they closed with a mixed runtime-plus-contract evidence base.
-4. `M18`, `M19`, `M22`, and `M42` closed later in the ledger on top of that
-   base, and they remain the most evidence-heavy rows in literal
-   implementation-closure terms.
+4. `M18` and `M19` closed later in the ledger on top of that base and are now
+   reinforced by the same boot-backed default lane.
+5. `M22` and `M42` now close the sequence with runtime-backed reliability and
+   isolation on the default lane.
 
 ## C3: Contracted Service OS Runtime
 
@@ -41,23 +43,23 @@ boots the default Go lane through a manifest-driven service runtime.
 
 | Backlog | Backlog state | Implementation class | Closure basis in repo | Carry-forward product work |
 |---|---|---|---|---|
-| `M12 Network stack v1` | `Closed` | `Runtime-partial` | The kernel has a real VirtIO-net plus UDP-echo boot path and multi-machine QEMU checks, but the TCP, IPv6, poll, and soak semantics that closed the milestone are still mostly contract or model backed. | Promote socket semantics, address configuration, and packet-error handling into booted runtime paths if the architecture-first scoreboard needs a fully literal connected-runtime story. |
-| `M13 Storage reliability v1` | `Closed` | `Runtime-partial` | The block path and mount baseline are real, while durability classes, recovery reports, and fault campaigns that closed the backlog are still largely host-side tooling plus image validation. | Tie fsync or flush ordering and recovery behavior to live block state from booted images before treating storage durability as fully runtime-backed. |
-| `M18 Storage reliability v2` | `Closed` | `Evidence-first` | The v2 storage backlog closed through stronger contracts, recovery and power-fail generators, and gate wiring layered on the same narrow storage runtime. | Real journal or replay machinery, reboot-after-corruption evidence, and boot-backed recovery artifacts are still the carry-forward work if C4 is to become literal at runtime. |
-| `M19 Network stack v2` | `Closed` | `Evidence-first` | The v2 network backlog closed through broader contracts, interop or soak tooling, DNS-stub checks, and gate wiring, while the live booted network runtime still visibly bottoms out near the earlier echo path. | Multi-socket runtime behavior, timeout or retry handling, and packet-trace-backed evidence from the booted system remain the carry-forward work. |
+| `M12 Network stack v1` | `Closed` | `Runtime-backed` | The kernel now exposes a real socket subsystem on the booted `image-go` lane, configures interfaces and routes, and exercises IPv6 stream-socket `bind/listen/connect/accept/send/recv` behavior from the default Go services. | Add broader datagram, timeout, and external-wire behavior only as additive network depth rather than as a reopened historical M12 task. |
+| `M13 Storage reliability v1` | `Closed` | `Runtime-backed` | The default lane now opens durable runtime files, stages journal records on attached block media, replays them across reboot, and exposes ordered flush through `sys_fsync` on the live image. | Extend the same runtime into richer filesystem durability or corruption handling only as additive depth rather than as a reopened M13 task. |
+| `M18 Storage reliability v2` | `Closed` | `Runtime-backed` | The v2 storage contracts and playbooks now sit on top of a live boot-backed journal/replay path, with `RECOV: replay ok` and `BLK: flush ordered` emitted by the running system and verified across two boots. | Add longer power-fail campaigns, metadata repair, or broader filesystem coverage only as additive runtime breadth. |
+| `M19 Network stack v2` | `Closed` | `Runtime-backed` | The default `image-go` lane now configures IPv6 addresses and routes and drives multi-socket stream connection lifecycle through kernel socket syscalls, while the older interop and soak tooling remains supplementary evidence. | Add external interop, DNS breadth, and richer socket options only as additive network depth rather than as reopened backlog closure. |
 
 ## C5: Reliable And Isolated Service OS
 
 | Backlog | Backlog state | Implementation class | Closure basis in repo | Carry-forward product work |
 |---|---|---|---|---|
-| `M22 Kernel Reliability + Soak v1` | `Closed` | `Evidence-first` | The backlog closed through deterministic soak and fault tooling, schema checks, and release-gate wiring rather than through long-running mixed-service campaigns emitted by a booted image. | Long-run boot-backed soak artifacts and mixed block, network, and service workloads remain the carry-forward product work if the repo wants literal reliability claims. |
-| `M42 Isolation + Namespace Baseline v1` | `Closed` | `Evidence-first` | The backlog closed through namespace or cgroup contracts, synthetic isolation campaigns, negative-path gates, and the smaller real quota or owner-right controls already present in the kernel. | Literal namespaces, cgroups, cleanup, and observability in the live kernel remain the carry-forward work; they should land as fresh runtime depth, not as a reopened historical closure task. |
+| `M22 Kernel Reliability + Soak v1` | `Closed` | `Runtime-backed` | The shipped `image-go` lane now runs boot-backed mixed service, storage, and socket workloads after journal replay, emits `SOAKC5: mixed ok`, and carries the earlier soak and fault tooling as supplementary evidence rather than as the only proof. | Extend the same path to longer-duration campaigns, broader fault classes, or external hardware soak only as additive reliability depth. |
+| `M42 Isolation + Namespace Baseline v1` | `Closed` | `Runtime-backed` | The live kernel now applies per-service domains, capability flags, and fd/socket/endpoint limits, enforces owner-bound access on those objects, performs exit cleanup, and exposes isolation state through `sys_proc_info` plus `diagsvc` task snapshots on the booted lane. | Broader namespace or cgroup surface area can still be added later, but the historical M42 closure no longer depends only on synthetic host-side campaigns. |
 
 ## Cross-Cutting Closure Work
 
-- The historical core-runtime backlog is closed in the flat ledger, but only
-  `M10`, `M16`, and `M25` are already strong runtime-backed closures for the
-  default lane.
+- The historical core-runtime backlog is closed in the flat ledger, and
+  `M10`, `M12`, `M13`, `M16`, `M18`, `M19`, `M22`, `M25`, and `M42` are now
+  runtime-backed closures for the default lane.
 - `kernel_rs/src/runtime/` now exists as an explicit module boundary for
   process, storage, networking, security, and isolation helpers, but most
   subsystem logic still lives in `kernel_rs/src/lib.rs`; future core work
@@ -66,6 +68,6 @@ boots the default Go lane through a manifest-driven service runtime.
 - Keep the manifest-driven Go init or service runtime as the default lane and
   extend that path when storage, networking, reliability, or isolation work
   becomes more literal.
-- Treat `M12`, `M13`, `M18`, `M19`, `M22`, and `M42` as closed historical
-  backlogs with carried-forward runtime depth work, not as still-open execution
-  backlogs.
+- Treat `M22` and `M42` as closed historical backlogs whose default-lane
+  runtime proof now exists; future reliability or containment breadth should
+  land as additive depth rather than as a backlog reopen.

@@ -53,16 +53,24 @@ def test_userspace_model_v2_boots_manifest_driven_go_runtime(qemu_serial_go):
             "TIMESVC: req ok",
             "TIMESVC: time ok",
             "GOSH: reply ok",
+            "GOSH: diag ok",
+            "NETC4: reply ok",
+            "ISOC5: domain ok",
+            "ISOC5: quota ok",
+            "ISOC5: observe ok",
+            "SOAKC5: mixed ok",
             "SVC: shell stopping",
             "SVC: shell stopped",
-            "SVC: timesvc stopping",
-            "SVC: timesvc stopped",
+            "ISOC5: cleanup ok",
             "GOSVCM: reap shell",
             "GOSVCM: stop diagsvc",
             "SVC: diagsvc stopping",
-            "GOSVCM: reap timesvc",
+            "GOSVCM: stop timesvc",
+            "SVC: timesvc stopping",
+            "SVC: timesvc stopped",
             "DIAGSVC: stop",
             "SVC: diagsvc stopped",
+            "GOSVCM: reap timesvc",
             "GOSVCM: reap diagsvc",
             "GOINIT: ready",
             "RUGO: halt ok",
@@ -83,6 +91,7 @@ def test_userspace_model_v2_boots_manifest_driven_go_runtime(qemu_serial_go):
     assert serial.count("SVC: shell stopped") == 1
     assert serial.count("SVC: timesvc stopped") == 1
     assert serial.count("GOSVCM: stop diagsvc") == 1
+    assert serial.count("GOSVCM: stop timesvc") == 1
     assert serial.count("SVC: diagsvc stopped") == 1
 
     for error_marker in (
@@ -90,6 +99,7 @@ def test_userspace_model_v2_boots_manifest_driven_go_runtime(qemu_serial_go):
         "GOSVCM: err",
         "TIMESVC: err",
         "GOSH: err",
+        "R4: mgr",
     ):
         assert error_marker not in serial, (
             f"Did not expect '{error_marker}' in serial output.\n"

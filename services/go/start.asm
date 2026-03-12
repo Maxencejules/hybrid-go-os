@@ -4,6 +4,9 @@
 bits 64
 default rel
 
+%define GO_HEAP_PTR  0x7F4000
+%define GO_HEAP_BASE 0x7F4008
+
 section .text._start
 global _start
 extern main
@@ -62,6 +65,30 @@ main.sysWait:
     int  0x80
     ret
 
+global main.sysOpenRaw
+main.sysOpenRaw:
+    mov  eax, 18
+    int  0x80
+    ret
+
+global main.sysReadRaw
+main.sysReadRaw:
+    mov  eax, 19
+    int  0x80
+    ret
+
+global main.sysWriteRaw
+main.sysWriteRaw:
+    mov  eax, 20
+    int  0x80
+    ret
+
+global main.sysCloseRaw
+main.sysCloseRaw:
+    mov  eax, 21
+    int  0x80
+    ret
+
 global main.sysProcInfoRaw
 main.sysProcInfoRaw:
     mov  eax, 28
@@ -71,6 +98,78 @@ main.sysProcInfoRaw:
 global main.sysSchedSetRaw
 main.sysSchedSetRaw:
     mov  eax, 29
+    int  0x80
+    ret
+
+global main.sysFsyncRaw
+main.sysFsyncRaw:
+    mov  eax, 30
+    int  0x80
+    ret
+
+global main.sysSocketOpenRaw
+main.sysSocketOpenRaw:
+    mov  eax, 31
+    int  0x80
+    ret
+
+global main.sysSocketBindRaw
+main.sysSocketBindRaw:
+    mov  eax, 32
+    int  0x80
+    ret
+
+global main.sysSocketListenRaw
+main.sysSocketListenRaw:
+    mov  eax, 33
+    int  0x80
+    ret
+
+global main.sysSocketConnectRaw
+main.sysSocketConnectRaw:
+    mov  eax, 34
+    int  0x80
+    ret
+
+global main.sysSocketAcceptRaw
+main.sysSocketAcceptRaw:
+    mov  eax, 35
+    int  0x80
+    ret
+
+global main.sysSocketSendRaw
+main.sysSocketSendRaw:
+    mov  eax, 36
+    int  0x80
+    ret
+
+global main.sysSocketRecvRaw
+main.sysSocketRecvRaw:
+    mov  eax, 37
+    int  0x80
+    ret
+
+global main.sysSocketCloseRaw
+main.sysSocketCloseRaw:
+    mov  eax, 38
+    int  0x80
+    ret
+
+global main.sysNetIfConfigRaw
+main.sysNetIfConfigRaw:
+    mov  eax, 39
+    int  0x80
+    ret
+
+global main.sysNetRouteAddRaw
+main.sysNetRouteAddRaw:
+    mov  eax, 40
+    int  0x80
+    ret
+
+global main.sysIsolationConfigRaw
+main.sysIsolationConfigRaw:
+    mov  eax, 41
     int  0x80
     ret
 
@@ -110,15 +209,15 @@ main.haltForever:
 
 global runtime.alloc
 runtime.alloc:
-    mov  rax, qword [0x7FF000]
+    mov  rax, qword [abs GO_HEAP_PTR]
     test rax, rax
     jnz  .has_ptr
-    mov  rax, 0x7FF008
+    mov  rax, GO_HEAP_BASE
 .has_ptr:
     add  rdi, 7
     and  rdi, ~7
     lea  rdx, [rax + rdi]
-    mov  qword [0x7FF000], rdx
+    mov  qword [abs GO_HEAP_PTR], rdx
     ret
 
 global getrandom

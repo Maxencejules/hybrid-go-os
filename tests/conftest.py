@@ -5,6 +5,7 @@ import subprocess
 import sys
 import threading
 import time
+import uuid
 
 import pytest
 
@@ -651,6 +652,52 @@ def _boot_iso_with_net(
     )
 
 
+def _boot_iso_with_disk_and_net(
+    iso_path,
+    disk_path,
+    machine="q35",
+    block_device="virtio-blk-pci,drive=disk0,disable-modern=on",
+    net_device="virtio-net-pci,netdev=n0,disable-modern=on",
+):
+    """Boot an ISO in QEMU with both a persistent raw disk and a NIC attached."""
+    assert os.path.isfile(iso_path), f"ISO not found: {iso_path}"
+    if not QEMU_BIN:
+        pytest.skip("qemu-system-x86_64 not found (set QEMU_BIN or install QEMU)")
+
+    if not os.path.isfile(disk_path):
+        with open(disk_path, "wb") as f:
+            f.write(b"\x00" * (1024 * 1024))
+
+    cmd = [
+        QEMU_BIN,
+        "-machine", machine,
+        "-cpu", "qemu64",
+        "-m", "128",
+        "-serial", "stdio",
+        "-display", "none",
+        "-no-reboot",
+        "-device", "isa-debug-exit,iobase=0xf4,iosize=0x04",
+        "-cdrom", iso_path,
+        "-drive", f"file={disk_path},format=raw,if=none,id=disk0",
+        "-device", block_device,
+        "-netdev", "user,id=n0",
+        "-device", net_device,
+    ]
+
+    try:
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=NET_TIMEOUT,
+        )
+    except subprocess.TimeoutExpired as exc:
+        stdout = exc.stdout.decode("utf-8", errors="replace") if exc.stdout else ""
+        pytest.fail(f"QEMU timed out ({NET_TIMEOUT}s). Captured serial:\n{stdout}")
+
+    return result
+
+
 @pytest.fixture
 def qemu_serial_net():
     """Boot the VirtIO net test OS image with networking."""
@@ -689,6 +736,25 @@ def qemu_serial_go():
     if not os.path.isfile(ISO_GO_PATH):
         pytest.skip(f"ISO not built: {ISO_GO_PATH}")
     return _boot_iso(ISO_GO_PATH)
+
+
+@pytest.fixture
+def qemu_go_c4_runtime():
+    """Return a boot helper and disk path for the persistent C4 image-go runtime."""
+    if not os.path.isfile(ISO_GO_PATH):
+        pytest.skip(f"ISO not built: {ISO_GO_PATH}")
+
+    os.makedirs(os.path.join(REPO_ROOT, "out"), exist_ok=True)
+    disk_path = os.path.join(REPO_ROOT, "out", f"go-c4-runtime-{uuid.uuid4().hex}.img")
+
+    def _boot():
+        return _boot_iso_with_disk_and_net(ISO_GO_PATH, disk_path)
+
+    try:
+        yield _boot, disk_path
+    finally:
+        if os.path.isfile(disk_path):
+            os.remove(disk_path)
 
 
 @pytest.fixture

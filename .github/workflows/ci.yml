@@ -335,6 +335,30 @@ jobs:
           path: |
             out/pytest-userspace-model-v2.xml
 
+      - name: Connected runtime C4 gate
+        run: |
+          make test-connected-runtime-c4
+
+      - name: Upload connected runtime C4 artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: connected-runtime-c4-artifacts
+          path: |
+            out/pytest-connected-runtime-c4.xml
+
+      - name: Reliable isolated runtime C5 gate
+        run: |
+          make test-reliable-isolated-runtime-c5
+
+      - name: Upload reliable isolated runtime C5 artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reliable-isolated-runtime-c5-artifacts
+          path: |
+            out/pytest-reliable-isolated-runtime-c5.xml
+
       - name: Package ecosystem v3 gate
         run: |
           make test-pkg-ecosystem-v3

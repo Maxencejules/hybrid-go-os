@@ -17,7 +17,7 @@ The active framing is now three tracks rather than one flat milestone ladder.
 
 | Track | Role | Current phase |
 |---|---|---|
-| Core Hybrid OS | Main scoreboard. Measures the default Rust-kernel plus Go-service runtime itself. | `C3` done; `C4` in progress; `C5` stays queued behind runtime-backed storage, network, and reliability closure. |
+| Core Hybrid OS | Main scoreboard. Measures the default Rust-kernel plus Go-service runtime itself. | `C3` done; `C4` done; `C5` done. |
 | Tooling / Validation / Release Infrastructure | Secondary scoreboard. Measures confidence, qualification, release, and lifecycle discipline around the core lane. | `T4` complete; next is `T5 Advanced Trust and Compliance Infrastructure`. |
 | Expansion / Research / Platform Breadth | Secondary scoreboard. Measures compatibility breadth, hardware breadth, desktop breadth, and ecosystem growth. | `X4` complete; next is `X5 Next-Wave Breadth Research`. |
 
@@ -35,8 +35,8 @@ literal implementation bar:
 
 The historical core-runtime backlog is closed in the ledger.
 [implementation_closure/core_runtime.md](implementation_closure/core_runtime.md)
-records which of those closures are already runtime-backed and which still
-carry forward product work.
+records `M10`, `M12`, `M13`, `M16`, `M18`, `M19`, `M22`, `M25`, and `M42` as
+runtime-backed closures on the default lane.
 
 ## Observable Core Progress
 
@@ -59,9 +59,9 @@ It is not the same thing as the current runtime-backed scoreboard.
    new lane.
 3. `M12` and `M13` followed as the first connected and durable runtime
    expansions.
-4. `M18`, `M19`, and `M22` closed later with heavier contract and artifact
-   support than direct boot-backed evidence.
-5. `M42` closed last.
+4. `M18` and `M19` closed later and are now reinforced by the same boot-backed
+   default lane.
+5. `M22` and `M42` now close the sequence with runtime-backed reliability and isolation.
 
 ## Track Summary
 

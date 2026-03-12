@@ -72,6 +72,9 @@ var (
 	serviceReaps    [serviceCount]byte
 	serviceLastTick [serviceCount]uintptr
 	shellRecycles   byte
+	c5CleanupLogged byte
+
+	managerCleanupInfo taskInfo
 )
 
 var (
@@ -148,16 +151,21 @@ var (
 	msgMetricBlock   = [...]byte{'b', 'l', 'k', '='}
 	msgMetricSend    = [...]byte{'t', 'x', '='}
 	msgMetricRecv    = [...]byte{'r', 'x', '='}
+	msgMetricEp      = [...]byte{'e', 'p', '='}
+	msgMetricDomain  = [...]byte{'d', 'o', 'm', '='}
+	msgMetricCap     = [...]byte{'c', 'a', 'p', '='}
+	msgMetricFd      = [...]byte{'f', 'd', '='}
+	msgMetricSock    = [...]byte{'s', 'o', 'c', 'k', '='}
 	msgSpace         = [...]byte{' '}
 	msgNewline       = [...]byte{'\n'}
 
-	msgStateDeclared = [...]byte{'d', 'e', 'c', 'l', 'a', 'r', 'e', 'd'}
-	msgStateBlocked  = [...]byte{'b', 'l', 'o', 'c', 'k', 'e', 'd'}
-	msgStateStarting = [...]byte{'s', 't', 'a', 'r', 't', 'i', 'n', 'g'}
-	msgStateRunning  = [...]byte{'r', 'u', 'n', 'n', 'i', 'n', 'g'}
-	msgStateFailed   = [...]byte{'f', 'a', 'i', 'l', 'e', 'd'}
-	msgStateStopping = [...]byte{'s', 't', 'o', 'p', 'p', 'i', 'n', 'g'}
-	msgStateStopped  = [...]byte{'s', 't', 'o', 'p', 'p', 'e', 'd'}
+	msgStateDeclared    = [...]byte{'d', 'e', 'c', 'l', 'a', 'r', 'e', 'd'}
+	msgStateBlocked     = [...]byte{'b', 'l', 'o', 'c', 'k', 'e', 'd'}
+	msgStateStarting    = [...]byte{'s', 't', 'a', 'r', 't', 'i', 'n', 'g'}
+	msgStateRunning     = [...]byte{'r', 'u', 'n', 'n', 'i', 'n', 'g'}
+	msgStateFailed      = [...]byte{'f', 'a', 'i', 'l', 'e', 'd'}
+	msgStateStopping    = [...]byte{'s', 't', 'o', 'p', 'p', 'i', 'n', 'g'}
+	msgStateStopped     = [...]byte{'s', 't', 'o', 'p', 'p', 'e', 'd'}
 	msgTaskStateReady   = [...]byte{'r', 'e', 'a', 'd', 'y'}
 	msgTaskStateBlocked = [...]byte{'b', 'l', 'o', 'c', 'k', 'e', 'd'}
 	msgTaskStateExited  = [...]byte{'e', 'x', 'i', 't', 'e', 'd'}
@@ -395,6 +403,9 @@ func launchService(serviceID uintptr) bool {
 			serviceTasks[serviceID] = taskUnset
 		} else {
 			serviceTasks[serviceID] = byte(tid)
+			if !applyServiceIsolation(serviceID, tid) {
+				fail(msgSvcMgrErr[:])
+			}
 			if !applyServiceScheduling(serviceID, tid) {
 				fail(msgSvcMgrErr[:])
 			}
@@ -427,15 +438,17 @@ func launchService(serviceID uintptr) bool {
 }
 
 func reapService() (uintptr, bool, bool) {
-	var status uintptr
-	tid := sysWait(waitAny, &status, 0)
-	_ = status
+	tid := sysWait(waitAny, nil, 0)
 	if tid == sysErr {
 		return serviceCount, false, false
 	}
 
 	serviceID := serviceByTask(tid)
 	if serviceID == serviceCount {
+		return serviceCount, false, false
+	}
+
+	if !verifyReapedServiceCleanup(serviceID, tid) {
 		return serviceCount, false, false
 	}
 
@@ -452,6 +465,26 @@ func reapService() (uintptr, bool, bool) {
 		setServiceState(serviceID, stateFailed)
 		return serviceID, true, true
 	}
+}
+
+func verifyReapedServiceCleanup(serviceID uintptr, tid uintptr) bool {
+	if serviceID != serviceShell || shellComplete == 0 {
+		return true
+	}
+	if c5CleanupLogged != 0 {
+		return true
+	}
+
+	if sysProcInfo(tid, &managerCleanupInfo) == sysErr {
+		return false
+	}
+	if managerCleanupInfo.EndpointCount != 0 || managerCleanupInfo.FdCount != 0 || managerCleanupInfo.SocketCount != 0 {
+		return false
+	}
+
+	c5CleanupLogged = 1
+	log(msgIsoC5Cleanup[:])
+	return true
 }
 
 func serviceByTask(tid uintptr) uintptr {
@@ -562,6 +595,29 @@ func logServiceAction(prefix []byte, serviceID uintptr) {
 	log(prefix)
 	log(serviceManifest[serviceID].name)
 	log(msgNewline[:])
+}
+
+func applyServiceIsolation(serviceID uintptr, tid uintptr) bool {
+	cfg := isolationConfig{}
+
+	switch serviceID {
+	case serviceTime:
+		cfg.DomainID = 1
+		cfg.CapabilityFlags = 0
+		cfg.Limits = packIsolationLimits(0, 0, 1)
+	case serviceDiag:
+		cfg.DomainID = 2
+		cfg.CapabilityFlags = 0
+		cfg.Limits = packIsolationLimits(0, 0, 1)
+	case serviceShell:
+		cfg.DomainID = 3
+		cfg.CapabilityFlags = taskCapStorage | taskCapNetwork
+		cfg.Limits = packIsolationLimits(2, 3, 2)
+	default:
+		return false
+	}
+
+	return sysIsolationConfig(tid, &cfg) != sysErr
 }
 
 func applyServiceScheduling(serviceID uintptr, tid uintptr) bool {
@@ -712,6 +768,21 @@ func logKernelTaskSnapshot(serviceID uintptr) bool {
 	log(msgSpace[:])
 	log(msgMetricRecv[:])
 	logUint(uintptr(info.IpcRecvCount))
+	log(msgSpace[:])
+	log(msgMetricEp[:])
+	logUint(uintptr(info.EndpointCount))
+	log(msgSpace[:])
+	log(msgMetricDomain[:])
+	logUint(uintptr(info.DomainID))
+	log(msgSpace[:])
+	log(msgMetricCap[:])
+	logUint(uintptr(info.CapabilityFlags))
+	log(msgSpace[:])
+	log(msgMetricFd[:])
+	logUint(uintptr(info.FdCount))
+	log(msgSpace[:])
+	log(msgMetricSock[:])
+	logUint(uintptr(info.SocketCount))
 	log(msgNewline[:])
 	return true
 }

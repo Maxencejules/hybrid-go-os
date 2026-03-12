@@ -52,9 +52,21 @@ declared matrix.
 
 ## Artifacts and enforcement
 
+## Default-Lane Runtime Evidence
+
+The shipped `image-go` lane now carries a bounded runtime-backed reliability
+proof in addition to the historical synthetic soak artifacts:
+
+- boot-backed replay before the mixed workload begins (`RECOV: replay ok`)
+- mixed service, storage, and socket activity on the live lane
+- success marker `SOAKC5: mixed ok`
+- exit-cleanup marker `ISOC5: cleanup ok`
+- runtime gate `make test-reliable-isolated-runtime-c5`
+
 - Soak artifact tool: `tools/run_kernel_soak_v1.py`
 - Fault campaign tool: `tools/run_fault_campaign_kernel_v1.py`
 - Local gate: `make test-kernel-reliability-v1`
+- Runtime closure gate: `make test-reliable-isolated-runtime-c5`
 - CI gate: `Kernel reliability v1 gate`
 
 Required M22 checks:
@@ -63,4 +75,3 @@ Required M22 checks:
 - `tests/stress/test_fault_injection_matrix_v1.py`
 - `tests/stress/test_reliability_artifact_schema_v1.py`
 - `tests/stress/test_kernel_reliability_gate_v1.py`
-
