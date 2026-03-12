@@ -42,6 +42,32 @@ M53 source of truth remains:
 - PR-2: pending
 - PR-3: pending
 
+## Rugo implementation map
+
+### Rust kernel changes
+
+- `kernel_rs/src/`: native-driver lifecycle state, DMA/IOMMU policy
+  enforcement, firmware provenance checks, and machine-readable diagnostics
+  emission.
+- `arch/` and `boot/`: any interrupt, descriptor-table, or early-enumeration
+  plumbing required to make native-driver diagnostics deterministic at boot.
+
+### Go user space changes
+
+- `services/go/`: operator-facing diagnostics consumption, policy wiring, and
+  failure-marker reporting for native-driver lifecycle and firmware-denial
+  paths.
+- `services/go_std/`: optional parity spike only. It can inform the contract
+  shape, but it does not define M53 completion.
+
+### Language-native verification
+
+- `make kernel`
+- `make userspace`
+- `make image-demo`
+- `make smoke-demo`
+- `python tools/run_native_driver_diagnostics_v1.py --out out/native-driver-diagnostics-v1.json`
+
 ## PR-1: Native Driver Contract Freeze
 
 ### Objective

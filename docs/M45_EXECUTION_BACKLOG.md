@@ -36,6 +36,31 @@ M45 source of truth remains:
 - PR-2: complete (2026-03-10)
 - PR-3: complete (2026-03-10)
 
+## Historical Rugo implementation summary
+
+### Historical Rust kernel surface
+
+- `kernel_rs/src/`: modern VirtIO device lifecycle, platform-profile behavior,
+  and display-device bridge expectations for the v6 virtual platform baseline.
+- `arch/` and `boot/`: virtual-platform bring-up and deterministic device
+  enumeration needed to make modern VirtIO evidence stable.
+
+### Historical Go user space surface
+
+- `services/go/`: limited direct ownership in M45. The main role was to remain
+  a stable userspace payload while the modern virtual platform and display
+  bridge were tightened underneath it.
+- `services/go_std/`: not the primary path for this milestone.
+
+### Historical Language-Native Verification
+
+- `make kernel`
+- `make userspace`
+- `make image-demo`
+- `make smoke-demo`
+- `make test-hw-matrix-v6`
+- `make test-virtio-platform-v1`
+
 ## PR-1: Matrix v6 / Modern VirtIO Contract Freeze
 
 ### Objective

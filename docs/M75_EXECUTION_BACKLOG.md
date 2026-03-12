@@ -39,6 +39,27 @@ M75 source of truth remains:
 - PR-2: pending
 - PR-3: pending
 
+## Rugo implementation map
+
+### Rust kernel changes
+
+- `kernel_rs/src/`: trusted install handoff, reboot coordination, rollback hooks, and boot-state contracts needed by the update orchestrator.
+- `arch/` and `boot/`: only the slot-selection or boot-state plumbing needed to keep staged rollout and rollback deterministic.
+
+### Go user space changes
+
+- `services/go/`: staged rollout policy, update agent behavior, reboot scheduling, and operator-visible rollback control.
+- `services/go_std/`: optional parity spike only. It does not define the default release path for this milestone.
+
+### Language-native verification
+
+- `make kernel`
+- `make userspace`
+- `make image-demo`
+- `make smoke-demo`
+- Run the milestone-specific tooling and `pytest` acceptance checks listed below only after the PR names the Rust and Go paths it changes.
+- Do not treat Python-only evidence as sufficient for milestone closure.
+
 ## PR-1: Update Orchestrator Contract Freeze
 
 ### Objective
@@ -159,3 +180,8 @@ profiles.
 - formal compliance evidence mapping owned by M76
 - fleet admission and attestation work owned by M77
 - broad enterprise fleet-management control plane breadth
+
+
+
+
+

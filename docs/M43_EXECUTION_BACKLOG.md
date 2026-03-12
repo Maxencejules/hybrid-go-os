@@ -31,6 +31,32 @@ M43 source of truth remains `docs/M40_M44_GENERAL_PURPOSE_PARITY_ROADMAP.md`,
 - PR-2: complete (2026-03-10)
 - PR-3: complete (2026-03-10)
 
+## Historical Rugo implementation summary
+
+### Historical Rust kernel surface
+
+- `kernel_rs/src/`: this milestone was kernel-heavy, covering broader native
+  driver expectations, firmware-table validation, and SMP interrupt or topology
+  behavior needed for v5 confidence.
+- `arch/` and `boot/`: low-level interrupt, topology, and firmware bring-up
+  behavior were part of the actual runtime surface being expanded and audited.
+
+### Historical Go user space surface
+
+- `services/go/`: limited direct ownership. The main userspace role was to
+  remain a stable payload while broader hardware and SMP confidence was built
+  underneath it.
+- `services/go_std/`: not the primary path for this milestone.
+
+### Historical Language-Native Verification
+
+- `make kernel`
+- `make userspace`
+- `make image-demo`
+- `make smoke-demo`
+- `make test-hw-firmware-smp-v1`
+- `make test-native-driver-matrix-v1`
+
 ## PR-1: Hardware/Firmware/SMP Contract Freeze
 
 ### Objective

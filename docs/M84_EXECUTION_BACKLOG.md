@@ -38,6 +38,28 @@ M84 source of truth remains:
 - PR-2: pending
 - PR-3: pending
 
+## Rugo implementation map
+
+### Rust kernel changes
+
+- No new kernel feature is expected by default. If public release or support commitments widen the supported runtime surface, trace the affected contract back to `kernel_rs/src/`, `arch/`, `boot/`, or `docs/abi/`.
+- Keep release-community work from implying runtime maturity that the source tree does not show.
+
+### Go user space changes
+
+- `services/go/`: only relevant if release or support flows surface directly in the default Go user-space experience, such as update or diagnostics entry points.
+- Otherwise keep this milestone honestly process heavy, and do not imply new user-space runtime behavior without named source paths.
+
+
+### Language-native verification
+
+- `make kernel`
+- `make userspace`
+- `make image-demo`
+- `make smoke-demo`
+- Run the milestone-specific tooling and `pytest` acceptance checks listed below only after the PR names the Rust and Go paths it changes.
+- Do not treat Python-only evidence as sufficient for milestone closure.
+
 ## PR-1: Community Release-train Contract Freeze
 
 ### Objective
@@ -161,3 +183,6 @@ operations.
 - replacing technical release gates with community process alone
 - indefinite support commitments outside declared SLA policy
 - broad ecosystem or fleet scope beyond the public release/support baseline
+
+
+

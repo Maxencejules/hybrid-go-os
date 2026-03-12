@@ -40,6 +40,27 @@ M61 source of truth remains:
 - PR-2: pending
 - PR-3: pending
 
+## Rugo implementation map
+
+### Rust kernel changes
+
+- `kernel_rs/src/`: snapshot metadata, CoW write paths, scrub and repair logic, and rollback-safe integrity semantics.
+- `arch/` and `boot/`: only the recovery plumbing needed to keep repair and rollback behavior deterministic at boot.
+
+### Go user space changes
+
+- `services/go/`: snapshot management, rollback UX, repair orchestration, and integrity-status reporting.
+- `services/go_std/`: optional parity spike only. It does not define the default release path for this milestone.
+
+### Language-native verification
+
+- `make kernel`
+- `make userspace`
+- `make image-demo`
+- `make smoke-demo`
+- Run the milestone-specific tooling and `pytest` acceptance checks listed below only after the PR names the Rust and Go paths it changes.
+- Do not treat Python-only evidence as sufficient for milestone closure.
+
 ## PR-1: CoW and Integrity Contract Freeze
 
 ### Objective
@@ -158,3 +179,8 @@ profiles.
 - unlimited filesystem feature parity with mature CoW filesystems
 - hidden rollback behavior that bypasses update or security policy
 - distributed replication beyond the declared snapshot-management scope
+
+
+
+
+

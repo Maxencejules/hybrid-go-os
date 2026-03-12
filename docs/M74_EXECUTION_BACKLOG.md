@@ -38,6 +38,27 @@ M74 source of truth remains:
 - PR-2: pending
 - PR-3: pending
 
+## Rugo implementation map
+
+### Rust kernel changes
+
+- No new kernel feature is expected by default. Keep Rust work bounded to attestation, provenance, or ABI claims that the federated catalog relies on.
+- If build-farm or federation policy widens runtime trust claims, name the affected path in `kernel_rs/src/` or `docs/abi/` explicitly.
+
+### Go user space changes
+
+- `services/go/`: catalog client or admin flows, federation policy, and app-distribution integration with the default user-space lane.
+- `services/go_std/`: optional parity spike only. It does not define the default release path for this milestone.
+
+### Language-native verification
+
+- `make kernel`
+- `make userspace`
+- `make image-demo`
+- `make smoke-demo`
+- Run the milestone-specific tooling and `pytest` acceptance checks listed below only after the PR names the Rust and Go paths it changes.
+- Do not treat Python-only evidence as sufficient for milestone closure.
+
 ## PR-1: Catalog Federation Contract Freeze
 
 ### Objective
@@ -159,3 +180,8 @@ declared ecosystem profiles.
 - automatic approval of unaudited third-party packages
 - community governance and support-channel work owned by M82-M84
 - fleet admission and secrets work owned by M77
+
+
+
+
+

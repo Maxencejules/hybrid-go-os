@@ -38,6 +38,27 @@ M73 source of truth remains:
 - PR-2: pending
 - PR-3: pending
 
+## Rugo implementation map
+
+### Rust kernel changes
+
+- `kernel_rs/src/` and `docs/abi/`: stable syscall, ABI, and runtime-contract definitions that the SDK and porting kit must expose accurately.
+- No SDK convenience layer belongs in the kernel. Keep Rust work focused on the contract surface external developers target.
+
+### Go user space changes
+
+- `services/go/`: developer-facing samples, runtime integration points, and porting references for the default user-space lane.
+- `services/go_std/`: optional parity spike only. It does not define the default release path for this milestone.
+
+### Language-native verification
+
+- `make kernel`
+- `make userspace`
+- `make image-demo`
+- `make smoke-demo`
+- Run the milestone-specific tooling and `pytest` acceptance checks listed below only after the PR names the Rust and Go paths it changes.
+- Do not treat Python-only evidence as sufficient for milestone closure.
+
 ## PR-1: SDK and Porting Contract Freeze
 
 ### Objective
@@ -154,3 +175,8 @@ Make SDK and porting behavior release-blocking for declared developer flows.
 - federated catalog and moderation work owned by M74
 - full third-party IDE integration breadth
 - unversioned or host-drift-sensitive SDK flows
+
+
+
+
+

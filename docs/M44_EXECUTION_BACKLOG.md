@@ -32,6 +32,32 @@ M44 source of truth remains `docs/M40_M44_GENERAL_PURPOSE_PARITY_ROADMAP.md`,
 - PR-2: complete (2026-03-10)
 - PR-3: complete (2026-03-10)
 
+## Historical Rugo implementation summary
+
+### Historical Rust kernel surface
+
+- M44 was not primarily a new kernel-feature milestone. Its Rust-side role was
+  to provide the stable runtime floor whose display, process, package, and file
+  behavior could be qualified with reproducible workload evidence.
+- `kernel_rs/src/`, `arch/`, and `boot/` remained the audited runtime sources
+  rather than the main implementation focus.
+
+### Historical Go user space surface
+
+- `services/go/`: this milestone was more userspace-facing than M40-M43 because
+  desktop/app/package qualification exercised real shell, GUI, and package
+  workflows on the default Go userspace path.
+- `services/go_std/`: not the primary path for this milestone.
+
+### Historical Language-Native Verification
+
+- `make kernel`
+- `make userspace`
+- `make image-demo`
+- `make smoke-demo`
+- `make test-real-ecosystem-desktop-v2`
+- `make test-real-app-catalog-v2`
+
 ## PR-1: Desktop/Ecosystem v2 Contract Freeze
 
 ### Objective

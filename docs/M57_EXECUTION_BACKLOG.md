@@ -37,6 +37,32 @@ M57 source of truth remains:
 - PR-2: pending
 - PR-3: pending
 
+## Rugo implementation map
+
+### Rust kernel changes
+
+- `arch/`, `boot/`, and `kernel_rs/src/`: `aarch64` entry, early boot, trap or
+  timer wiring, and arch-neutral syscall handling for the shadow port.
+- `kernel_rs/src/`: keep the x86-64 release floor intact while adding
+  architecture-specific code behind an explicitly non-promoted shadow lane.
+
+### Go user space changes
+
+- `services/go/`: arch-neutral bootstrap and runtime smoke coverage for the
+  shadow port without changing the default x86-64 user-space lane.
+- `services/go_std/`: optional stock-Go parity spike only. It can inform the
+  portability story, but it does not define M57 completion.
+
+### Language-native verification
+
+- `make kernel`
+- `make userspace`
+- `make image-demo`
+- `make smoke-demo`
+- `python tools/run_multiarch_shadow_v1.py --out out/multiarch-shadow-v1.json`
+- Add an explicit Rust shadow-build command before closing M57; do not treat
+  Python-only shadow evidence as sufficient.
+
 ## PR-1: Multi-arch Shadow Contract Freeze
 
 ### Objective

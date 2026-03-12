@@ -34,6 +34,30 @@ M48 source of truth remains `docs/M48_M52_GUI_IMPLEMENTATION_ROADMAP.md`,
 - PR-2: complete (2026-03-11)
 - PR-3: complete (2026-03-11)
 
+## Historical Rugo implementation summary
+
+### Historical Rust kernel surface
+
+- `kernel_rs/src/`: first live display-runtime behavior, scanout ownership,
+  present timing, and fallback-safe display handling for declared devices.
+- `arch/` and `boot/`: low-level device-init and interrupt behavior needed for
+  deterministic scanout and frame-capture evidence.
+
+### Historical Go user space surface
+
+- `services/go/`: still light in M48. The primary userspace role was to act as
+  the payload exercising the new renderable output path.
+- `services/go_std/`: not the primary path for this milestone.
+
+### Historical Language-Native Verification
+
+- `make kernel`
+- `make userspace`
+- `make image-demo`
+- `make smoke-demo`
+- `make test-display-runtime-v1`
+- `make test-scanout-path-v1`
+
 ## PR-1: Display Runtime Contract Freeze
 
 ### Objective

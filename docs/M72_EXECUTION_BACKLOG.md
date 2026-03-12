@@ -39,6 +39,27 @@ M72 source of truth remains:
 - PR-2: pending
 - PR-3: pending
 
+## Rugo implementation map
+
+### Rust kernel changes
+
+- `kernel_rs/src/`: sandbox boundaries, rights or capability enforcement, isolation hooks, and deterministic deny paths for untrusted app bundles.
+- `arch/` and `boot/`: only the low-level enforcement or identity plumbing needed to keep sandbox behavior reviewable and deterministic.
+
+### Go user space changes
+
+- `services/go/`: app-bundle format handling, permission prompts, broker policy, and sandbox lifecycle orchestration.
+- `services/go_std/`: optional parity spike only. It does not define the default release path for this milestone.
+
+### Language-native verification
+
+- `make kernel`
+- `make userspace`
+- `make image-demo`
+- `make smoke-demo`
+- Run the milestone-specific tooling and `pytest` acceptance checks listed below only after the PR names the Rust and Go paths it changes.
+- Do not treat Python-only evidence as sufficient for milestone closure.
+
 ## PR-1: App Bundle Contract Freeze
 
 ### Objective
@@ -159,3 +180,8 @@ distribution profiles.
 - developer SDK work owned by M73
 - federated catalog and moderation work owned by M74
 - fleet admission and attestation work owned by M77
+
+
+
+
+

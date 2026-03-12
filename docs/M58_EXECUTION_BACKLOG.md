@@ -40,6 +40,27 @@ M58 source of truth remains:
 - PR-2: pending
 - PR-3: pending
 
+## Rugo implementation map
+
+### Rust kernel changes
+
+- `kernel_rs/src/`: journal transaction layout, replay logic, checksum handling, and quota enforcement for the filesystem baseline.
+- `arch/` and `boot/`: only the recovery or fault-injection plumbing needed to make replay and power-fail behavior deterministic.
+
+### Go user space changes
+
+- `services/go/`: recovery UX, quota reporting, and operator-visible journal state so crash handling stays inspectable above the kernel boundary.
+- `services/go_std/`: optional parity spike only. It does not define the default release path for this milestone.
+
+### Language-native verification
+
+- `make kernel`
+- `make userspace`
+- `make image-demo`
+- `make smoke-demo`
+- Run the milestone-specific tooling and `pytest` acceptance checks listed below only after the PR names the Rust and Go paths it changes.
+- Do not treat Python-only evidence as sufficient for milestone closure.
+
 ## PR-1: Journaling and Quota Contract Freeze
 
 ### Objective
@@ -158,3 +179,8 @@ Make the journaled baseline release-blocking for declared storage profiles.
 - full encryption/key management owned by M59
 - multi-device RAID behavior owned by M60
 - CoW snapshot and integrity repair owned by M61
+
+
+
+
+

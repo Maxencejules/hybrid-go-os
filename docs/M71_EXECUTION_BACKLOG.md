@@ -39,6 +39,27 @@ M71 source of truth remains:
 - PR-2: pending
 - PR-3: pending
 
+## Rugo implementation map
+
+### Rust kernel changes
+
+- No dependency solver belongs in the kernel. Keep Rust work bounded to package-install rights, rollback-safe storage behavior, and process-launch contracts in `kernel_rs/src/`.
+- If package operations widen ABI or support claims, name the affected runtime contract in `kernel_rs/src/`, `arch/`, `boot/`, or `docs/abi/` explicitly.
+
+### Go user space changes
+
+- `services/go/`: package-manager UX, dependency solver, transaction coordinator, and repo-pinning policy.
+- `services/go_std/`: optional parity spike only. It does not define the default release path for this milestone.
+
+### Language-native verification
+
+- `make kernel`
+- `make userspace`
+- `make image-demo`
+- `make smoke-demo`
+- Run the milestone-specific tooling and `pytest` acceptance checks listed below only after the PR names the Rust and Go paths it changes.
+- Do not treat Python-only evidence as sufficient for milestone closure.
+
 ## PR-1: Package Manager Contract Freeze
 
 ### Objective
@@ -157,3 +178,8 @@ profiles.
 - app sandboxing owned by M72
 - developer SDK and porting workflows owned by M73
 - federated catalog and build farm work owned by M74
+
+
+
+
+

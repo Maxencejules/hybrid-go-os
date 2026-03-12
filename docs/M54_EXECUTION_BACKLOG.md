@@ -38,6 +38,31 @@ M54 source of truth remains:
 - PR-2: pending
 - PR-3: pending
 
+## Rugo implementation map
+
+### Rust kernel changes
+
+- `kernel_rs/src/`: NVMe/AHCI probe, queue setup, reset handling, and flush/FUA
+  semantics that back the native-storage contract.
+- `arch/` and `boot/`: low-level IRQ, MMIO, and early-device-init plumbing
+  needed for deterministic native-storage bring-up on the release floor.
+
+### Go user space changes
+
+- `services/go/`: storage diagnostics, device-class reporting, and durability
+  probes that make native-storage behavior visible above the kernel boundary.
+- `services/go_std/`: optional comparison lane only. It is not the authority
+  for M54 storage semantics.
+
+### Language-native verification
+
+- `make kernel`
+- `make userspace`
+- `make image-demo`
+- `make smoke-demo`
+- `python tools/run_hw_matrix_v7.py --out out/hw-matrix-v7.json`
+- `python tools/run_native_storage_diagnostics_v1.py --out out/native-storage-v1.json`
+
 ## PR-1: Native Storage Contract Freeze
 
 ### Objective

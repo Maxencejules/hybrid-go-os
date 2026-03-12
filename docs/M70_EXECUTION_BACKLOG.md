@@ -38,6 +38,27 @@ M70 source of truth remains:
 - PR-2: pending
 - PR-3: pending
 
+## Rugo implementation map
+
+### Rust kernel changes
+
+- No productivity app logic belongs in the kernel by default. Keep Rust work bounded to stable process, IPC, file-open, and clipboard-related contracts that apps consume.
+- If daily-workflow claims require new runtime behavior, name the affected path in `kernel_rs/src/` or `docs/abi/` explicitly.
+
+### Go user space changes
+
+- `services/go/`: launcher, document workflows, shell integrations, and daily-use productivity surfaces.
+- `services/go_std/`: optional parity spike only. It does not define the default release path for this milestone.
+
+### Language-native verification
+
+- `make kernel`
+- `make userspace`
+- `make image-demo`
+- `make smoke-demo`
+- Run the milestone-specific tooling and `pytest` acceptance checks listed below only after the PR names the Rust and Go paths it changes.
+- Do not treat Python-only evidence as sufficient for milestone closure.
+
 ## PR-1: Productivity Workflow Contract Freeze
 
 ### Objective
@@ -157,3 +178,8 @@ profile.
 - full office/browser ecosystem parity
 - package solver and app-bundle work owned by M71-M72
 - enterprise desktop policy breadth outside the declared productivity scope
+
+
+
+
+

@@ -38,6 +38,27 @@ M80 source of truth remains:
 - PR-2: pending
 - PR-3: pending
 
+## Rugo implementation map
+
+### Rust kernel changes
+
+- `kernel_rs/src/`: telemetry counters, tracepoints, and perf-marker emission tied to declared runtime behavior.
+- `arch/` and `boot/`: only the counter, timing, or platform plumbing needed to compare Rugo against the legacy-C baseline without hiding the source of measurements.
+
+### Go user space changes
+
+- `services/go/`: telemetry collection, export, policy, and operator-visible performance reporting.
+- `services/go_std/`: optional parity spike only. It does not define the default release path for this milestone.
+
+### Language-native verification
+
+- `make kernel`
+- `make userspace`
+- `make image-demo`
+- `make smoke-demo`
+- Run the milestone-specific tooling and `pytest` acceptance checks listed below only after the PR names the Rust and Go paths it changes.
+- Do not treat Python-only evidence as sufficient for milestone closure.
+
 ## PR-1: Telemetry Contract Freeze
 
 ### Objective
@@ -157,3 +178,8 @@ performance profiles.
 - chaos and fuzz qualification work owned by M81
 - production backend deployment beyond declared artifact generation
 - unlimited telemetry retention or cardinality outside policy
+
+
+
+
+

@@ -37,6 +37,30 @@ M52 source of truth remains `docs/M48_M52_GUI_IMPLEMENTATION_ROADMAP.md`,
 - PR-2: complete (2026-03-11)
 - PR-3: complete (2026-03-11)
 
+## Historical Rugo implementation summary
+
+### Historical Rust kernel surface
+
+- `kernel_rs/src/`: stable process, file, input, and display contracts that
+  the first usable shell and installer workflows consumed.
+- `arch/` and `boot/`: no large new shell policy lived here; low-level work
+  remained bounded to keeping the runtime floor deterministic.
+
+### Historical Go user space surface
+
+- `services/go/`: this milestone was primarily userspace-facing, covering the
+  desktop shell, first-use workflows, and graphical installer path.
+- `services/go_std/`: not the primary path for this milestone.
+
+### Historical Language-Native Verification
+
+- `make kernel`
+- `make userspace`
+- `make image-demo`
+- `make smoke-demo`
+- `make test-desktop-shell-v1`
+- `make test-desktop-workflows-v1`
+
 ## PR-1: Shell/Workflow Contract Freeze
 
 ### Objective

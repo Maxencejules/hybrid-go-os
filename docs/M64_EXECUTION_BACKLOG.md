@@ -38,6 +38,27 @@ M64 source of truth remains:
 - PR-2: pending
 - PR-3: pending
 
+## Rugo implementation map
+
+### Rust kernel changes
+
+- `kernel_rs/src/`: keep adapter, firmware, and radio-state enforcement from M56 stable while exposing only the kernel hooks needed for roaming and recovery.
+- `arch/` and `boot/`: no new wireless policy belongs here beyond deterministic bring-up and failure reporting.
+
+### Go user space changes
+
+- `services/go/`: WPA3 policy, roaming control, reconnection logic, and user-space wireless orchestration.
+- `services/go_std/`: optional parity spike only. It does not define the default release path for this milestone.
+
+### Language-native verification
+
+- `make kernel`
+- `make userspace`
+- `make image-demo`
+- `make smoke-demo`
+- Run the milestone-specific tooling and `pytest` acceptance checks listed below only after the PR names the Rust and Go paths it changes.
+- Do not treat Python-only evidence as sufficient for milestone closure.
+
 ## PR-1: Wireless Control-plane Contract Freeze
 
 ### Objective
@@ -157,3 +178,8 @@ profiles.
 - full cellular or Bluetooth control-plane work
 - general routing/NAT/qdisc work owned by M65
 - broad desktop UX claims outside the declared wireless boundary
+
+
+
+
+

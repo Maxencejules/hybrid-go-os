@@ -32,6 +32,30 @@ M50 source of truth remains `docs/M48_M52_GUI_IMPLEMENTATION_ROADMAP.md`,
 - PR-2: complete (2026-03-11)
 - PR-3: complete (2026-03-11)
 
+## Historical Rugo implementation summary
+
+### Historical Rust kernel surface
+
+- `kernel_rs/src/`: stable display, memory, and event-delivery primitives that
+  the first window and composition runtime depended on.
+- `arch/` and `boot/`: low-level device and timing behavior that kept window
+  presentation and compositor evidence deterministic.
+
+### Historical Go user space surface
+
+- `services/go/`: this milestone was primarily userspace-facing, covering
+  surface lifecycle, z-order, damage handling, and compositor behavior.
+- `services/go_std/`: not the primary path for this milestone.
+
+### Historical Language-Native Verification
+
+- `make kernel`
+- `make userspace`
+- `make image-demo`
+- `make smoke-demo`
+- `make test-window-system-v1`
+- `make test-compositor-damage-v1`
+
 ## PR-1: Window/Compositor Contract Freeze
 
 ### Objective

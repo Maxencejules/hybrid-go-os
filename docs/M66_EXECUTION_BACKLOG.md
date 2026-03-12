@@ -39,6 +39,27 @@ M66 source of truth remains:
 - PR-2: pending
 - PR-3: pending
 
+## Rugo implementation map
+
+### Rust kernel changes
+
+- No major kernel feature should be added by default. Keep Rust work bounded to stable input, event, and display-facing ABI surfaces that accessibility depends on.
+- If assistive hooks require new runtime signals, name the affected path in `kernel_rs/src/`, `arch/`, or `boot/` explicitly instead of hiding it behind tooling.
+
+### Go user space changes
+
+- `services/go/`: accessibility tree, keyboard navigation, assistive events, and focus semantics.
+- `services/go_std/`: optional parity spike only. It does not define the default release path for this milestone.
+
+### Language-native verification
+
+- `make kernel`
+- `make userspace`
+- `make image-demo`
+- `make smoke-demo`
+- Run the milestone-specific tooling and `pytest` acceptance checks listed below only after the PR names the Rust and Go paths it changes.
+- Do not treat Python-only evidence as sufficient for milestone closure.
+
 ## PR-1: Accessibility Contract Freeze
 
 ### Objective
@@ -156,3 +177,8 @@ Make the accessibility baseline release-blocking for declared desktop profiles.
 - full enterprise accessibility-suite breadth
 - file-management workflows owned by M67
 - multi-monitor and HiDPI behavior owned by M69
+
+
+
+
+

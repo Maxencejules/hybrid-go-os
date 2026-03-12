@@ -32,6 +32,30 @@ M49 source of truth remains `docs/M48_M52_GUI_IMPLEMENTATION_ROADMAP.md`,
 - PR-2: complete (2026-03-11)
 - PR-3: complete (2026-03-11)
 
+## Historical Rugo implementation summary
+
+### Historical Rust kernel surface
+
+- `kernel_rs/src/`: live input delivery, seat ownership hooks, HID-path
+  handling, and deterministic hotplug behavior for declared input devices.
+- `arch/` and `boot/`: low-level USB and interrupt behavior needed for stable
+  keyboard and pointer event delivery.
+
+### Historical Go user space surface
+
+- `services/go/`: focus-aware event consumers and graphical workflows that
+  depended on live keyboard and pointer delivery.
+- `services/go_std/`: not the primary path for this milestone.
+
+### Historical Language-Native Verification
+
+- `make kernel`
+- `make userspace`
+- `make image-demo`
+- `make smoke-demo`
+- `make test-input-seat-v1`
+- `make test-hid-event-path-v1`
+
 ## PR-1: Seat/Input Contract Freeze
 
 ### Objective

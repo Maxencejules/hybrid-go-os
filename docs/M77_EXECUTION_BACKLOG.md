@@ -39,6 +39,27 @@ M77 source of truth remains:
 - PR-2: pending
 - PR-3: pending
 
+## Rugo implementation map
+
+### Rust kernel changes
+
+- `kernel_rs/src/`: secret sealing, attestation evidence, measured identity hooks, and deterministic admit or deny primitives for managed systems.
+- `arch/` and `boot/`: only the hardware-rooted identity or measured-boot plumbing needed to keep admission evidence auditable.
+
+### Go user space changes
+
+- `services/go/`: enrollment flows, admission policy, secret orchestration, and fleet-visible identity state.
+- `services/go_std/`: optional parity spike only. It does not define the default release path for this milestone.
+
+### Language-native verification
+
+- `make kernel`
+- `make userspace`
+- `make image-demo`
+- `make smoke-demo`
+- Run the milestone-specific tooling and `pytest` acceptance checks listed below only after the PR names the Rust and Go paths it changes.
+- Do not treat Python-only evidence as sufficient for milestone closure.
+
 ## PR-1: Attestation and Secret-sealing Contract Freeze
 
 ### Objective
@@ -157,3 +178,8 @@ profiles.
 - broad unaudited hardware admission claims
 - community governance and support work owned by M82-M84
 - replacing measured-boot and fleet policy with ad hoc trust shortcuts
+
+
+
+
+

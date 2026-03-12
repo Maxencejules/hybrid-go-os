@@ -30,6 +30,30 @@ M46 source of truth remains:
 - PR-2: complete (2026-03-10)
 - PR-3: complete (2026-03-10)
 
+## Historical Rugo implementation summary
+
+### Historical Rust kernel surface
+
+- `kernel_rs/src/`: bare-metal NIC, USB input, and removable-media driver
+  behavior that established the first practical non-virtio I/O floor.
+- `arch/` and `boot/`: interrupt, bus-init, and device-discovery plumbing
+  needed to make wired NIC, USB HID, and removable-media paths deterministic.
+
+### Historical Go user space surface
+
+- `services/go/`: desktop-facing input and recovery workflows that consumed the
+  new bare-metal I/O floor once it existed.
+- `services/go_std/`: not the primary path for this milestone.
+
+### Historical Language-Native Verification
+
+- `make kernel`
+- `make userspace`
+- `make image-demo`
+- `make smoke-demo`
+- `make test-baremetal-io-baseline-v1`
+- `make test-usb-input-removable-v1`
+
 ## PR-1: Bare-Metal I/O Contract Freeze
 
 ### Objective

@@ -37,6 +37,27 @@ M79 source of truth remains:
 - PR-2: pending
 - PR-3: pending
 
+## Rugo implementation map
+
+### Rust kernel changes
+
+- `kernel_rs/src/`: reclaim behavior, memory-pressure handling, I/O QoS policy, and deterministic negative paths under mixed load.
+- `arch/` and `boot/`: only the low-level timing or device-init behavior needed to keep pressure and QoS evidence stable.
+
+### Go user space changes
+
+- `services/go/`: pressure policy, workload class selection, and operator-visible memory or I/O pressure reporting.
+- `services/go_std/`: optional parity spike only. It does not define the default release path for this milestone.
+
+### Language-native verification
+
+- `make kernel`
+- `make userspace`
+- `make image-demo`
+- `make smoke-demo`
+- Run the milestone-specific tooling and `pytest` acceptance checks listed below only after the PR names the Rust and Go paths it changes.
+- Do not treat Python-only evidence as sufficient for milestone closure.
+
 ## PR-1: Memory Pressure Contract Freeze
 
 ### Objective
@@ -156,3 +177,8 @@ profiles.
 - observability and performance telemetry work owned by M80
 - chaos and fuzz qualification owned by M81
 - unbounded autotuning outside declared pressure budgets
+
+
+
+
+

@@ -27,6 +27,32 @@ M40 source of truth remains `docs/M40_M44_GENERAL_PURPOSE_PARITY_ROADMAP.md`,
 - PR-2: complete (2026-03-10)
 - PR-3: complete (2026-03-10)
 
+## Historical Rugo implementation summary
+
+### Historical Rust kernel surface
+
+- M40 was not a large new kernel-feature milestone. Its Rust-side impact was to
+  make existing kernel-owned runtime markers and failure paths auditable enough
+  to support provenance-backed release evidence.
+- `kernel_rs/src/`, `arch/`, and `boot/` remained the runtime sources whose
+  serial markers, trap behavior, and boot paths were being audited rather than
+  substantially expanded here.
+
+### Historical Go user space surface
+
+- `services/go/`: limited direct ownership. The main userspace role was to act
+  as part of the runtime evidence source being collected and audited.
+- `services/go_std/`: not the primary path for this milestone.
+
+### Historical Language-Native Verification
+
+- `make kernel`
+- `make userspace`
+- `make image-demo`
+- `make smoke-demo`
+- `make test-evidence-integrity-v1`
+- `make test-synthetic-evidence-ban-v1`
+
 ## PR-1: Evidence Integrity Contract Freeze
 
 ### Objective

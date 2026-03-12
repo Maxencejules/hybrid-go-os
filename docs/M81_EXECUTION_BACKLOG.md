@@ -38,6 +38,27 @@ M81 source of truth remains:
 - PR-2: pending
 - PR-3: pending
 
+## Rugo implementation map
+
+### Rust kernel changes
+
+- `kernel_rs/src/`: fuzz targets, fault-injection hooks, and deterministic recovery assertions around kernel-owned interfaces.
+- `arch/` and `boot/`: only the low-level failure injection or reset behavior needed to make chaos results reproducible enough to gate.
+
+### Go user space changes
+
+- `services/go/`: chaos orchestration, workload harnesses, and operator-visible recovery assertions for the default user-space lane.
+- `services/go_std/`: optional parity spike only. It does not define the default release path for this milestone.
+
+### Language-native verification
+
+- `make kernel`
+- `make userspace`
+- `make image-demo`
+- `make smoke-demo`
+- Run the milestone-specific tooling and `pytest` acceptance checks listed below only after the PR names the Rust and Go paths it changes.
+- Do not treat Python-only evidence as sufficient for milestone closure.
+
 ## PR-1: Chaos and Fuzz Contract Freeze
 
 ### Objective
@@ -159,3 +180,8 @@ profiles.
 - community governance and release-train work owned by M82-M84
 - unseeded or ad hoc chaos runs outside declared contract scope
 - treating flaky evidence as acceptable for milestone closure
+
+
+
+
+

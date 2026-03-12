@@ -39,6 +39,27 @@ M60 source of truth remains:
 - PR-2: pending
 - PR-3: pending
 
+## Rugo implementation map
+
+### Rust kernel changes
+
+- `kernel_rs/src/`: array membership, degraded boot, rebuild, scrub, and deterministic failure handling for RAID semantics.
+- `arch/` and `boot/`: only the probe and boot-path plumbing needed to identify array state before user space starts orchestration.
+
+### Go user space changes
+
+- `services/go/`: array management, degraded-state reporting, rebuild control, and operator policy surfaces.
+- `services/go_std/`: optional parity spike only. It does not define the default release path for this milestone.
+
+### Language-native verification
+
+- `make kernel`
+- `make userspace`
+- `make image-demo`
+- `make smoke-demo`
+- Run the milestone-specific tooling and `pytest` acceptance checks listed below only after the PR names the Rust and Go paths it changes.
+- Do not treat Python-only evidence as sufficient for milestone closure.
+
 ## PR-1: RAID Contract Freeze
 
 ### Objective
@@ -157,3 +178,8 @@ Make RAID behavior release-blocking for declared multi-device profiles.
 - full CoW snapshot and self-heal behavior owned by M61
 - cluster/distributed storage beyond the declared single-host RAID baseline
 - broad hardware promotion without release-gated RAID evidence
+
+
+
+
+

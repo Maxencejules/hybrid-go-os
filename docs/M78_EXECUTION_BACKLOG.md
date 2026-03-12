@@ -39,6 +39,27 @@ M78 source of truth remains:
 - PR-2: pending
 - PR-3: pending
 
+## Rugo implementation map
+
+### Rust kernel changes
+
+- `kernel_rs/src/`: scheduler latency, preemption, CPU-affinity, and priority behavior for SMP systems.
+- `arch/` and `boot/`: only the topology, timer, or interrupt plumbing needed to keep scheduler evidence deterministic.
+
+### Go user space changes
+
+- `services/go/`: workload hints, latency-sensitive service validation, and operator-facing scheduler telemetry consumers.
+- `services/go_std/`: optional parity spike only. It does not define the default release path for this milestone.
+
+### Language-native verification
+
+- `make kernel`
+- `make userspace`
+- `make image-demo`
+- `make smoke-demo`
+- Run the milestone-specific tooling and `pytest` acceptance checks listed below only after the PR names the Rust and Go paths it changes.
+- Do not treat Python-only evidence as sufficient for milestone closure.
+
 ## PR-1: Scheduler Latency Contract Freeze
 
 ### Objective
@@ -155,3 +176,8 @@ profiles.
 - memory pressure and I/O QoS work owned by M79
 - full hard real-time policy breadth beyond the declared contract scope
 - telemetry and chaos qualification owned by M80-M81
+
+
+
+
+

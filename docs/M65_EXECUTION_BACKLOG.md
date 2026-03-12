@@ -37,6 +37,27 @@ M65 source of truth remains:
 - PR-2: pending
 - PR-3: pending
 
+## Rugo implementation map
+
+### Rust kernel changes
+
+- `kernel_rs/src/`: route lookup, NAT translation hooks, traffic classification, and shaping primitives for declared gateway profiles.
+- `arch/` and `boot/`: only the low-level device or timing behavior needed to keep routing and traffic-control evidence deterministic.
+
+### Go user space changes
+
+- `services/go/`: routing policy, interface profiles, NAT configuration, and operator-visible traffic-control state.
+- `services/go_std/`: optional parity spike only. It does not define the default release path for this milestone.
+
+### Language-native verification
+
+- `make kernel`
+- `make userspace`
+- `make image-demo`
+- `make smoke-demo`
+- Run the milestone-specific tooling and `pytest` acceptance checks listed below only after the PR names the Rust and Go paths it changes.
+- Do not treat Python-only evidence as sufficient for milestone closure.
+
 ## PR-1: Routing and Traffic-control Contract Freeze
 
 ### Objective
@@ -156,3 +177,8 @@ profiles.
 - full enterprise routing-suite parity
 - desktop UX work owned by M66-M70
 - fleet-management policy beyond declared gateway data-plane semantics
+
+
+
+
+

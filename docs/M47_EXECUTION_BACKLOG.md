@@ -30,6 +30,29 @@ M47 source of truth remains:
 - PR-2: complete (2026-03-10)
 - PR-3: complete (2026-03-10)
 
+## Historical Rugo implementation summary
+
+### Historical Rust kernel surface
+
+- M47 was mostly policy and gate wiring, not a large new runtime mechanism.
+- Rust-side impact was indirect: support-tier claims were tied back to the
+  implemented hardware paths in `kernel_rs/src/`, `arch/`, and `boot/`.
+
+### Historical Go user space surface
+
+- `services/go/`: minimal direct ownership. This milestone audited and bounded
+  existing support claims more than it added new userspace behavior.
+- `services/go_std/`: not the primary path for this milestone.
+
+### Historical Language-Native Verification
+
+- `make kernel`
+- `make userspace`
+- `make image-demo`
+- `make smoke-demo`
+- `make test-hw-claim-promotion-v1`
+- `make test-hw-support-tier-audit-v1`
+
 ## PR-1: Support Claim Policy Freeze
 
 ### Objective

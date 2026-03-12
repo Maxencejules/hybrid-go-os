@@ -36,6 +36,31 @@ M51 source of truth remains `docs/M48_M52_GUI_IMPLEMENTATION_ROADMAP.md`,
 - PR-2: complete (2026-03-11)
 - PR-3: complete (2026-03-11)
 
+## Historical Rugo implementation summary
+
+### Historical Rust kernel surface
+
+- `kernel_rs/src/`: stable display, input, and app-facing runtime hooks that
+  let the GUI layer stay above the kernel boundary.
+- `arch/` and `boot/`: low-level behavior only where needed to preserve
+  deterministic render, input, and event-loop evidence.
+
+### Historical Go user space surface
+
+- `services/go/`: this milestone was primarily userspace-facing, covering GUI
+  runtime behavior, toolkit compatibility, app launch, and render/event-loop
+  flows.
+- `services/go_std/`: not the primary path for this milestone.
+
+### Historical Language-Native Verification
+
+- `make kernel`
+- `make userspace`
+- `make image-demo`
+- `make smoke-demo`
+- `make test-gui-runtime-v1`
+- `make test-toolkit-compat-v1`
+
 ## PR-1: GUI Runtime Contract Freeze
 
 ### Objective

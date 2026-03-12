@@ -39,6 +39,27 @@ M63 source of truth remains:
 - PR-2: pending
 - PR-3: pending
 
+## Rugo implementation map
+
+### Rust kernel changes
+
+- `kernel_rs/src/`: tunnel datapath, packet encapsulation hooks, key-rotation handoff points, and kill-switch enforcement primitives.
+- `arch/` and `boot/`: only the timing, IRQ, or device-init behavior needed to keep VPN failure paths deterministic.
+
+### Go user space changes
+
+- `services/go/`: peer policy, session orchestration, key rotation, tunnel lifecycle control, and kill-switch decisions.
+- `services/go_std/`: optional parity spike only. It does not define the default release path for this milestone.
+
+### Language-native verification
+
+- `make kernel`
+- `make userspace`
+- `make image-demo`
+- `make smoke-demo`
+- Run the milestone-specific tooling and `pytest` acceptance checks listed below only after the PR names the Rust and Go paths it changes.
+- Do not treat Python-only evidence as sufficient for milestone closure.
+
 ## PR-1: VPN Primitive Contract Freeze
 
 ### Objective
@@ -157,3 +178,8 @@ Make VPN primitives release-blocking for declared remote-access profiles.
 - full mesh-routing or overlay control plane beyond the declared tunnel scope
 - Wi-Fi control-plane work owned by M64
 - broad edge routing and QoS owned by M65
+
+
+
+
+

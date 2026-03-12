@@ -39,6 +39,28 @@ M82 source of truth remains:
 - PR-2: pending
 - PR-3: pending
 
+## Rugo implementation map
+
+### Rust kernel changes
+
+- No new kernel mechanism is expected by default. If governance changes widen ABI, support-tier, or release commitments, trace the affected runtime contract back to `kernel_rs/src/`, `arch/`, `boot/`, or `docs/abi/`.
+- Keep M82 from silently turning into runtime scope creep.
+
+### Go user space changes
+
+- `services/go/`: only relevant if contributor-facing runtime or developer flows are shipped inside the default Go user-space stack.
+- Otherwise keep this milestone honestly docs and process heavy, and do not imply new runtime behavior that is not visible in source.
+
+
+### Language-native verification
+
+- `make kernel`
+- `make userspace`
+- `make image-demo`
+- `make smoke-demo`
+- Run the milestone-specific tooling and `pytest` acceptance checks listed below only after the PR names the Rust and Go paths it changes.
+- Do not treat Python-only evidence as sufficient for milestone closure.
+
 ## PR-1: Contributor and Governance Contract Freeze
 
 ### Objective
@@ -155,3 +177,6 @@ contribution flows.
 - localization and docs-quality work owned by M83
 - public support-channel operations owned by M84
 - replacing technical review with governance process alone
+
+
+

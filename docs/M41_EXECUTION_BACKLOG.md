@@ -27,6 +27,31 @@ M41 source of truth remains `docs/M40_M44_GENERAL_PURPOSE_PARITY_ROADMAP.md`,
 - PR-2: complete (2026-03-10)
 - PR-3: complete (2026-03-10)
 
+## Historical Rugo implementation summary
+
+### Historical Rust kernel surface
+
+- `kernel_rs/src/`: this milestone was kernel-heavy in substance, covering
+  process/readiness compatibility closure around fork or clone semantics,
+  readiness paths, and deferred-surface behavior.
+- `arch/` and `boot/`: only the low-level behavior needed to keep the expanded
+  compatibility surface deterministic and release-gateable.
+
+### Historical Go user space surface
+
+- `services/go/`: important as a workload target and compatibility consumer,
+  but not the primary implementation owner of M41.
+- `services/go_std/`: not the primary path for this milestone.
+
+### Historical Language-Native Verification
+
+- `make kernel`
+- `make userspace`
+- `make image-demo`
+- `make smoke-demo`
+- `make test-process-readiness-parity-v1`
+- `make test-posix-gap-closure-v2`
+
 ## PR-1: Process/Readiness Contract Freeze
 
 ### Objective

@@ -40,6 +40,27 @@ M68 source of truth remains:
 - PR-2: pending
 - PR-3: pending
 
+## Rugo implementation map
+
+### Rust kernel changes
+
+- No large kernel feature is expected by default. Keep Rust work bounded to background-service, notification-delivery, and permission-related ABI surfaces.
+- If settings or notification behavior changes a runtime contract, name the affected path in `kernel_rs/src/`, `arch/`, `boot/`, or `docs/abi/`.
+
+### Go user space changes
+
+- `services/go/`: settings surfaces, notification UX, and background-service prompts.
+- `services/go_std/`: optional parity spike only. It does not define the default release path for this milestone.
+
+### Language-native verification
+
+- `make kernel`
+- `make userspace`
+- `make image-demo`
+- `make smoke-demo`
+- Run the milestone-specific tooling and `pytest` acceptance checks listed below only after the PR names the Rust and Go paths it changes.
+- Do not treat Python-only evidence as sufficient for milestone closure.
+
 ## PR-1: Desktop Services Contract Freeze
 
 ### Objective
@@ -157,3 +178,8 @@ desktop profile.
 - full enterprise policy management breadth
 - multi-monitor layout behavior owned by M69
 - productivity shell features owned by M70
+
+
+
+
+

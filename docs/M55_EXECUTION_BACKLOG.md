@@ -40,6 +40,31 @@ M55 source of truth remains:
 - PR-2: pending
 - PR-3: pending
 
+## Rugo implementation map
+
+### Rust kernel changes
+
+- `kernel_rs/src/`: GPU probe, modeset, memory/fence handling, firmware policy,
+  and fallback-safe driver behavior.
+- `arch/` and `boot/`: IRQ and low-level device-init support needed for stable
+  GPU bring-up and scanout transitions.
+
+### Go user space changes
+
+- `services/go/`: compositor, window-system, and shell-facing GPU ABI
+  consumption so acceleration policy stays outside the kernel.
+- `services/go_std/`: optional shadow lane only. It can exercise the ABI, but
+  it does not define the desktop release path.
+
+### Language-native verification
+
+- `make kernel`
+- `make userspace`
+- `make image-demo`
+- `make smoke-demo`
+- `python tools/run_gpu_accel_campaign_v1.py --out out/gpu-accel-v1.json`
+- `python tools/run_display_scanout_capture_v2.py --out out/gpu-scanout-v2.json`
+
 ## PR-1: GPU Contract Freeze
 
 ### Objective

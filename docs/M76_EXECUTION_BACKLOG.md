@@ -39,6 +39,27 @@ M76 source of truth remains:
 - PR-2: pending
 - PR-3: pending
 
+## Rugo implementation map
+
+### Rust kernel changes
+
+- No new compliance feature belongs in the kernel by default. Keep Rust work bounded to stable evidence emission and contract IDs for the runtime controls being audited.
+- If compliance claims include kernel-enforced behavior, name the affected path in `kernel_rs/src/`, `arch/`, `boot/`, or `docs/abi/` explicitly.
+
+### Go user space changes
+
+- `services/go/`: audit bundle assembly, profile mapping, redaction policy, and operator-facing compliance reporting.
+- `services/go_std/`: optional parity spike only. It does not define the default release path for this milestone.
+
+### Language-native verification
+
+- `make kernel`
+- `make userspace`
+- `make image-demo`
+- `make smoke-demo`
+- Run the milestone-specific tooling and `pytest` acceptance checks listed below only after the PR names the Rust and Go paths it changes.
+- Do not treat Python-only evidence as sufficient for milestone closure.
+
 ## PR-1: Compliance and Audit Contract Freeze
 
 ### Objective
@@ -158,3 +179,8 @@ security profiles.
 - attested fleet admission work owned by M77
 - community release-train operations owned by M84
 - best-effort-only audit output outside declared policy
+
+
+
+
+

@@ -39,6 +39,31 @@ M56 source of truth remains:
 - PR-2: pending
 - PR-3: pending
 
+## Rugo implementation map
+
+### Rust kernel changes
+
+- `kernel_rs/src/`: Wi-Fi adapter discovery, IRQ/DMA safety, firmware allow or
+  deny policy, and radio or power-state enforcement hooks.
+- `arch/` and `boot/`: bus bring-up and interrupt plumbing needed to make
+  wireless probe and negative-path behavior deterministic at boot.
+
+### Go user space changes
+
+- `services/go/`: supplicant and control-plane boundaries, association policy,
+  power-save policy, and operator-readable diagnostics for Wi-Fi state changes.
+- `services/go_std/`: optional parity spike only. It is not the primary owner
+  of the Wi-Fi control plane.
+
+### Language-native verification
+
+- `make kernel`
+- `make userspace`
+- `make image-demo`
+- `make smoke-demo`
+- `python tools/run_wifi_baseline_v1.py --out out/wifi-baseline-v1.json`
+- `python tools/run_wifi_firmware_audit_v1.py --out out/wifi-firmware-audit-v1.json`
+
 ## PR-1: Wi-Fi and Firmware Contract Freeze
 
 ### Objective

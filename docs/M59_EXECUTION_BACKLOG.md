@@ -39,6 +39,27 @@ M59 source of truth remains:
 - PR-2: pending
 - PR-3: pending
 
+## Rugo implementation map
+
+### Rust kernel changes
+
+- `kernel_rs/src/`: block-encryption hooks, keyslot lifecycle, unlock or deny semantics, and crash-safe metadata handling.
+- `arch/` and `boot/`: only the early-boot or device-init plumbing needed for deterministic keyslot and unlock behavior.
+
+### Go user space changes
+
+- `services/go/`: key enrollment, unlock policy, recovery flows, and operator-visible encryption state.
+- `services/go_std/`: optional parity spike only. It does not define the default release path for this milestone.
+
+### Language-native verification
+
+- `make kernel`
+- `make userspace`
+- `make image-demo`
+- `make smoke-demo`
+- Run the milestone-specific tooling and `pytest` acceptance checks listed below only after the PR names the Rust and Go paths it changes.
+- Do not treat Python-only evidence as sufficient for milestone closure.
+
 ## PR-1: Encrypted-volume and Key Policy Freeze
 
 ### Objective
@@ -157,3 +178,8 @@ Make encrypted-storage semantics enforceable in local and CI lanes.
 - multi-device RAID coordination owned by M60
 - snapshot and integrity repair semantics owned by M61
 - hidden auto-unlock or secret-management shortcuts outside declared policy
+
+
+
+
+

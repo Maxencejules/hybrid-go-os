@@ -39,6 +39,27 @@ M67 source of truth remains:
 - PR-2: pending
 - PR-3: pending
 
+## Rugo implementation map
+
+### Rust kernel changes
+
+- No new file-manager logic belongs in the kernel by default. Keep Rust work bounded to stable VFS, file-event, permission, and content-launch contracts.
+- If this milestone widens storage or content-handler ABI behavior, name the affected path in `kernel_rs/src/` or `docs/abi/` explicitly.
+
+### Go user space changes
+
+- `services/go/`: file manager flows, content handlers, launch workflows, and operator-visible file operations.
+- `services/go_std/`: optional parity spike only. It does not define the default release path for this milestone.
+
+### Language-native verification
+
+- `make kernel`
+- `make userspace`
+- `make image-demo`
+- `make smoke-demo`
+- Run the milestone-specific tooling and `pytest` acceptance checks listed below only after the PR names the Rust and Go paths it changes.
+- Do not treat Python-only evidence as sufficient for milestone closure.
+
 ## PR-1: File Manager Contract Freeze
 
 ### Objective
@@ -158,3 +179,8 @@ profile.
 - full office/media suite breadth
 - settings and notification work owned by M68
 - multi-monitor layout work owned by M69
+
+
+
+
+

@@ -39,6 +39,27 @@ M69 source of truth remains:
 - PR-2: pending
 - PR-3: pending
 
+## Rugo implementation map
+
+### Rust kernel changes
+
+- `kernel_rs/src/`: display hotplug, modeset, scanout, and GPU-display coordination for declared multi-monitor and HiDPI profiles.
+- `arch/` and `boot/`: only the low-level device-init and interrupt behavior needed to make monitor and scale transitions deterministic.
+
+### Go user space changes
+
+- `services/go/`: compositor, workspace layout, scaling policy, and multi-monitor shell behavior.
+- `services/go_std/`: optional parity spike only. It does not define the default release path for this milestone.
+
+### Language-native verification
+
+- `make kernel`
+- `make userspace`
+- `make image-demo`
+- `make smoke-demo`
+- Run the milestone-specific tooling and `pytest` acceptance checks listed below only after the PR names the Rust and Go paths it changes.
+- Do not treat Python-only evidence as sufficient for milestone closure.
+
 ## PR-1: Multi-monitor Contract Freeze
 
 ### Objective
@@ -157,3 +178,8 @@ profiles.
 - full docking/suspend workstation policy breadth
 - productivity shell behavior owned by M70
 - universal native GPU parity beyond declared profiles
+
+
+
+
+

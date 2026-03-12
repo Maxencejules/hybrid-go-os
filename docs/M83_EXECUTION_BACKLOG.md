@@ -39,6 +39,27 @@ M83 source of truth remains:
 - PR-2: pending
 - PR-3: pending
 
+## Rugo implementation map
+
+### Rust kernel changes
+
+- No major kernel feature is expected by default. If localization touches user-visible boot, panic, or ABI markers, name the affected path in `kernel_rs/src/`, `arch/`, `boot/`, or `docs/abi/` explicitly.
+- Keep translation and docs-quality work from pretending to be runtime progress.
+
+### Go user space changes
+
+- `services/go/`: user-visible shell and service strings are the primary runtime surface if localization is shipped in the default stack.
+- `services/go_std/`: optional parity spike only. It does not define the default release path for this milestone.
+
+### Language-native verification
+
+- `make kernel`
+- `make userspace`
+- `make image-demo`
+- `make smoke-demo`
+- Run the milestone-specific tooling and `pytest` acceptance checks listed below only after the PR names the Rust and Go paths it changes.
+- Do not treat Python-only evidence as sufficient for milestone closure.
+
 ## PR-1: Localization and Docs Contract Freeze
 
 ### Objective
@@ -157,3 +178,8 @@ materials.
 - community release-train and support-channel operations owned by M84
 - broad translation coverage beyond declared catalog scope
 - manual-only docs checks without deterministic validation
+
+
+
+
+

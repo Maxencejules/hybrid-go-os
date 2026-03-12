@@ -27,6 +27,32 @@ M42 source of truth remains `docs/M40_M44_GENERAL_PURPOSE_PARITY_ROADMAP.md`,
 - PR-2: complete (2026-03-10)
 - PR-3: complete (2026-03-10)
 
+## Historical Rugo implementation summary
+
+### Historical Rust kernel surface
+
+- `kernel_rs/src/`: this milestone was primarily kernel-owned, covering
+  namespace, cgroup, isolation, and resource-control behavior plus deterministic
+  negative paths.
+- `arch/` and `boot/`: only the low-level enforcement and lifecycle behavior
+  needed to keep containment and resource-control evidence stable.
+
+### Historical Go user space surface
+
+- `services/go/`: limited direct ownership. The main userspace role was to be a
+  consumer and workload context for the new isolation baseline rather than its
+  primary implementation site.
+- `services/go_std/`: not the primary path for this milestone.
+
+### Historical Language-Native Verification
+
+- `make kernel`
+- `make userspace`
+- `make image-demo`
+- `make smoke-demo`
+- `make test-isolation-baseline-v1`
+- `make test-namespace-cgroup-v1`
+
 ## PR-1: Isolation Contract Freeze
 
 ### Objective

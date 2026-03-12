@@ -39,6 +39,27 @@ M62 source of truth remains:
 - PR-2: pending
 - PR-3: pending
 
+## Rugo implementation map
+
+### Rust kernel changes
+
+- `kernel_rs/src/`: packet-filter hooks, state-table behavior, socket-policy enforcement, and deterministic allow or deny markers on the network fast path.
+- `arch/` and `boot/`: only the IRQ or device-init plumbing needed to expose firewall behavior predictably on declared network profiles.
+
+### Go user space changes
+
+- `services/go/`: policy daemon, zone management, rule loading, and operator-visible firewall state.
+- `services/go_std/`: optional parity spike only. It does not define the default release path for this milestone.
+
+### Language-native verification
+
+- `make kernel`
+- `make userspace`
+- `make image-demo`
+- `make smoke-demo`
+- Run the milestone-specific tooling and `pytest` acceptance checks listed below only after the PR names the Rust and Go paths it changes.
+- Do not treat Python-only evidence as sufficient for milestone closure.
+
 ## PR-1: Firewall Contract Freeze
 
 ### Objective
@@ -157,3 +178,8 @@ Make the firewall baseline release-blocking for declared network profiles.
 - full nftables or iptables feature parity
 - encrypted tunnel support owned by M63
 - routing and traffic shaping owned by M65
+
+
+
+
+
