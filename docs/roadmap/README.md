@@ -17,7 +17,7 @@ The active framing is now three tracks rather than one flat milestone ladder.
 
 | Track | Role | Current phase |
 |---|---|---|
-| Core Hybrid OS | Main scoreboard. Measures the default Rust-kernel plus Go-service runtime itself. | `C5` complete; next is `C6 Runtime Quality Under Load`. |
+| Core Hybrid OS | Main scoreboard. Measures the default Rust-kernel plus Go-service runtime itself. | `C3` in progress; `C4` and `C5` stay queued behind runtime-first closure. |
 | Tooling / Validation / Release Infrastructure | Secondary scoreboard. Measures confidence, qualification, release, and lifecycle discipline around the core lane. | `T4` complete; next is `T5 Advanced Trust and Compliance Infrastructure`. |
 | Expansion / Research / Platform Breadth | Secondary scoreboard. Measures compatibility breadth, hardware breadth, desktop breadth, and ecosystem growth. | `X4` complete; next is `X5 Next-Wave Breadth Research`. |
 
@@ -43,6 +43,18 @@ following on declared baseline platforms:
 - persist data and perform network I/O through the default service lane
 - enforce the process, rights, and isolation model that those services depend on
 - survive bounded soak, restart, and containment tests tied to that same lane
+
+## Current Core Closure Order
+
+1. `M10` and `M16` first.
+2. Extend the existing manifest-driven `M25` runtime instead of opening a new
+   lane.
+3. Land `M12` and `M13` as the first real user-visible runtime expansion.
+4. Add boot-backed artifact collection before treating `M18`, `M19`, or `M22`
+   as literal runtime closure.
+5. Close `M18` and `M19` on top of the real v1 runtime.
+6. Run `M22` soak against mixed block/network/service workloads.
+7. Finish `M42` last.
 
 ## Track Summary
 
@@ -79,7 +91,8 @@ Foreground:
 
 - the three-track scoreboard
 - the default Rust-kernel plus Go-service demo path
-- the next unfinished core-runtime phase
+- the active core closure order for `M10/M16 -> M25 -> M12/M13 -> boot-backed
+  artifacts -> M18/M19 -> M22 -> M42`
 
 Archive or de-emphasize:
 

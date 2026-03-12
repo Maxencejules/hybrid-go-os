@@ -105,12 +105,13 @@ Detailed build and host prerequisites live in [docs/BUILD.md](docs/BUILD.md).
 
 | Track | What counts as progress | Current phase | Historical mapping |
 |------|--------------------------|---------------|--------------------|
-| Core Hybrid OS | The default Rust-kernel plus Go-service lane boots, runs native services, persists data, performs network I/O, and enforces runtime isolation on declared baseline targets. | `C5` complete; next core phase is `C6 Runtime Quality Under Load`. | `M0-M7`, `G1`, `M10`, `M12`, `M13`, `M16`, `M18`, `M19`, `M22`, `M25`, `M42` |
+| Core Hybrid OS | The default Rust-kernel plus Go-service lane boots, runs native services, persists data, performs network I/O, and enforces runtime isolation on declared baseline targets. | `C3` in progress; `C4` and `C5` stay queued behind runtime-first closure. | `M0-M7`, `G1`, `M10`, `M12`, `M13`, `M16`, `M18`, `M19`, `M22`, `M25`, `M42` |
 | Tooling / Validation / Release Infrastructure | Confidence, reproducibility, qualification, release, and fleet discipline around the core lane improve. | `T4` complete; next infrastructure phase is `T5 Advanced Trust and Compliance Infrastructure`. | `G2`, `M11`, `M14`, `M20`, `M21`, `M24`, `M28`, `M29`, `M30-M34`, `M40` |
 | Expansion / Research / Platform Breadth | Compatibility, hardware breadth, desktop breadth, packaging breadth, and other product-surface expansion increase. | `X4` complete; next breadth phase is `X5 Next-Wave Breadth Research`. | `M8`, `M9`, `M15`, `M17`, `M23`, `M26`, `M27`, `M35-M39`, `M41`, `M43-M54` |
 
 Primary scoring rule:
 - the first row is the answer to "how close is the repo to the stated product?"
+- current core closure order is `M10/M16 -> M25 -> M12/M13 -> boot-backed artifacts -> M18/M19 -> M22 -> M42`
 - `G1` is the default Go-service lane
 - `G2` is experimental stock-Go qualification, not the default repo state
 
