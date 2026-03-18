@@ -7,9 +7,12 @@ import argparse
 import hashlib
 import hmac
 import json
+import shutil
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List
+
+import release_bundle_v1 as release_bundle
 
 
 SCHEMA = "rugo.update_metadata.v1"
@@ -46,6 +49,17 @@ def _bootstrap_targets(repo: Path, version: str) -> None:
     target.write_bytes(payload)
 
 
+def _stage_targets(repo: Path, targets: List[Path]) -> None:
+    targets_dir = repo / "targets"
+    targets_dir.mkdir(parents=True, exist_ok=True)
+    for src in targets:
+        if not src.is_file():
+            raise FileNotFoundError(f"target artifact not found: {src}")
+        dest = targets_dir / src.name
+        if src.resolve() != dest.resolve():
+            shutil.copy2(src, dest)
+
+
 def _collect_targets(repo: Path) -> List[Dict[str, object]]:
     targets_dir = repo / "targets"
     files = sorted([p for p in targets_dir.rglob("*") if p.is_file()])
@@ -70,11 +84,15 @@ def build_signed_metadata(
     key: str,
     key_id: str,
     expires_hours: int,
+    target_artifacts: List[Path] | None = None,
 ) -> Dict[str, Any]:
     if build_sequence <= 0:
         raise ValueError("build_sequence must be > 0")
 
-    _bootstrap_targets(repo, version=version)
+    if target_artifacts:
+        _stage_targets(repo, target_artifacts)
+    else:
+        _bootstrap_targets(repo, version=version)
     targets = _collect_targets(repo)
     if not targets:
         raise ValueError("no targets found in repository")
@@ -111,6 +129,8 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument("--expires-hours", type=int, default=168)
     p.add_argument("--key", default="m14-update-key-v1")
     p.add_argument("--key-id", default="update-key-2026-03")
+    p.add_argument("--target", action="append", default=[])
+    p.add_argument("--release-bundle", default="")
     p.add_argument("--out", default="out/update-metadata-v1.json")
     return p
 
@@ -119,6 +139,21 @@ def main(argv: List[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
     repo = Path(args.repo)
     repo.mkdir(parents=True, exist_ok=True)
+    target_artifacts = [Path(target) for target in args.target]
+    if args.release_bundle:
+        bundle = release_bundle.load_bundle(Path(args.release_bundle))
+        target_artifacts.extend(
+            Path(path) for path in bundle.get("update_repo_targets", []) if isinstance(path, str)
+        )
+    # Preserve input order while dropping duplicates.
+    deduped_targets: List[Path] = []
+    seen = set()
+    for target in target_artifacts:
+        key = target.as_posix()
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped_targets.append(target)
 
     metadata = build_signed_metadata(
         repo=repo,
@@ -128,6 +163,7 @@ def main(argv: List[str] | None = None) -> int:
         key=args.key,
         key_id=args.key_id,
         expires_hours=args.expires_hours,
+        target_artifacts=deduped_targets or None,
     )
 
     out_path = Path(args.out)

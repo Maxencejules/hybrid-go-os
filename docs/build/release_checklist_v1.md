@@ -16,10 +16,12 @@ post-release validation.
   - `make test-release-engineering-v1`
   - `make repro-check`
 - Confirm artifacts generated:
+  - `out/release-bundle-v1.json`
   - `out/release-contract-v1.json`
   - `out/update-attack-suite-v1.json`
   - `out/sbom-v1.spdx.json`
   - `out/provenance-v1.json`
+  - `out/releases/<channel>/<version>+build.<sequence>/`
 
 ## Signing and metadata checks
 
@@ -32,6 +34,7 @@ post-release validation.
 
 - Publish release notes with known limitations.
 - Publish artifact checksums and provenance links.
+- Publish the staged installer and recovery media from `out/releases/...`.
 - Attach support-bundle guidance for operators.
 
 ## Post-release validation

@@ -660,20 +660,23 @@ test-storage-reliability-v2: image-fs image-fs-badmagic
 	$(PYTHON) tools/run_storage_powerfail_campaign_v2.py --seed 20260304 --out $(OUT)/storage-powerfail-v2.json
 	$(PYTHON) -m pytest tests/storage/test_journal_recovery_v2.py tests/storage/test_powerfail_campaign_v2.py tests/storage/test_metadata_integrity_v2.py tests/storage/test_storage_gate_v2.py -v --junitxml=$(OUT)/pytest-storage-reliability-v2.xml
 
-test-release-engineering-v1: image
-	$(PYTHON) tools/release_contract_v1.py --out $(OUT)/release-contract-v1.json
-	$(PYTHON) tools/update_repo_sign_v1.py --repo $(OUT)/update-repo-v1 --version 1.0.0 --build-sequence 1 --out $(OUT)/update-metadata-v1.json
+test-release-engineering-v1: image-demo image-panic
+	$(PYTHON) tools/build_release_bundle_v1.py --channel stable --version 1.0.0 --build-sequence 1 --system-image $(OUT)/os-go.iso --kernel $(OUT)/kernel-go.elf --panic-image $(OUT)/os-panic.iso --capture-mode auto --out $(OUT)/release-bundle-v1.json
+	$(PYTHON) tools/release_contract_v1.py --channel stable --version 1.0.0 --build-sequence 1 --release-bundle $(OUT)/release-bundle-v1.json --out $(OUT)/release-contract-v1.json
+	$(PYTHON) tools/update_repo_sign_v1.py --repo $(OUT)/update-repo-v1 --version 1.0.0 --build-sequence 1 --release-bundle $(OUT)/release-bundle-v1.json --out $(OUT)/update-metadata-v1.json
 	$(PYTHON) tools/update_client_verify_v1.py --repo $(OUT)/update-repo-v1 --metadata $(OUT)/update-metadata-v1.json --state $(OUT)/update-client-state-v1.json --expect-version 1.0.0
 	$(PYTHON) tools/run_update_attack_suite_v1.py --seed 20260304 --out $(OUT)/update-attack-suite-v1.json
-	$(PYTHON) tools/generate_sbom_v1.py --out $(OUT)/sbom-v1.spdx.json
-	$(PYTHON) tools/generate_provenance_v1.py --out $(OUT)/provenance-v1.json
-	$(PYTHON) tools/collect_support_bundle_v1.py --out $(OUT)/support-bundle-v1.json
+	$(PYTHON) tools/generate_sbom_v1.py --version 1.0.0 --release-bundle $(OUT)/release-bundle-v1.json --artifacts $(OUT)/release-contract-v1.json $(OUT)/update-metadata-v1.json $(OUT)/update-attack-suite-v1.json --out $(OUT)/sbom-v1.spdx.json
+	$(PYTHON) tools/generate_provenance_v1.py --version 1.0.0 --release-bundle $(OUT)/release-bundle-v1.json --artifacts $(OUT)/release-contract-v1.json $(OUT)/update-metadata-v1.json $(OUT)/update-attack-suite-v1.json --out $(OUT)/provenance-v1.json
+	$(PYTHON) tools/collect_support_bundle_v1.py --release-bundle $(OUT)/release-bundle-v1.json --out $(OUT)/support-bundle-v1.json
 	$(PYTHON) -m pytest tests/build tests/pkg/test_update_metadata_v1.py tests/pkg/test_update_rollback_protection_v1.py tests/pkg/test_update_attack_suite_v1.py -v
 
-test-release-ops-v2: image
-	$(PYTHON) tools/build_installer_v2.py --out $(OUT)/installer-v2.json
-	$(PYTHON) tools/run_upgrade_recovery_drill_v2.py --out $(OUT)/upgrade-recovery-v2.json
-	$(PYTHON) tools/collect_support_bundle_v2.py --artifacts $(OUT)/installer-v2.json $(OUT)/upgrade-recovery-v2.json --out $(OUT)/support-bundle-v2.json
+test-release-ops-v2: image-demo image-panic
+	$(PYTHON) tools/build_release_bundle_v1.py --channel stable --version 2.0.0 --build-sequence 12 --system-image $(OUT)/os-go.iso --kernel $(OUT)/kernel-go.elf --panic-image $(OUT)/os-panic.iso --capture-mode auto --out $(OUT)/release-bundle-v1.json
+	$(PYTHON) tools/update_repo_sign_v1.py --repo $(OUT)/update-repo-v2 --version 2.0.0 --build-sequence 12 --release-bundle $(OUT)/release-bundle-v1.json --out $(OUT)/update-metadata-v2.json
+	$(PYTHON) tools/build_installer_v2.py --channel stable --version 2.0.0 --build-sequence 12 --release-bundle $(OUT)/release-bundle-v1.json --install-state-out $(OUT)/install-state-v1.json --out $(OUT)/installer-v2.json
+	$(PYTHON) tools/run_upgrade_recovery_drill_v2.py --release-bundle $(OUT)/release-bundle-v1.json --install-state $(OUT)/install-state-v1.json --update-metadata $(OUT)/update-metadata-v2.json --out $(OUT)/upgrade-recovery-v2.json
+	$(PYTHON) tools/collect_support_bundle_v2.py --artifacts $(OUT)/installer-v2.json $(OUT)/upgrade-recovery-v2.json --release-bundle $(OUT)/release-bundle-v1.json --install-state $(OUT)/install-state-v1.json --out $(OUT)/support-bundle-v2.json
 	$(PYTHON) -m pytest tests/build/test_installer_recovery_v2.py tests/build/test_upgrade_rollback_v2.py tests/build/test_support_bundle_v2.py tests/build/test_operability_gate_v2.py -v --junitxml=$(OUT)/pytest-release-ops-v2.xml
 
 test-abi-stability-v3: $(KERNEL_SYSCALL_TABLE) $(GO_STD_INTERFACE_REPORT)
@@ -748,22 +751,29 @@ test-crash-dump-v1: image-demo image-panic
 	$(PYTHON) tools/symbolize_crash_dump_v1.py --dump $(OUT)/crash-dump-v1.json --out $(OUT)/crash-dump-symbolized-v1.json
 	$(PYTHON) -m pytest tests/runtime/test_crash_dump_docs_v1.py tests/runtime/test_crash_dump_capture_v1.py tests/runtime/test_crash_dump_symbolization_v1.py tests/runtime/test_crash_dump_gate_v1.py -v --junitxml=$(OUT)/pytest-crash-dump-v1.xml
 
-test-ops-ux-v3:
-	$(PYTHON) tools/run_upgrade_drill_v3.py --seed 20260309 --out $(OUT)/upgrade-drill-v3.json
-	$(PYTHON) tools/run_recovery_drill_v3.py --seed 20260309 --out $(OUT)/recovery-drill-v3.json
+test-ops-ux-v3: image-demo image-panic
+	$(PYTHON) tools/build_release_bundle_v1.py --channel stable --version 3.0.0 --build-sequence 42 --system-image $(OUT)/os-go.iso --kernel $(OUT)/kernel-go.elf --panic-image $(OUT)/os-panic.iso --capture-mode auto --out $(OUT)/release-bundle-v1.json
+	$(PYTHON) tools/update_repo_sign_v1.py --repo $(OUT)/update-repo-v3 --version 3.0.0 --build-sequence 42 --release-bundle $(OUT)/release-bundle-v1.json --out $(OUT)/update-metadata-v3.json
+	$(PYTHON) tools/build_installer_v2.py --channel stable --version 3.0.0 --build-sequence 42 --release-bundle $(OUT)/release-bundle-v1.json --install-state-out $(OUT)/install-state-v1.json --out $(OUT)/installer-v2.json
+	$(PYTHON) tools/run_upgrade_drill_v3.py --seed 20260309 --release-bundle $(OUT)/release-bundle-v1.json --install-state $(OUT)/install-state-v1.json --update-metadata $(OUT)/update-metadata-v3.json --out $(OUT)/upgrade-drill-v3.json
+	$(PYTHON) tools/run_recovery_drill_v3.py --seed 20260309 --release-bundle $(OUT)/release-bundle-v1.json --install-state $(OUT)/install-state-v1.json --out $(OUT)/recovery-drill-v3.json
 	$(PYTHON) -m pytest tests/build/test_installer_ux_v3.py tests/build/test_upgrade_recovery_v3.py tests/build/test_rollback_safety_v3.py tests/build/test_ops_ux_gate_v3.py -v --junitxml=$(OUT)/pytest-ops-ux-v3.xml
 
-test-release-lifecycle-v2:
-	$(PYTHON) tools/release_branch_audit_v2.py --out $(OUT)/release-branch-audit-v2.json
-	$(PYTHON) tools/support_window_audit_v1.py --out $(OUT)/support-window-audit-v1.json
+test-release-lifecycle-v2: image-demo image-panic
+	$(PYTHON) tools/build_release_bundle_v1.py --channel stable --version 2.1.0 --build-sequence 18 --system-image $(OUT)/os-go.iso --kernel $(OUT)/kernel-go.elf --panic-image $(OUT)/os-panic.iso --capture-mode auto --out $(OUT)/release-bundle-v1.json
+	$(PYTHON) tools/release_contract_v1.py --channel stable --version 2.1.0 --build-sequence 18 --release-bundle $(OUT)/release-bundle-v1.json --out $(OUT)/release-contract-v1.json
+	$(PYTHON) tools/release_branch_audit_v2.py --release-bundle $(OUT)/release-bundle-v1.json --out $(OUT)/release-branch-audit-v2.json
+	$(PYTHON) tools/support_window_audit_v1.py --release-bundle $(OUT)/release-bundle-v1.json --out $(OUT)/support-window-audit-v1.json
 	$(MAKE) test-supply-chain-revalidation-v1
 	$(PYTHON) -m pytest tests/build/test_release_policy_v2_docs.py tests/build/test_release_branch_policy_v2.py tests/build/test_support_window_policy_v1.py tests/build/test_release_lifecycle_gate_v2.py -v --junitxml=$(OUT)/pytest-release-lifecycle-v2.xml
 
-test-supply-chain-revalidation-v1:
-	$(PYTHON) tools/generate_sbom_v1.py --out $(OUT)/sbom-v1.spdx.json
-	$(PYTHON) tools/generate_provenance_v1.py --out $(OUT)/provenance-v1.json
-	$(PYTHON) tools/verify_sbom_provenance_v2.py --sbom $(OUT)/sbom-v1.spdx.json --provenance $(OUT)/provenance-v1.json --out $(OUT)/supply-chain-revalidation-v1.json
-	$(PYTHON) tools/verify_release_attestations_v1.py --out $(OUT)/release-attestation-verification-v1.json
+test-supply-chain-revalidation-v1: image-demo image-panic
+	$(PYTHON) tools/build_release_bundle_v1.py --channel stable --version 2.1.0 --build-sequence 18 --system-image $(OUT)/os-go.iso --kernel $(OUT)/kernel-go.elf --panic-image $(OUT)/os-panic.iso --capture-mode auto --out $(OUT)/release-bundle-v1.json
+	$(PYTHON) tools/release_contract_v1.py --channel stable --version 2.1.0 --build-sequence 18 --release-bundle $(OUT)/release-bundle-v1.json --out $(OUT)/release-contract-v1.json
+	$(PYTHON) tools/generate_sbom_v1.py --version 2.1.0 --release-bundle $(OUT)/release-bundle-v1.json --artifacts $(OUT)/release-contract-v1.json --out $(OUT)/sbom-v1.spdx.json
+	$(PYTHON) tools/generate_provenance_v1.py --version 2.1.0 --release-bundle $(OUT)/release-bundle-v1.json --artifacts $(OUT)/release-contract-v1.json --out $(OUT)/provenance-v1.json
+	$(PYTHON) tools/verify_sbom_provenance_v2.py --sbom $(OUT)/sbom-v1.spdx.json --provenance $(OUT)/provenance-v1.json --release-bundle $(OUT)/release-bundle-v1.json --out $(OUT)/supply-chain-revalidation-v1.json
+	$(PYTHON) tools/verify_release_attestations_v1.py --release-contract $(OUT)/release-contract-v1.json --out $(OUT)/release-attestation-verification-v1.json
 	$(PYTHON) -m pytest tests/build/test_supply_chain_revalidation_docs_v1.py tests/build/test_sbom_revalidation_v1.py tests/build/test_provenance_verification_v1.py tests/build/test_attestation_drift_v1.py tests/build/test_supply_chain_revalidation_gate_v1.py -v --junitxml=$(OUT)/pytest-supply-chain-revalidation-v1.xml
 
 test-conformance-v1:

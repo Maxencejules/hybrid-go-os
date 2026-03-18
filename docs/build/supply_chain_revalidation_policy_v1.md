@@ -34,8 +34,10 @@ All mandatory checks must pass with `max_failures = 0`.
 
 ## Required tools and artifacts
 
+- `python tools/build_release_bundle_v1.py --out out/release-bundle-v1.json`
 - `python tools/verify_sbom_provenance_v2.py --out out/supply-chain-revalidation-v1.json`
 - `python tools/verify_release_attestations_v1.py --out out/release-attestation-verification-v1.json`
+- `out/release-bundle-v1.json`
 - `out/sbom-v1.spdx.json`
 - `out/provenance-v1.json`
 

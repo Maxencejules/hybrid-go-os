@@ -234,12 +234,14 @@ jobs:
         with:
           name: release-engineering-v1-artifacts
           path: |
+            out/release-bundle-v1.json
             out/release-contract-v1.json
             out/update-metadata-v1.json
             out/update-attack-suite-v1.json
             out/sbom-v1.spdx.json
             out/provenance-v1.json
             out/support-bundle-v1.json
+            out/releases
 
       - name: Operability and release UX v2 gate
         run: |
@@ -252,9 +254,13 @@ jobs:
           name: release-ops-v2-artifacts
           path: |
             out/pytest-release-ops-v2.xml
+            out/release-bundle-v1.json
+            out/update-metadata-v2.json
             out/installer-v2.json
+            out/install-state-v1.json
             out/upgrade-recovery-v2.json
             out/support-bundle-v2.json
+            out/releases
 
       - name: ABI stability v3 gate
         run: |
@@ -474,8 +480,12 @@ jobs:
           name: ops-ux-v3-artifacts
           path: |
             out/pytest-ops-ux-v3.xml
+            out/release-bundle-v1.json
+            out/update-metadata-v3.json
+            out/install-state-v1.json
             out/upgrade-drill-v3.json
             out/recovery-drill-v3.json
+            out/releases
 
       - name: Release lifecycle v2 gate
         run: |
@@ -488,8 +498,13 @@ jobs:
           name: release-lifecycle-v2-artifacts
           path: |
             out/pytest-release-lifecycle-v2.xml
+            out/release-bundle-v1.json
+            out/release-contract-v1.json
             out/release-branch-audit-v2.json
             out/support-window-audit-v1.json
+            out/supply-chain-revalidation-v1.json
+            out/release-attestation-verification-v1.json
+            out/releases
 
       - name: Supply-chain revalidation v1 gate
         run: |
@@ -502,10 +517,13 @@ jobs:
           name: supply-chain-revalidation-v1-artifacts
           path: |
             out/pytest-supply-chain-revalidation-v1.xml
+            out/release-bundle-v1.json
+            out/release-contract-v1.json
             out/supply-chain-revalidation-v1.json
             out/release-attestation-verification-v1.json
             out/sbom-v1.spdx.json
             out/provenance-v1.json
+            out/releases
 
       - name: Conformance v1 gate
         run: |

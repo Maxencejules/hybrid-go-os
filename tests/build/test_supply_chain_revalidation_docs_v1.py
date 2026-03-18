@@ -29,6 +29,8 @@ def test_supply_chain_revalidation_policy_v1_doc_declares_required_tokens():
         "Supply-chain policy ID: `rugo.supply_chain_revalidation_policy.v1`",
         "Revalidation report schema: `rugo.supply_chain_revalidation_report.v1`",
         "Attestation verification schema: `rugo.release_attestation_verification.v1`",
+        "python tools/build_release_bundle_v1.py --out out/release-bundle-v1.json",
+        "`out/release-bundle-v1.json`",
         "`sbom_exists`",
         "`sbom_schema`",
         "`provenance_exists`",
@@ -53,6 +55,7 @@ def test_release_attestation_policy_v1_doc_declares_required_tokens():
         "`policy_match`",
         "`drift_count`",
         "`max_drift = 0`",
+        "python tools/verify_release_attestations_v1.py --release-contract out/release-contract-v1.json --out out/release-attestation-verification-v1.json",
         "Any policy mismatch is gate-blocking.",
         "Any drift above threshold is gate-blocking.",
     ]:

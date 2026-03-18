@@ -21,10 +21,13 @@ def _read(relpath: str) -> str:
 def test_release_lifecycle_gate_v2_wiring_and_artifacts(tmp_path: Path):
     required = [
         "docs/M31_EXECUTION_BACKLOG.md",
+        "docs/build/default_lane_release_path_v1.md",
         "docs/build/release_policy_v2.md",
         "docs/build/support_lifecycle_policy_v1.md",
         "docs/build/supply_chain_revalidation_policy_v1.md",
         "docs/build/release_attestation_policy_v1.md",
+        "tools/build_release_bundle_v1.py",
+        "tools/release_contract_v1.py",
         "tools/release_branch_audit_v2.py",
         "tools/support_window_audit_v1.py",
         "tools/verify_sbom_provenance_v2.py",
@@ -51,8 +54,10 @@ def test_release_lifecycle_gate_v2_wiring_and_artifacts(tmp_path: Path):
 
     assert "test-release-lifecycle-v2" in makefile
     for entry in [
-        "tools/release_branch_audit_v2.py --out $(OUT)/release-branch-audit-v2.json",
-        "tools/support_window_audit_v1.py --out $(OUT)/support-window-audit-v1.json",
+        "tools/build_release_bundle_v1.py --channel stable --version 2.1.0 --build-sequence 18",
+        "tools/release_contract_v1.py --channel stable --version 2.1.0 --build-sequence 18 --release-bundle $(OUT)/release-bundle-v1.json --out $(OUT)/release-contract-v1.json",
+        "tools/release_branch_audit_v2.py --release-bundle $(OUT)/release-bundle-v1.json --out $(OUT)/release-branch-audit-v2.json",
+        "tools/support_window_audit_v1.py --release-bundle $(OUT)/release-bundle-v1.json --out $(OUT)/support-window-audit-v1.json",
         "$(MAKE) test-supply-chain-revalidation-v1",
         "tests/build/test_release_policy_v2_docs.py",
         "tests/build/test_release_branch_policy_v2.py",
@@ -66,6 +71,8 @@ def test_release_lifecycle_gate_v2_wiring_and_artifacts(tmp_path: Path):
     assert "make test-release-lifecycle-v2" in ci
     assert "release-lifecycle-v2-artifacts" in ci
     assert "out/pytest-release-lifecycle-v2.xml" in ci
+    assert "out/release-bundle-v1.json" in ci
+    assert "out/release-contract-v1.json" in ci
     assert "out/release-branch-audit-v2.json" in ci
     assert "out/support-window-audit-v1.json" in ci
 

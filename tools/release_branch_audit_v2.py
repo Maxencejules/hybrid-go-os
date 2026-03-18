@@ -10,6 +10,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List
 
+import release_bundle_v1 as release_bundle
+
 
 SCHEMA = "rugo.release_branch_audit.v2"
 POLICY_ID = "rugo.release_policy.v2"
@@ -23,6 +25,7 @@ def run_audit(
     branches: List[str],
     required_branches: List[str],
     allow_hotfix: bool,
+    bundle: Dict[str, object] | None = None,
 ) -> Dict[str, object]:
     unique_branches = list(dict.fromkeys(branches))
     required = list(dict.fromkeys(required_branches))
@@ -64,7 +67,7 @@ def run_audit(
     ]
     total_failures = sum(1 for check in checks if check["pass"] is False)
 
-    return {
+    report = {
         "schema": SCHEMA,
         "policy_id": POLICY_ID,
         "created_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -78,6 +81,15 @@ def run_audit(
         "checks": checks,
         "total_failures": total_failures,
     }
+    if bundle is not None:
+        report["release_reference"] = {
+            "version": bundle.get("version"),
+            "build_sequence": bundle.get("build_sequence"),
+            "selected_channel": bundle.get("selected_channel"),
+            "release_bundle_digest": bundle.get("digest"),
+            "system_image": release_bundle.artifact_by_role(bundle, "system_image")["path"],
+        }
+    return report
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -89,6 +101,7 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="treat hotfix/* branches as policy violations",
     )
+    parser.add_argument("--release-bundle", default="")
     parser.add_argument("--max-failures", type=int, default=0)
     parser.add_argument("--out", default="out/release-branch-audit-v2.json")
     return parser
@@ -98,10 +111,16 @@ def main(argv: List[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
     branches = args.branch or list(DEFAULT_BRANCHES)
     required = args.required_branch or list(DEFAULT_REQUIRED_BRANCHES)
+    bundle = (
+        release_bundle.load_bundle(Path(args.release_bundle))
+        if args.release_bundle
+        else None
+    )
     report = run_audit(
         branches=branches,
         required_branches=required,
         allow_hotfix=not args.disallow_hotfix,
+        bundle=bundle,
     )
     report["max_failures"] = args.max_failures
     report["meets_target"] = report["total_failures"] <= args.max_failures

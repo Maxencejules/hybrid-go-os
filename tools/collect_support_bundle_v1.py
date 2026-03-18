@@ -11,6 +11,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List
 
+import release_bundle_v1 as release_bundle
+
 
 def _sha256_file(path: Path) -> str:
     h = hashlib.sha256()
@@ -23,7 +25,10 @@ def _sha256_file(path: Path) -> str:
     return h.hexdigest()
 
 
-def build_bundle(artifacts: List[Path]) -> Dict[str, object]:
+def build_bundle(
+    artifacts: List[Path],
+    bundle: Dict[str, object] | None = None,
+) -> Dict[str, object]:
     evidence: List[Dict[str, object]] = []
     for path in artifacts:
         if not path.is_file():
@@ -44,6 +49,12 @@ def build_bundle(artifacts: List[Path]) -> Dict[str, object]:
             "machine": platform.machine(),
             "python": platform.python_version(),
         },
+        "release_context": {
+            "release_bundle_digest": (bundle or {}).get("digest", ""),
+            "runtime_capture_id": ((bundle or {}).get("runtime_capture") or {}).get(
+                "capture_id", ""
+            ),
+        },
         "evidence": evidence,
         "redactions": [
             "no secrets captured in model-level bundle",
@@ -58,19 +69,37 @@ def _build_parser() -> argparse.ArgumentParser:
         "--artifacts",
         nargs="*",
         default=[
+            "out/release-bundle-v1.json",
             "out/release-contract-v1.json",
             "out/update-attack-suite-v1.json",
             "out/sbom-v1.spdx.json",
             "out/provenance-v1.json",
         ],
     )
+    p.add_argument("--release-bundle", default="")
     p.add_argument("--out", default="out/support-bundle-v1.json")
     return p
 
 
 def main(argv: List[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
-    bundle = build_bundle([Path(p) for p in args.artifacts])
+    loaded_bundle = (
+        release_bundle.load_bundle(Path(args.release_bundle))
+        if args.release_bundle
+        else None
+    )
+    artifacts = [Path(p) for p in args.artifacts]
+    if loaded_bundle is not None:
+        artifacts.extend(release_bundle.artifact_paths(loaded_bundle))
+    deduped: List[Path] = []
+    seen = set()
+    for artifact in artifacts:
+        key = artifact.as_posix()
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(artifact)
+    bundle = build_bundle(deduped, bundle=loaded_bundle)
     out_path = Path(args.out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(json.dumps(bundle, indent=2) + "\n", encoding="utf-8")

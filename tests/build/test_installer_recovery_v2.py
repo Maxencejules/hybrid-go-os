@@ -30,14 +30,16 @@ def test_installer_and_runbook_docs_present_with_contract_tokens():
 
     for token in [
         "schema: `rugo.installer_contract.v2`",
+        "out/release-bundle-v1.json",
         "rollback to the last trusted sequence",
         "make test-release-ops-v2",
     ]:
         assert token in baseline
 
     for token in [
-        "python tools/build_installer_v2.py --out out/installer-v2.json",
-        "python tools/run_upgrade_recovery_drill_v2.py --out out/upgrade-recovery-v2.json",
+        "python tools/build_release_bundle_v1.py --out out/release-bundle-v1.json",
+        "python tools/build_installer_v2.py --release-bundle out/release-bundle-v1.json --install-state-out out/install-state-v1.json --out out/installer-v2.json",
+        "python tools/run_upgrade_recovery_drill_v2.py --release-bundle out/release-bundle-v1.json --install-state out/install-state-v1.json",
         "python tools/collect_support_bundle_v2.py",
     ]:
         assert token in runbook
@@ -68,3 +70,4 @@ def test_build_installer_v2_schema(tmp_path: Path):
     assert data["installer_profile"]["mode"] == "offline-first"
     assert data["recovery_profile"]["rollback_supported"] is True
     assert "sha256" in data["preflight_checks"]
+    assert data["persisted_install_manifest"].endswith("install-state-v1.json")

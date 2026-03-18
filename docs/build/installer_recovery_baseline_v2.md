@@ -15,13 +15,17 @@ local and CI release lanes.
   - `tools/build_installer_v2.py`
   - `out/installer-v2.json`
   - schema: `rugo.installer_contract.v2`
+- Shared release bundle:
+  - `tools/build_release_bundle_v1.py`
+  - `out/release-bundle-v1.json`
+  - versioned media under `out/releases/<channel>/<version>+build.<sequence>/`
 - Preflight checks before install:
   - artifact `sha256` verification,
   - minimum free-space check,
   - update metadata presence check.
 - Install outputs:
   - bootable system image,
-  - persisted install manifest,
+  - persisted install manifest (`out/install-state-v1.json`),
   - release evidence pointers for audit.
 
 ## Recovery baseline

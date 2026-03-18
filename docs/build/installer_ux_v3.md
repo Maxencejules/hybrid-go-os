@@ -30,8 +30,11 @@ in local and CI release lanes.
 
 ## Required artifacts
 
+- `tools/build_release_bundle_v1.py`
 - `tools/run_upgrade_drill_v3.py`
 - `tools/run_recovery_drill_v3.py`
+- `out/release-bundle-v1.json`
+- `out/install-state-v1.json`
 - `out/upgrade-drill-v3.json`
 - `out/recovery-drill-v3.json`
 

@@ -10,6 +10,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List
 
+import release_bundle_v1 as release_bundle
+
 
 def _sha256_file(path: Path) -> str:
     h = hashlib.sha256()
@@ -68,6 +70,7 @@ def _build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--name", default="rugo")
     p.add_argument("--version", default="1.0.0")
+    p.add_argument("--release-bundle", default="")
     p.add_argument(
         "--artifacts",
         nargs="*",
@@ -85,7 +88,18 @@ def _build_parser() -> argparse.ArgumentParser:
 def main(argv: List[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
     artifacts = [Path(p) for p in args.artifacts]
-    sbom = build_sbom(name=args.name, version=args.version, artifacts=artifacts)
+    if args.release_bundle:
+        bundle = release_bundle.load_bundle(Path(args.release_bundle))
+        artifacts.extend(release_bundle.artifact_paths(bundle))
+    deduped: List[Path] = []
+    seen = set()
+    for artifact in artifacts:
+        key = artifact.as_posix()
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(artifact)
+    sbom = build_sbom(name=args.name, version=args.version, artifacts=deduped)
     out_path = Path(args.out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(json.dumps(sbom, indent=2) + "\n", encoding="utf-8")

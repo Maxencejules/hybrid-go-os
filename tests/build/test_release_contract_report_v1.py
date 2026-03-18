@@ -31,4 +31,5 @@ def test_release_contract_report_schema(tmp_path: Path):
     assert data["version"] == "1.0.0"
     assert data["build_sequence"] == 7
     assert set(data["channels"].keys()) == {"nightly", "beta", "stable"}
+    assert "out/release-bundle-v1.json" in data["required_artifacts"]
     assert "out/release-contract-v1.json" in data["required_artifacts"]

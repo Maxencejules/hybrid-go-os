@@ -22,6 +22,7 @@ def test_support_bundle_runbook_tokens():
     for token in [
         "Collect support bundle",
         "out/support-bundle-v2.json",
+        "out/install-state-v1.json",
         "Incident triage checklist",
     ]:
         assert token in text
@@ -51,6 +52,7 @@ def test_collect_support_bundle_v2_schema(tmp_path: Path):
     assert data["schema"] == "rugo.support_bundle.v2"
     assert data["triage"]["runbook"] == "docs/build/operations_runbook_v2.md"
     assert data["triage"]["requires_rollback_context"] is True
+    assert "release-bundle-v1" in data["triage"]["required_artifacts"]
     assert len(data["evidence"]) == 2
     for entry in data["evidence"]:
         assert len(entry["sha256"]) == 64

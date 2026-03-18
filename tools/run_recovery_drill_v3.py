@@ -10,6 +10,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Set
 
+import release_bundle_v1 as release_bundle
+
 
 SCHEMA = "rugo.recovery_drill.v3"
 CONTRACT_ID = "rugo.installer_ux_contract.v3"
@@ -38,6 +40,8 @@ def _collect_injected(values: List[str]) -> Set[str]:
 
 def run_recovery_drill(
     seed: int,
+    bundle: Dict[str, object] | None = None,
+    install_state: Dict[str, object] | None = None,
     forced_failures: Set[str] | None = None,
     operator_checklist_completed: bool = True,
 ) -> Dict[str, object]:
@@ -46,6 +50,15 @@ def run_recovery_drill(
 
     state_capture_complete = False
     triage_bundle_required = True
+    runtime_capture = dict((bundle or {}).get("runtime_capture", {}))
+    bundle_digest = str((bundle or {}).get("digest", ""))
+    active_slot = str((install_state or {}).get("active_slot", "A"))
+    recovery_media = ""
+    recovery_sha256 = ""
+    if bundle is not None:
+        recovery_artifact = release_bundle.artifact_by_role(bundle, "recovery_image")
+        recovery_media = str(recovery_artifact["path"])
+        recovery_sha256 = str(recovery_artifact["sha256"])
 
     for stage in STAGES:
         auto_fail = stage == "post_recovery_audit" and not operator_checklist_completed
@@ -67,7 +80,17 @@ def run_recovery_drill(
             "status": status,
             "duration_ms": _metric(seed, stage, "duration_ms", base=700, spread=3900),
             "details": details,
+            "active_slot_before": active_slot,
         }
+        if recovery_media and stage in {
+            "recovery_entry_validation",
+            "rollback_snapshot_mount",
+        }:
+            entry["recovery_media_path"] = recovery_media
+            entry["recovery_media_sha256"] = recovery_sha256
+        if stage == "service_restore_validation":
+            entry["runtime_capture_id"] = runtime_capture.get("capture_id", "")
+            entry["trace_id"] = runtime_capture.get("trace_id", "")
 
         if stage == "post_recovery_audit":
             state_capture_complete = status == "pass"
@@ -75,6 +98,7 @@ def run_recovery_drill(
                 "operator_checklist_completed": operator_checklist_completed,
                 "triage_bundle_required": triage_bundle_required,
                 "state_capture_complete": state_capture_complete,
+                "release_bundle_digest_present": bool(bundle_digest),
             }
 
         stages.append(entry)
@@ -88,11 +112,17 @@ def run_recovery_drill(
         "workflow_id": WORKFLOW_ID,
         "created_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "seed": seed,
+        "release_bundle_digest": bundle_digest,
+        "runtime_capture_id": runtime_capture.get("capture_id", ""),
         "total_cases": len(stages),
         "passed_cases": passed_cases,
         "failed_cases": failed_cases,
         "total_failures": failed_cases,
         "stages": stages,
+        "state_transition": {
+            "active_slot_before": active_slot,
+            "active_slot_after": active_slot,
+        },
         "recovery_readiness": {
             "operator_checklist_completed": operator_checklist_completed,
             "triage_bundle_required": triage_bundle_required,
@@ -105,6 +135,8 @@ def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--seed", type=int, default=20260309)
     parser.add_argument("--max-failures", type=int, default=0)
+    parser.add_argument("--release-bundle", default="")
+    parser.add_argument("--install-state", default="")
     parser.add_argument(
         "--inject-failure",
         action="append",
@@ -122,6 +154,16 @@ def _build_parser() -> argparse.ArgumentParser:
 
 def main(argv: List[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
+    bundle = (
+        release_bundle.load_bundle(Path(args.release_bundle))
+        if args.release_bundle
+        else None
+    )
+    install_state = (
+        release_bundle.load_install_state(Path(args.install_state))
+        if args.install_state
+        else None
+    )
 
     try:
         injected_failures = _collect_injected(args.inject_failure)
@@ -131,6 +173,8 @@ def main(argv: List[str] | None = None) -> int:
 
     report = run_recovery_drill(
         seed=args.seed,
+        bundle=bundle,
+        install_state=install_state,
         forced_failures=injected_failures,
         operator_checklist_completed=not args.skip_operator_checklist,
     )

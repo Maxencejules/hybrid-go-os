@@ -9,6 +9,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List
 
+import release_bundle_v1 as release_bundle
+
 
 SCHEMA = "rugo.support_window_audit.v1"
 POLICY_ID = "rugo.support_lifecycle_policy.v1"
@@ -56,6 +58,7 @@ def run_audit(
     required_channels: List[str],
     max_security_sla_days: int,
     min_backport_window_days: int,
+    bundle: Dict[str, object] | None = None,
 ) -> Dict[str, object]:
     required = list(dict.fromkeys(required_channels))
     windows: List[Dict[str, object]] = []
@@ -105,7 +108,7 @@ def run_audit(
     ]
     total_failures = sum(1 for check in checks if check["pass"] is False)
 
-    return {
+    report = {
         "schema": SCHEMA,
         "policy_id": POLICY_ID,
         "created_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -118,6 +121,14 @@ def run_audit(
         "checks": checks,
         "total_failures": total_failures,
     }
+    if bundle is not None:
+        report["release_reference"] = {
+            "version": bundle.get("version"),
+            "build_sequence": bundle.get("build_sequence"),
+            "selected_channel": bundle.get("selected_channel"),
+            "release_bundle_digest": bundle.get("digest"),
+        }
+    return report
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -126,6 +137,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--required-channel", action="append", default=["stable", "lts"])
     parser.add_argument("--max-security-sla-days", type=int, default=14)
     parser.add_argument("--min-backport-window-days", type=int, default=21)
+    parser.add_argument("--release-bundle", default="")
     parser.add_argument("--max-failures", type=int, default=0)
     parser.add_argument("--out", default="out/support-window-audit-v1.json")
     return parser
@@ -141,12 +153,18 @@ def main(argv: List[str] | None = None) -> int:
         return 2
 
     window_specs = args.window or list(DEFAULT_WINDOWS)
+    bundle = (
+        release_bundle.load_bundle(Path(args.release_bundle))
+        if args.release_bundle
+        else None
+    )
     try:
         report = run_audit(
             window_specs=window_specs,
             required_channels=args.required_channel,
             max_security_sla_days=args.max_security_sla_days,
             min_backport_window_days=args.min_backport_window_days,
+            bundle=bundle,
         )
     except ValueError as exc:
         print(f"error: {exc}")

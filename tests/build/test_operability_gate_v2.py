@@ -13,10 +13,12 @@ def _read(relpath: str) -> str:
 def test_operability_release_ux_v2_gate_wiring_and_artifacts():
     required = [
         "docs/M20_EXECUTION_BACKLOG.md",
+        "docs/build/default_lane_release_path_v1.md",
         "docs/build/installer_recovery_baseline_v2.md",
         "docs/build/operations_runbook_v2.md",
         "docs/pkg/update_protocol_v2.md",
         "docs/pkg/rollback_policy_v2.md",
+        "tools/build_release_bundle_v1.py",
         "tools/build_installer_v2.py",
         "tools/run_upgrade_recovery_drill_v2.py",
         "tools/collect_support_bundle_v2.py",
@@ -36,9 +38,11 @@ def test_operability_release_ux_v2_gate_wiring_and_artifacts():
 
     assert "test-release-ops-v2" in makefile
     for entry in [
-        "tools/build_installer_v2.py --out $(OUT)/installer-v2.json",
-        "tools/run_upgrade_recovery_drill_v2.py --out $(OUT)/upgrade-recovery-v2.json",
-        "tools/collect_support_bundle_v2.py --artifacts $(OUT)/installer-v2.json $(OUT)/upgrade-recovery-v2.json --out $(OUT)/support-bundle-v2.json",
+        "tools/build_release_bundle_v1.py --channel stable --version 2.0.0 --build-sequence 12",
+        "tools/update_repo_sign_v1.py --repo $(OUT)/update-repo-v2 --version 2.0.0 --build-sequence 12 --release-bundle $(OUT)/release-bundle-v1.json --out $(OUT)/update-metadata-v2.json",
+        "tools/build_installer_v2.py --channel stable --version 2.0.0 --build-sequence 12 --release-bundle $(OUT)/release-bundle-v1.json --install-state-out $(OUT)/install-state-v1.json --out $(OUT)/installer-v2.json",
+        "tools/run_upgrade_recovery_drill_v2.py --release-bundle $(OUT)/release-bundle-v1.json --install-state $(OUT)/install-state-v1.json --update-metadata $(OUT)/update-metadata-v2.json --out $(OUT)/upgrade-recovery-v2.json",
+        "tools/collect_support_bundle_v2.py --artifacts $(OUT)/installer-v2.json $(OUT)/upgrade-recovery-v2.json --release-bundle $(OUT)/release-bundle-v1.json --install-state $(OUT)/install-state-v1.json --out $(OUT)/support-bundle-v2.json",
         "tests/build/test_installer_recovery_v2.py",
         "tests/build/test_upgrade_rollback_v2.py",
         "tests/build/test_support_bundle_v2.py",
@@ -51,7 +55,10 @@ def test_operability_release_ux_v2_gate_wiring_and_artifacts():
     assert "make test-release-ops-v2" in ci
     assert "release-ops-v2-artifacts" in ci
     assert "out/pytest-release-ops-v2.xml" in ci
+    assert "out/release-bundle-v1.json" in ci
+    assert "out/update-metadata-v2.json" in ci
     assert "out/installer-v2.json" in ci
+    assert "out/install-state-v1.json" in ci
     assert "out/upgrade-recovery-v2.json" in ci
     assert "out/support-bundle-v2.json" in ci
 

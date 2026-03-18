@@ -15,9 +15,11 @@ def test_release_contract_docs_and_tool_presence():
     root = _repo_root()
     required = [
         "docs/M14_EXECUTION_BACKLOG.md",
+        "docs/build/default_lane_release_path_v1.md",
         "docs/build/release_policy_v1.md",
         "docs/build/versioning_scheme_v1.md",
         "docs/build/release_checklist_v1.md",
+        "tools/build_release_bundle_v1.py",
         "tools/release_contract_v1.py",
     ]
     for rel in required:
@@ -33,4 +35,5 @@ def test_release_contract_docs_and_tool_presence():
     assert "backport" in policy
     assert "major.minor.patch" in versioning
     assert "build_sequence" in versioning
+    assert "out/release-bundle-v1.json" in checklist
     assert "out/release-contract-v1.json" in checklist

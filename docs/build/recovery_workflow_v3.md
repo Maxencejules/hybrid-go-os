@@ -33,9 +33,11 @@ operator use.
 
 ## Operator flow
 
-1. `python tools/run_upgrade_drill_v3.py --out out/upgrade-drill-v3.json`
-2. `python tools/run_recovery_drill_v3.py --out out/recovery-drill-v3.json`
-3. `make test-ops-ux-v3`
+1. `python tools/build_release_bundle_v1.py --out out/release-bundle-v1.json`
+2. `python tools/build_installer_v2.py --release-bundle out/release-bundle-v1.json --install-state-out out/install-state-v1.json --out out/installer-v2.json`
+3. `python tools/run_upgrade_drill_v3.py --release-bundle out/release-bundle-v1.json --install-state out/install-state-v1.json --update-metadata out/update-metadata-v3.json --out out/upgrade-drill-v3.json`
+4. `python tools/run_recovery_drill_v3.py --release-bundle out/release-bundle-v1.json --install-state out/install-state-v1.json --out out/recovery-drill-v3.json`
+5. `make test-ops-ux-v3`
 
 ## Required gates
 

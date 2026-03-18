@@ -51,10 +51,12 @@ Required branch naming policy:
 
 ## Required release candidate checks
 
+- Bundle assembly command:
+  - `python tools/build_release_bundle_v1.py --out out/release-bundle-v1.json`
 - Branch audit command:
-  - `python tools/release_branch_audit_v2.py --out out/release-branch-audit-v2.json`
+  - `python tools/release_branch_audit_v2.py --release-bundle out/release-bundle-v1.json --out out/release-branch-audit-v2.json`
 - Support window audit command:
-  - `python tools/support_window_audit_v1.py --out out/support-window-audit-v1.json`
+  - `python tools/support_window_audit_v1.py --release-bundle out/release-bundle-v1.json --out out/support-window-audit-v1.json`
 - Supply-chain revalidation sub-gate:
   - `make test-supply-chain-revalidation-v1`
 

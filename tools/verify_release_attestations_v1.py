@@ -16,23 +16,37 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument("--observed-policy-id", default="release-attestation-v1")
     p.add_argument("--observed-drift", type=int, default=0)
     p.add_argument("--max-drift", type=int, default=0)
+    p.add_argument("--release-contract", default="")
     p.add_argument("--out", default="out/release-attestation-verification-v1.json")
     return p
 
 
 def main(argv: List[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
-    policy_match = args.expected_policy_id == args.observed_policy_id
+    release_contract = {}
+    expected_policy_id = args.expected_policy_id
+    if args.release_contract:
+        release_contract = json.loads(Path(args.release_contract).read_text(encoding="utf-8"))
+        expected_policy_id = str(
+            release_contract.get("attestation_policy_id", expected_policy_id)
+        )
+    policy_match = expected_policy_id == args.observed_policy_id
     meets_drift = args.observed_drift <= args.max_drift
+    bundle_attached = bool(
+        ((release_contract.get("default_lane_release") or {}).get("release_bundle_digest"))
+    )
     report = {
         "schema": "rugo.release_attestation_verification.v1",
         "created_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "expected_policy_id": args.expected_policy_id,
+        "expected_policy_id": expected_policy_id,
         "observed_policy_id": args.observed_policy_id,
         "policy_match": policy_match,
         "drift_count": args.observed_drift,
         "max_drift": args.max_drift,
-        "meets_target": policy_match and meets_drift,
+        "release_bundle_attached": bundle_attached,
+        "meets_target": policy_match and meets_drift and (
+            bundle_attached if args.release_contract else True
+        ),
     }
     out_path = Path(args.out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -44,4 +58,3 @@ def main(argv: List[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

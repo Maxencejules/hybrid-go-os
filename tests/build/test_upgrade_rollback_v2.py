@@ -55,6 +55,7 @@ def test_upgrade_recovery_drill_v2_schema(tmp_path: Path):
     assert data["failed_cases"] == 0
     assert data["total_failures"] == 0
     assert data["meets_target"] is True
+    assert data["state_transition"]["final_state"]["active_slot"] == "A"
     assert [stage["name"] for stage in data["stages"]] == [
         "upgrade_apply",
         "post_upgrade_health_check",

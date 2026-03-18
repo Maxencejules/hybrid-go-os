@@ -11,11 +11,13 @@ Define the operator baseline for install, recovery, and support diagnostics.
 ## Installer baseline
 
 - Installation source: signed release artifact set.
+- Shared bundle source: `out/release-bundle-v1.json`.
 - Required validation before install:
   - checksum verification,
   - update metadata signature verification.
 - Install output baseline:
   - bootable image artifact,
+  - persisted install manifest (`out/install-state-v1.json`),
   - release metadata retained for audit.
 
 ## Recovery baseline

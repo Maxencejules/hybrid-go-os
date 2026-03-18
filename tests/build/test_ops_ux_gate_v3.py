@@ -21,8 +21,11 @@ def _read(relpath: str) -> str:
 def test_ops_ux_gate_v3_wiring_and_artifacts(tmp_path: Path):
     required = [
         "docs/M30_EXECUTION_BACKLOG.md",
+        "docs/build/default_lane_release_path_v1.md",
         "docs/build/installer_ux_v3.md",
         "docs/build/recovery_workflow_v3.md",
+        "tools/build_release_bundle_v1.py",
+        "tools/build_installer_v2.py",
         "tools/run_upgrade_drill_v3.py",
         "tools/run_recovery_drill_v3.py",
         "tests/build/test_installer_ux_v3.py",
@@ -45,8 +48,11 @@ def test_ops_ux_gate_v3_wiring_and_artifacts(tmp_path: Path):
 
     assert "test-ops-ux-v3" in makefile
     for entry in [
-        "tools/run_upgrade_drill_v3.py --seed 20260309 --out $(OUT)/upgrade-drill-v3.json",
-        "tools/run_recovery_drill_v3.py --seed 20260309 --out $(OUT)/recovery-drill-v3.json",
+        "tools/build_release_bundle_v1.py --channel stable --version 3.0.0 --build-sequence 42",
+        "tools/update_repo_sign_v1.py --repo $(OUT)/update-repo-v3 --version 3.0.0 --build-sequence 42 --release-bundle $(OUT)/release-bundle-v1.json --out $(OUT)/update-metadata-v3.json",
+        "tools/build_installer_v2.py --channel stable --version 3.0.0 --build-sequence 42 --release-bundle $(OUT)/release-bundle-v1.json --install-state-out $(OUT)/install-state-v1.json --out $(OUT)/installer-v2.json",
+        "tools/run_upgrade_drill_v3.py --seed 20260309 --release-bundle $(OUT)/release-bundle-v1.json --install-state $(OUT)/install-state-v1.json --update-metadata $(OUT)/update-metadata-v3.json --out $(OUT)/upgrade-drill-v3.json",
+        "tools/run_recovery_drill_v3.py --seed 20260309 --release-bundle $(OUT)/release-bundle-v1.json --install-state $(OUT)/install-state-v1.json --out $(OUT)/recovery-drill-v3.json",
         "tests/build/test_installer_ux_v3.py",
         "tests/build/test_upgrade_recovery_v3.py",
         "tests/build/test_rollback_safety_v3.py",
@@ -59,6 +65,9 @@ def test_ops_ux_gate_v3_wiring_and_artifacts(tmp_path: Path):
     assert "make test-ops-ux-v3" in ci
     assert "ops-ux-v3-artifacts" in ci
     assert "out/pytest-ops-ux-v3.xml" in ci
+    assert "out/release-bundle-v1.json" in ci
+    assert "out/update-metadata-v3.json" in ci
+    assert "out/install-state-v1.json" in ci
     assert "out/upgrade-drill-v3.json" in ci
     assert "out/recovery-drill-v3.json" in ci
 

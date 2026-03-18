@@ -42,6 +42,8 @@ def test_recovery_workflow_v3_doc_declares_required_tokens():
         "Recovery workflow ID: `rugo.recovery_workflow.v3`",
         "Recovery drill schema: `rugo.recovery_drill.v3`",
         "Rollback safety schema: `rugo.rollback_safety_report.v3`",
+        "out/release-bundle-v1.json",
+        "out/install-state-v1.json",
         "`recovery_entry_validation`",
         "`rollback_snapshot_mount`",
         "`state_reconciliation`",

@@ -53,3 +53,4 @@ Each support-window audit entry must include:
 ## Required gate hook
 
 - Lifecycle gate: `make test-release-lifecycle-v2`
+- Release reference: `out/release-bundle-v1.json`

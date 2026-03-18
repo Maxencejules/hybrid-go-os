@@ -27,6 +27,8 @@ def test_release_policy_v2_doc_declares_required_tokens():
         "Release lifecycle policy ID: `rugo.release_policy.v2`",
         "Branch audit schema: `rugo.release_branch_audit.v2`",
         "Support window audit schema: `rugo.support_window_audit.v1`",
+        "python tools/build_release_bundle_v1.py --out out/release-bundle-v1.json",
+        "python tools/release_branch_audit_v2.py --release-bundle out/release-bundle-v1.json --out out/release-branch-audit-v2.json",
         "support window: 180 days",
         "support window: 730 days",
         "Security fix SLA must be less than or equal to 14 days.",
@@ -50,6 +52,7 @@ def test_support_lifecycle_policy_v1_doc_declares_required_tokens():
         "minimum backport window: 21 days",
         "minimum backport window: 180 days",
         "Lifecycle gate: `make test-release-lifecycle-v2`",
+        "Release reference: `out/release-bundle-v1.json`",
     ]:
         assert token in doc
 

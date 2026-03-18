@@ -48,6 +48,8 @@ No release is valid unless required owner approvals are recorded.
 
 ## Required release artifacts
 
+- `out/release-bundle-v1.json`
+- `out/releases/<channel>/<version>+build.<sequence>/...`
 - `out/release-contract-v1.json`
 - `out/update-attack-suite-v1.json`
 - `out/sbom-v1.spdx.json`

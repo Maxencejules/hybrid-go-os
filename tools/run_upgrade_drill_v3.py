@@ -10,6 +10,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Set
 
+import release_bundle_v1 as release_bundle
+
 
 SCHEMA = "rugo.upgrade_drill.v3"
 CONTRACT_ID = "rugo.installer_ux_contract.v3"
@@ -39,6 +41,8 @@ def run_upgrade_drill(
     seed: int,
     candidate_sequence: int,
     rollback_floor_sequence: int,
+    bundle: Dict[str, object] | None = None,
+    install_state: Dict[str, object] | None = None,
     forced_failures: Set[str] | None = None,
 ) -> Dict[str, object]:
     failures = set() if forced_failures is None else set(forced_failures)
@@ -47,6 +51,16 @@ def run_upgrade_drill(
     rollback_floor_enforced = candidate_sequence >= rollback_floor_sequence
     unsigned_artifact_rejected = "rollback_safety_check" not in failures
     rollback_path_verified = False
+    active_slot_before = str((install_state or {}).get("active_slot", "A"))
+    candidate_slot = str((install_state or {}).get("candidate_slot", "B"))
+    runtime_capture = dict((bundle or {}).get("runtime_capture", {}))
+    bundle_digest = str((bundle or {}).get("digest", ""))
+    installer_image = ""
+    installer_sha256 = ""
+    if bundle is not None:
+        installer_artifact = release_bundle.artifact_by_role(bundle, "installer_image")
+        installer_image = str(installer_artifact["path"])
+        installer_sha256 = str(installer_artifact["sha256"])
 
     for stage in STAGES:
         auto_fail = stage == "rollback_safety_check" and not rollback_floor_enforced
@@ -67,7 +81,16 @@ def run_upgrade_drill(
             "status": status,
             "duration_ms": _metric(seed, stage, "duration_ms", base=900, spread=4500),
             "notes": notes,
+            "active_slot_before": active_slot_before,
+            "candidate_slot": candidate_slot,
+            "candidate_sequence": candidate_sequence,
         }
+        if stage in {"upgrade_plan_validate", "upgrade_apply"} and installer_image:
+            entry["installer_image_path"] = installer_image
+            entry["installer_image_sha256"] = installer_sha256
+        if stage == "post_upgrade_health_check":
+            entry["runtime_capture_id"] = runtime_capture.get("capture_id", "")
+            entry["trace_id"] = runtime_capture.get("trace_id", "")
 
         if stage == "rollback_safety_check":
             rollback_path_verified = (
@@ -79,6 +102,7 @@ def run_upgrade_drill(
                 "rollback_floor_enforced": rollback_floor_enforced,
                 "unsigned_artifact_rejected": unsigned_artifact_rejected,
                 "rollback_path_verified": rollback_path_verified,
+                "release_bundle_digest_present": bool(bundle_digest),
             }
 
         stages.append(entry)
@@ -93,11 +117,18 @@ def run_upgrade_drill(
         "seed": seed,
         "upgrade_candidate_sequence": candidate_sequence,
         "rollback_floor_sequence": rollback_floor_sequence,
+        "release_bundle_digest": bundle_digest,
+        "runtime_capture_id": runtime_capture.get("capture_id", ""),
         "total_cases": len(stages),
         "passed_cases": passed_cases,
         "failed_cases": failed_cases,
         "total_failures": failed_cases,
         "stages": stages,
+        "state_transition": {
+            "active_slot_before": active_slot_before,
+            "candidate_slot": candidate_slot,
+            "active_slot_after": candidate_slot if failed_cases == 0 else active_slot_before,
+        },
         "rollback_safety": {
             "schema": ROLLBACK_SCHEMA,
             "rollback_floor_enforced": rollback_floor_enforced,
@@ -110,9 +141,12 @@ def run_upgrade_drill(
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--seed", type=int, default=20260309)
-    parser.add_argument("--candidate-sequence", type=int, default=42)
-    parser.add_argument("--rollback-floor-sequence", type=int, default=40)
+    parser.add_argument("--candidate-sequence", type=int)
+    parser.add_argument("--rollback-floor-sequence", type=int)
     parser.add_argument("--max-failures", type=int, default=0)
+    parser.add_argument("--release-bundle", default="")
+    parser.add_argument("--install-state", default="")
+    parser.add_argument("--update-metadata", default="")
     parser.add_argument(
         "--inject-failure",
         action="append",
@@ -125,11 +159,37 @@ def _build_parser() -> argparse.ArgumentParser:
 
 def main(argv: List[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
+    bundle = (
+        release_bundle.load_bundle(Path(args.release_bundle))
+        if args.release_bundle
+        else None
+    )
+    install_state = (
+        release_bundle.load_install_state(Path(args.install_state))
+        if args.install_state
+        else None
+    )
+    update_metadata = (
+        json.loads(Path(args.update_metadata).read_text(encoding="utf-8"))
+        if args.update_metadata
+        else {}
+    )
+    candidate_sequence = args.candidate_sequence
+    if candidate_sequence is None:
+        candidate_sequence = int(update_metadata.get("build_sequence", 42))
+    rollback_floor_sequence = args.rollback_floor_sequence
+    if rollback_floor_sequence is None:
+        rollback_floor_sequence = int(
+            update_metadata.get(
+                "rollback_floor_sequence",
+                (install_state or {}).get("trusted_floor_sequence", 40),
+            )
+        )
 
-    if args.candidate_sequence <= 0:
+    if candidate_sequence <= 0:
         print("error: candidate-sequence must be > 0")
         return 2
-    if args.rollback_floor_sequence <= 0:
+    if rollback_floor_sequence <= 0:
         print("error: rollback-floor-sequence must be > 0")
         return 2
 
@@ -141,8 +201,10 @@ def main(argv: List[str] | None = None) -> int:
 
     report = run_upgrade_drill(
         seed=args.seed,
-        candidate_sequence=args.candidate_sequence,
-        rollback_floor_sequence=args.rollback_floor_sequence,
+        candidate_sequence=candidate_sequence,
+        rollback_floor_sequence=rollback_floor_sequence,
+        bundle=bundle,
+        install_state=install_state,
         forced_failures=injected_failures,
     )
     report["max_failures"] = args.max_failures
