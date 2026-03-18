@@ -150,6 +150,15 @@ Make app compatibility v3 release-blocking.
   - `docs/STATUS.md`
   - `README.md`
 
+## X1 runtime-backed closure addendum (2026-03-18)
+
+- Added a runtime-backed compatibility corpus with representative CLI and
+  process/socket ELF apps on the default lane.
+- `make test-app-compat-v3` now depends on `make test-real-compat-runtime-v1`
+  so app-tier claims are backed by real binary execution and lifecycle markers.
+- The package bootstrap path now exercises real ELF apps, improving failure
+  reporting and loader parity for external app qualification.
+
 ## Non-goals for M27 backlog
 
 - Universal app compatibility claims outside declared tiers.

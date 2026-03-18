@@ -43,6 +43,7 @@ def _baseline_samples() -> list[ExternalAppSample]:
 
 def test_signed_repo_metadata_roundtrip_for_v2_profile():
     payload = pkgv1.build_debug_write_app("APP: external v2 lane\n")
+    assert payload.startswith(b"\x7fELF")
     blob = pkgv1.build_pkg_v1(
         "external-hello-v2",
         "2.0.0",

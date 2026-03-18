@@ -62,6 +62,12 @@ failing deterministically:
 Deferred calls must preserve deterministic unsupported behavior (`-1`,
 `ENOSYS`) in M36 campaign outputs.
 
+Runtime-backed validation lane:
+- `make test-real-compat-runtime-v1`
+- `docs/abi/compat_runtime_corpus_v1.md`
+- real ELF apps probe loader, file, socket, readiness, and explicit deferred
+  syscall IDs `43`, `44`, and `45`
+
 ## Gate requirements
 
 - Compatibility surface campaign command:
@@ -85,3 +91,4 @@ Gate pass requires:
 - `docs/abi/process_model_v3.md`
 - `docs/abi/socket_family_expansion_v1.md`
 - `docs/abi/compat_profile_v3.md`
+- `docs/abi/compat_runtime_corpus_v1.md`

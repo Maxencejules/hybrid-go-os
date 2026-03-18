@@ -21,12 +21,15 @@ def test_app_compat_gate_v3_wiring_and_artifacts(tmp_path: Path):
     required = [
         "docs/M27_EXECUTION_BACKLOG.md",
         "docs/abi/compat_profile_v3.md",
+        "docs/abi/compat_runtime_corpus_v1.md",
         "docs/abi/app_compat_tiers_v1.md",
         "tools/run_app_compat_matrix_v3.py",
         "tests/compat/test_app_tier_docs_v1.py",
         "tests/compat/test_cli_suite_v3.py",
         "tests/compat/test_runtime_suite_v3.py",
         "tests/compat/test_service_suite_v3.py",
+        "tests/compat/test_real_compat_docs_v1.py",
+        "tests/compat/test_real_compat_suite_v1.py",
         "tests/compat/test_app_compat_gate_v3.py",
     ]
     for rel in required:
@@ -45,10 +48,13 @@ def test_app_compat_gate_v3_wiring_and_artifacts(tmp_path: Path):
     assert "test-app-compat-v3" in makefile
     for entry in [
         "tools/run_app_compat_matrix_v3.py --seed 20260309 --out $(OUT)/app-compat-matrix-v3.json",
+        "$(MAKE) test-real-compat-runtime-v1",
         "tests/compat/test_app_tier_docs_v1.py",
         "tests/compat/test_cli_suite_v3.py",
         "tests/compat/test_runtime_suite_v3.py",
         "tests/compat/test_service_suite_v3.py",
+        "tests/compat/test_real_compat_docs_v1.py",
+        "tests/compat/test_real_compat_suite_v1.py",
         "tests/compat/test_app_compat_gate_v3.py",
     ]:
         assert entry in makefile

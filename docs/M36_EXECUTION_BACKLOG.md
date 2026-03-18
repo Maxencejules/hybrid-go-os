@@ -172,6 +172,16 @@ Make compatibility expansion release-blocking.
   - `docs/STATUS.md`
   - `README.md`
 
+## X1 runtime-backed closure addendum (2026-03-18)
+
+- Added a runtime-backed compatibility corpus that exercises loader, file,
+  readiness, process, and socket paths with real ELF apps on the default lane.
+- `make test-compat-surface-v1` now depends on `make test-real-compat-runtime-v1`
+  so the expanded surface is proven in the live runtime, not only in campaign
+  reports.
+- Deferred boundary behavior is now probed in the runtime corpus itself for the
+  explicit unsupported `fork`, `clone`, and `epoll` syscall slots.
+
 ## Non-goals for M36 backlog
 
 - Unbounded "full Linux parity" claims in a single release cycle.

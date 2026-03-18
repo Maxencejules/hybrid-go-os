@@ -61,6 +61,7 @@ PKG_REPO_V1_PATH = os.path.join(REPO_ROOT, "out", "repo-v1.json")
 PKG_BOOTSTRAP_V1_TOOL = os.path.join(REPO_ROOT, "tools", "pkg_bootstrap_v1.py")
 ISO_NET_PATH = os.path.join(REPO_ROOT, "out", "os-net.iso")
 ISO_GO_PATH = os.path.join(REPO_ROOT, "out", "os-go.iso")
+ISO_COMPAT_REAL_PATH = os.path.join(REPO_ROOT, "out", "os-compat-real.iso")
 ISO_GO_STD_PATH = os.path.join(REPO_ROOT, "out", "os-go-std.iso")
 ISO_SEC_RIGHTS_PATH = os.path.join(REPO_ROOT, "out", "os-sec-rights.iso")
 ISO_SEC_FILTER_PATH = os.path.join(REPO_ROOT, "out", "os-sec-filter.iso")
@@ -736,6 +737,14 @@ def qemu_serial_go():
     if not os.path.isfile(ISO_GO_PATH):
         pytest.skip(f"ISO not built: {ISO_GO_PATH}")
     return _boot_iso(ISO_GO_PATH)
+
+
+@pytest.fixture
+def qemu_serial_compat_real():
+    """Boot the runtime-backed compatibility suite image."""
+    if not os.path.isfile(ISO_COMPAT_REAL_PATH):
+        pytest.skip(f"ISO not built: {ISO_COMPAT_REAL_PATH}")
+    return _boot_iso(ISO_COMPAT_REAL_PATH)
 
 
 @pytest.fixture

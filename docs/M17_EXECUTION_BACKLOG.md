@@ -150,6 +150,16 @@ Make compatibility profile v2 a release-blocking gate.
   - artifact: `compat-v2-junit`
 - Updated milestone/status documents to mark M17 done with evidence links.
 
+## X1 runtime-backed closure addendum (2026-03-18)
+
+- Added a runtime-backed compatibility corpus with real ELF apps on
+  `out/os-compat-real.iso`.
+- `make test-compat-v2` now depends on `make test-real-compat-runtime-v1` so
+  loader, file, readiness, process, and socket claims stay grounded in the
+  live runtime.
+- External app tier/package fixtures now use real ELF payloads instead of a
+  flat debug-write blob.
+
 ## Non-goals for M17 backlog
 
 - Full Linux distribution compatibility parity.

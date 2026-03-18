@@ -49,10 +49,11 @@ endif
        build-pkg-hash image-pkg-hash \
        build-net image-net \
        build-go image-go \
+       build-compat-real image-compat-real \
        build-go-std image-go-std \
        build-sec-rights image-sec-rights \
        build-sec-filter image-sec-filter \
-       test-security-baseline test-runtime-maturity test-process-scheduler-v2 test-compat-v2 test-network-stack-v1 test-network-stack-v2 \
+       test-security-baseline test-runtime-maturity test-process-scheduler-v2 test-compat-v2 test-real-compat-runtime-v1 test-network-stack-v1 test-network-stack-v2 \
        test-storage-reliability-v1 test-storage-reliability-v2 test-release-engineering-v1 test-release-ops-v2 test-abi-stability-v3 test-kernel-reliability-v1 \
        test-firmware-attestation-v1 test-perf-regression-v1 test-userspace-model-v2 test-connected-runtime-c4 test-reliable-isolated-runtime-c5 test-pkg-ecosystem-v3 test-update-trust-v1 test-app-compat-v3 test-security-hardening-v3 test-vuln-response-v1 \
        test-observability-v2 test-crash-dump-v1 test-ops-ux-v3 test-release-lifecycle-v2 test-supply-chain-revalidation-v1 test-conformance-v1 test-fleet-ops-v1 test-fleet-rollout-safety-v1 test-maturity-qual-v1 test-desktop-stack-v1 test-gui-app-compat-v1 \
@@ -68,9 +69,9 @@ LD      ?= ld
 CC      ?= cc
 XORRISO ?= xorriso
 PYTHON  ?= python3
-WSL_PATH ?= /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/mnt/c/mingw64/mingw64/bin
+WSL_PATH ?= /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/c/mingw64/mingw64/bin:/c/Users/$(USERNAME)/AppData/Local/Programs/Python/Python312
 ifeq ($(OS),Windows_NT)
-SUBMAKE ?= /mnt/c/mingw64/mingw64/bin/mingw32-make.exe
+SUBMAKE ?= /c/mingw64/mingw64/bin/mingw32-make.exe
 else
 SUBMAKE ?= $(MAKE)
 endif
@@ -78,12 +79,12 @@ endif
 ifeq ($(OS),Windows_NT)
 RUSTUP_TOOLCHAIN ?= nightly-x86_64-pc-windows-gnu
 export RUSTUP_TOOLCHAIN
-export PATH := /usr/bin:/bin:/usr/sbin:/sbin:/mnt/c/Users/$(USERNAME)/.cargo/bin:/mnt/c/mingw64/mingw64/bin
-NASM    := /mnt/c/mingw64/mingw64/bin/nasm.exe
-CARGO   ?= /mnt/c/Users/$(USERNAME)/.cargo/bin/cargo.exe
-PYTHON  := /mnt/c/Users/$(USERNAME)/AppData/Local/Programs/Python/Python312/python.exe
-CC      := /mnt/c/mingw64/mingw64/bin/gcc.exe
-LD      := /mnt/c/Users/$(USERNAME)/.rustup/toolchains/$(RUSTUP_TOOLCHAIN)/lib/rustlib/x86_64-pc-windows-gnu/bin/rust-lld.exe -flavor gnu -m elf_x86_64
+export PATH := /usr/bin:/bin:/usr/sbin:/sbin:/c/Users/$(USERNAME)/.cargo/bin:/c/mingw64/mingw64/bin
+NASM    := /c/mingw64/mingw64/bin/nasm.exe
+CARGO   ?= /c/Users/$(USERNAME)/.cargo/bin/cargo.exe
+PYTHON  := /c/Users/$(USERNAME)/AppData/Local/Programs/Python/Python312/python.exe
+CC      := /c/mingw64/mingw64/bin/gcc.exe
+LD      := /c/Users/$(USERNAME)/.rustup/toolchains/$(RUSTUP_TOOLCHAIN)/lib/rustlib/x86_64-pc-windows-gnu/bin/rust-lld.exe -flavor gnu -m elf_x86_64
 else
 CARGO   ?= cargo
 endif
@@ -98,6 +99,8 @@ LDFLAGS   = -nostdlib -static -T boot/linker.ld
 OUT = out
 GO_USER_BIN = $(OUT)/gousr.bin
 GO_STD_BIN = $(OUT)/gostd.bin
+X1_CLI_FILE_ELF = $(OUT)/x1-cli-file.elf
+X1_PROC_SOCK_ELF = $(OUT)/x1-proc-sock.elf
 GO_STD_CONTRACT = $(OUT)/gostd-contract.env
 RUNTIME_TOOLCHAIN_CONTRACT = $(OUT)/runtime-toolchain-contract.env
 KERNEL_SYSCALL_TABLE = $(OUT)/kernel-syscall-table.json
@@ -152,6 +155,18 @@ $(OUT)/isr.o: arch/x86_64/isr.asm | $(OUT)
 
 $(OUT)/context.o: arch/x86_64/context.asm | $(OUT)
 	$(NASM) $(NASMFLAGS) $< -o $@
+
+$(OUT)/x1-cli-file.o: services/compat/x1_cli_file.asm | $(OUT)
+	$(NASM) $(NASMFLAGS) $< -o $@
+
+$(OUT)/x1-proc-sock.o: services/compat/x1_proc_sock.asm | $(OUT)
+	$(NASM) $(NASMFLAGS) $< -o $@
+
+$(X1_CLI_FILE_ELF): $(OUT)/x1-cli-file.o services/compat/linker.ld | $(OUT)
+	$(LD) -nostdlib -static -T services/compat/linker.ld -o $@ $<
+
+$(X1_PROC_SOCK_ELF): $(OUT)/x1-proc-sock.o services/compat/linker.ld | $(OUT)
+	$(LD) -nostdlib -static -T services/compat/linker.ld -o $@ $<
 
 # --- Rust kernel --------------------------------------------------------------
 
@@ -524,6 +539,13 @@ build-go: $(ASM_OBJS) boot/linker.ld $(GO_USER_BIN)
 image-go: build-go
 	PATH="$(WSL_PATH)" CC="$(CC)" XORRISO="$(XORRISO)" KERNEL_ELF=kernel-go.elf ISO_NAME=os-go.iso bash tools/mkimage.sh
 
+build-compat-real: $(ASM_OBJS) boot/linker.ld $(GO_USER_BIN) $(X1_CLI_FILE_ELF) $(X1_PROC_SOCK_ELF)
+	cd kernel_rs && $(CARGO) build --release --features compat_real_test
+	$(LD) $(LDFLAGS) -o $(OUT)/kernel-compat-real.elf $(ASM_OBJS) $(KERNEL_LIB)
+
+image-compat-real: build-compat-real
+	PATH="$(WSL_PATH)" CC="$(CC)" XORRISO="$(XORRISO)" KERNEL_ELF=kernel-compat-real.elf ISO_NAME=os-compat-real.iso bash tools/mkimage.sh
+
 # --- G2: Supported stock-Go userspace lane ------------------------------------
 
 userspace-std: $(GO_STD_BIN) $(GO_STD_CONTRACT) $(RUNTIME_TOOLCHAIN_CONTRACT)
@@ -628,7 +650,11 @@ test-hw-matrix-v3: image-blk image-blk-badlen image-blk-badptr image-net
 test-process-scheduler-v2: image-thread-spawn image-thread-exit image-yield image-user-fault image-go
 	$(PYTHON) -m pytest tests/sched/test_preempt_timer_quantum_v2.py tests/sched/test_priority_fairness_v2.py tests/sched/test_scheduler_soak_v2.py tests/user/test_process_wait_kill_v2.py tests/user/test_signal_delivery_v2.py tests/runtime/test_process_scheduler_runtime_v2.py tests/sched/test_scheduler_gate_v2.py -v --junitxml=$(OUT)/pytest-process-scheduler-v2.xml
 
+test-real-compat-runtime-v1: image-compat-real
+	$(PYTHON) -m pytest tests/compat/test_real_compat_docs_v1.py tests/compat/test_real_compat_suite_v1.py -v --junitxml=$(OUT)/pytest-real-compat-runtime-v1.xml
+
 test-compat-v2: image-go-std image-pkg-hash
+	$(MAKE) test-real-compat-runtime-v1
 	$(PYTHON) -m pytest tests/compat/test_abi_profile_v2_docs.py tests/compat/test_elf_loader_dynamic_v2.py tests/compat/test_posix_profile_v2.py tests/compat/test_external_apps_tier_v2.py tests/compat/test_compat_gate_v2.py -v --junitxml=$(OUT)/pytest-compat-v2.xml
 
 test-security-baseline: image-sec-rights image-sec-filter image-go
@@ -723,6 +749,7 @@ test-update-trust-v1:
 
 test-app-compat-v3:
 	$(PYTHON) tools/run_app_compat_matrix_v3.py --seed 20260309 --out $(OUT)/app-compat-matrix-v3.json
+	$(MAKE) test-real-compat-runtime-v1
 	$(PYTHON) -m pytest tests/compat/test_app_tier_docs_v1.py tests/compat/test_cli_suite_v3.py tests/compat/test_runtime_suite_v3.py tests/compat/test_service_suite_v3.py tests/compat/test_app_compat_gate_v3.py -v --junitxml=$(OUT)/pytest-app-compat-v3.xml
 
 test-security-hardening-v3: image-demo image-panic
@@ -815,6 +842,7 @@ test-gui-app-compat-v1:
 
 test-compat-surface-v1:
 	$(PYTHON) tools/run_compat_surface_campaign_v1.py --out $(OUT)/compat-surface-v1.json
+	$(MAKE) test-real-compat-runtime-v1
 	$(MAKE) test-posix-gap-closure-v1
 	$(PYTHON) -m pytest tests/compat/test_compat_docs_v4.py tests/compat/test_posix_gap_closure_v1.py tests/compat/test_process_model_v3.py tests/compat/test_socket_family_expansion_v1.py tests/compat/test_deferred_surface_behavior_v1.py tests/compat/test_compat_surface_gate_v1.py -v --junitxml=$(OUT)/pytest-compat-surface-v1.xml
 
@@ -876,6 +904,7 @@ test-synthetic-evidence-ban-v1: image-demo image-panic
 
 test-process-readiness-parity-v1:
 	$(PYTHON) tools/run_compat_surface_campaign_v2.py --out $(OUT)/compat-surface-v2.json
+	$(MAKE) test-real-compat-runtime-v1
 	$(MAKE) test-posix-gap-closure-v2
 	$(PYTHON) -m pytest tests/compat/test_compat_docs_v5.py tests/compat/test_fork_clone_surface_v1.py tests/compat/test_epoll_surface_v1.py tests/compat/test_process_model_v4.py tests/compat/test_deferred_surface_behavior_v2.py tests/compat/test_process_readiness_gate_v1.py -v --junitxml=$(OUT)/pytest-process-readiness-parity-v1.xml
 

@@ -30,7 +30,8 @@ All multi-byte fields are little-endian.
   - `payload_len` (`u32`)
 - Manifest (`manifest_len` bytes): UTF-8 JSON, canonicalized with sorted keys
   and compact separators.
-- Payload (`payload_len` bytes): raw executable payload.
+- Payload (`payload_len` bytes): executable payload. The current bootstrap lane
+  emits static ELF64 payloads so the runtime exercises the real loader path.
 
 ### Manifest fields
 
@@ -78,6 +79,9 @@ Install path for M8 PR-3:
 4. Bridge payload into runtime package form (`hello.pkg`) inside SimpleFS.
 5. Boot kernel `pkg_hash_test`/`fs_test` path; runtime verifies payload hash
    and executes user payload.
+
+When the bridged payload is ELF, the runtime emits `PKG: elf ok` and enters the
+same loader-backed execution path used by the runtime compatibility corpus.
 
 The runtime bridge exists because kernel-side package execution currently
 consumes `hello.pkg` in the established M6 format path.

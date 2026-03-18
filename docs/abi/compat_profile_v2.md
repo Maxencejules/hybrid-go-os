@@ -116,6 +116,11 @@ Additional gate rules:
 
 Local gate: `make test-compat-v2`.
 
+Runtime-backed validation lane:
+- `make test-real-compat-runtime-v1`
+- `docs/abi/compat_runtime_corpus_v1.md`
+- `out/os-compat-real.iso`
+
 Gate test inventory:
 - `tests/compat/test_abi_profile_v2_docs.py`
 - `tests/compat/test_elf_loader_dynamic_v2.py`
@@ -130,4 +135,4 @@ CI lane: step `Compatibility profile v2 gate`.
 - `docs/abi/syscall_v2.md`
 - `docs/abi/elf_loader_contract_v2.md`
 - `docs/runtime/syscall_coverage_matrix_v2.md`
-
+- `docs/abi/compat_runtime_corpus_v1.md`

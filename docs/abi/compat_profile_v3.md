@@ -88,6 +88,10 @@ Additional gate rules:
 ## Conformance and release gate
 
 - Local gate: `make test-app-compat-v3`
+- Runtime-backed validation lane:
+  - `make test-real-compat-runtime-v1`
+  - `docs/abi/compat_runtime_corpus_v1.md`
+  - representative real ELF apps on `out/os-compat-real.iso`
 - Required tool: `tools/run_app_compat_matrix_v3.py`
 - Required tests:
   - `tests/compat/test_app_tier_docs_v1.py`
@@ -101,3 +105,4 @@ Additional gate rules:
 
 - `docs/abi/app_compat_tiers_v1.md`
 - `docs/abi/compat_profile_v2.md`
+- `docs/abi/compat_runtime_corpus_v1.md`

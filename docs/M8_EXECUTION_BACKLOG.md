@@ -154,6 +154,14 @@ Close M8 by proving a useful compatibility subset and external app install/run f
 - PR-2 second: loader/process/fd semantics unblock meaningful compatibility tests.
 - PR-3 last: subset closure and package bootstrap provide real M8 completion evidence.
 
+## X1 runtime-backed closure addendum (2026-03-18)
+
+- Added a runtime-backed compatibility corpus on `out/os-compat-real.iso`.
+- The external package bootstrap now emits real ELF payloads and the runtime
+  package path executes them through the real loader (`PKG: elf ok`).
+- The default lane now proves loader, file, readiness, process, and socket
+  behavior with real binaries instead of package-only flat blobs.
+
 ## Non-goals for M8 backlog
 
 - Full Linux syscall ABI emulation.

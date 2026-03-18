@@ -44,6 +44,7 @@ macro_rules! cfg_r4 {
 const ELF_V1_MAX_PHNUM: u16 = 32;
 const ELF_V1_PHDR_SIZE: u16 = 56;
 const ELF_V1_PT_LOAD: u32 = 1;
+const ELF_V1_ET_EXEC: u16 = 2;
 const ELF_V1_USER_LIMIT: u64 = 0x0000_8000_0000_0000;
 
 #[allow(dead_code)]
@@ -723,6 +724,7 @@ unsafe fn syscall_dispatch(frame: *mut u64) {
             20 => { *frame.add(14) = sys_write_v1(arg1, arg2, arg3); }
             21 => { *frame.add(14) = sys_close_v1(arg1); }
             22 => { sys_wait_r4(frame, arg1, arg2, arg3); }
+            23 => { *frame.add(14) = sys_poll_v1(arg1, arg2, arg3); }
             28 => { *frame.add(14) = sys_proc_info_r4(arg1, arg2, arg3); }
             29 => { *frame.add(14) = sys_sched_set_r4(arg1, arg2); }
             30 => { *frame.add(14) = sys_fsync_v1(arg1); }
@@ -737,6 +739,9 @@ unsafe fn syscall_dispatch(frame: *mut u64) {
             39 => { *frame.add(14) = sys_net_if_config_r4(arg1, arg2, arg3); }
             40 => { *frame.add(14) = sys_net_route_add_r4(arg1, arg2, arg3); }
             41 => { *frame.add(14) = sys_isolation_config_r4(arg1, arg2, arg3); }
+            43 => { *frame.add(14) = sys_fork_deferred_v1(); }
+            44 => { *frame.add(14) = sys_clone_deferred_v1(); }
+            45 => { *frame.add(14) = sys_epoll_deferred_v1(); }
             _  => { *frame.add(14) = 0xFFFF_FFFF_FFFF_FFFF; }
         }
         return;
@@ -809,6 +814,12 @@ unsafe fn syscall_dispatch(frame: *mut u64) {
             27 => sys_sec_profile_set_v1(arg1),
             #[cfg(any(feature = "user_hello_test", feature = "syscall_test", feature = "thread_exit_test", feature = "thread_spawn_test", feature = "vm_map_test", feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test", feature = "user_fault_test", feature = "blk_test", feature = "fs_test", feature = "go_test", feature = "go_std_test", feature = "sec_rights_test", feature = "sec_filter_test"))]
             30 => sys_fsync_v1(arg1),
+            #[cfg(any(feature = "user_hello_test", feature = "syscall_test", feature = "thread_exit_test", feature = "thread_spawn_test", feature = "vm_map_test", feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test", feature = "user_fault_test", feature = "blk_test", feature = "fs_test", feature = "go_test", feature = "go_std_test", feature = "sec_rights_test", feature = "sec_filter_test"))]
+            43 => sys_fork_deferred_v1(),
+            #[cfg(any(feature = "user_hello_test", feature = "syscall_test", feature = "thread_exit_test", feature = "thread_spawn_test", feature = "vm_map_test", feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test", feature = "user_fault_test", feature = "blk_test", feature = "fs_test", feature = "go_test", feature = "go_std_test", feature = "sec_rights_test", feature = "sec_filter_test"))]
+            44 => sys_clone_deferred_v1(),
+            #[cfg(any(feature = "user_hello_test", feature = "syscall_test", feature = "thread_exit_test", feature = "thread_spawn_test", feature = "vm_map_test", feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test", feature = "user_fault_test", feature = "blk_test", feature = "fs_test", feature = "go_test", feature = "go_std_test", feature = "sec_rights_test", feature = "sec_filter_test"))]
+            45 => sys_epoll_deferred_v1(),
             _  => 0xFFFF_FFFF_FFFF_FFFF,
         };
         *frame.add(14) = ret;
@@ -1104,6 +1115,8 @@ cfg_m3! {
                 M8_FD_TABLE[idx].offset += n;
                 n as u64
             }
+            #[cfg(not(feature = "go_test"))]
+            _ => 0xFFFF_FFFF_FFFF_FFFF,
         }
     }
 
@@ -1147,6 +1160,8 @@ cfg_m3! {
             }
             #[cfg(feature = "go_test")]
             M8FdKind::StateFile => 0xFFFF_FFFF_FFFF_FFFF,
+            #[cfg(not(feature = "go_test"))]
+            _ => 0xFFFF_FFFF_FFFF_FFFF,
         }
     }
 
@@ -1290,6 +1305,8 @@ cfg_m3! {
                                 revents |= POLLIN;
                             }
                         }
+                        #[cfg(not(feature = "go_test"))]
+                        _ => revents |= POLLERR,
                     }
                 }
             }
@@ -1304,6 +1321,18 @@ cfg_m3! {
             }
         }
         ready
+    }
+
+    unsafe fn sys_fork_deferred_v1() -> u64 {
+        0xFFFF_FFFF_FFFF_FFFF
+    }
+
+    unsafe fn sys_clone_deferred_v1() -> u64 {
+        0xFFFF_FFFF_FFFF_FFFF
+    }
+
+    unsafe fn sys_epoll_deferred_v1() -> u64 {
+        0xFFFF_FFFF_FFFF_FFFF
     }
 }
 
@@ -2045,6 +2074,196 @@ cfg_m3! {
         let new_pml4_phys = kv2p(new_pml4 as u64);
         core::arch::asm!("mov cr3, {}", in(reg) new_pml4_phys, options(nostack));
     }
+
+    unsafe fn m3_user_code_page_ptr(page_idx: usize) -> Option<*mut u8> {
+        match page_idx {
+            0 => Some(USER_CODE_PAGE.0.as_mut_ptr()),
+            #[cfg(feature = "go_test")]
+            1 => Some(USER_CODE_PAGE_2.0.as_mut_ptr()),
+            #[cfg(feature = "go_test")]
+            2 => Some(USER_CODE_PAGE_3.0.as_mut_ptr()),
+            #[cfg(feature = "go_test")]
+            3 => Some(USER_CODE_PAGE_4.0.as_mut_ptr()),
+            _ => None,
+        }
+    }
+
+    fn m3_user_code_page_count() -> usize {
+        #[cfg(feature = "go_test")]
+        {
+            runtime::process::GO_IMAGE_MAX_PAGES
+        }
+        #[cfg(not(feature = "go_test"))]
+        {
+            1
+        }
+    }
+
+    unsafe fn m3_zero_user_code_pages() {
+        for page_idx in 0..m3_user_code_page_count() {
+            if let Some(ptr) = m3_user_code_page_ptr(page_idx) {
+                core::ptr::write_bytes(ptr, 0, runtime::process::GO_IMAGE_PAGE_SIZE);
+            }
+        }
+    }
+
+    unsafe fn m3_copy_user_code(offset: usize, src: &[u8]) -> bool {
+        let mut copied = 0usize;
+        while copied < src.len() {
+            let dst_off = offset + copied;
+            let page_idx = dst_off / runtime::process::GO_IMAGE_PAGE_SIZE;
+            let page_off = dst_off % runtime::process::GO_IMAGE_PAGE_SIZE;
+            let page_ptr = match m3_user_code_page_ptr(page_idx) {
+                Some(ptr) => ptr,
+                None => return false,
+            };
+            let chunk = core::cmp::min(
+                src.len() - copied,
+                runtime::process::GO_IMAGE_PAGE_SIZE - page_off,
+            );
+            core::ptr::copy_nonoverlapping(
+                src.as_ptr().add(copied),
+                page_ptr.add(page_off),
+                chunk,
+            );
+            copied += chunk;
+        }
+        true
+    }
+
+    unsafe fn m3_zero_user_code(offset: usize, len: usize) -> bool {
+        let mut cleared = 0usize;
+        while cleared < len {
+            let dst_off = offset + cleared;
+            let page_idx = dst_off / runtime::process::GO_IMAGE_PAGE_SIZE;
+            let page_off = dst_off % runtime::process::GO_IMAGE_PAGE_SIZE;
+            let page_ptr = match m3_user_code_page_ptr(page_idx) {
+                Some(ptr) => ptr,
+                None => return false,
+            };
+            let chunk = core::cmp::min(
+                len - cleared,
+                runtime::process::GO_IMAGE_PAGE_SIZE - page_off,
+            );
+            core::ptr::write_bytes(page_ptr.add(page_off), 0, chunk);
+            cleared += chunk;
+        }
+        true
+    }
+
+    unsafe fn m3_load_user_elf_image(image: &[u8]) -> Option<u64> {
+        if !elf_v1_validate_image(image) || image.len() < 64 {
+            return None;
+        }
+
+        let e_type = elf_v1_read_u16(image, 16)?;
+        if e_type != ELF_V1_ET_EXEC {
+            return None;
+        }
+
+        let e_entry = elf_v1_read_u64(image, 24)?;
+        let e_phoff = elf_v1_read_u64(image, 32)? as usize;
+        let e_phentsize = elf_v1_read_u16(image, 54)? as usize;
+        let e_phnum = elf_v1_read_u16(image, 56)? as usize;
+        let code_span = runtime::process::GO_IMAGE_PAGE_SIZE
+            .checked_mul(m3_user_code_page_count())?;
+        let code_end = USER_CODE_VA.checked_add(code_span as u64)?;
+
+        for idx in 0..e_phnum {
+            let off = e_phoff.checked_add(idx.checked_mul(e_phentsize)?)?;
+            let p_type = elf_v1_read_u32(image, off)?;
+            if p_type != ELF_V1_PT_LOAD {
+                continue;
+            }
+
+            let p_offset = elf_v1_read_u64(image, off + 8)? as usize;
+            let p_vaddr = elf_v1_read_u64(image, off + 16)?;
+            let p_filesz = elf_v1_read_u64(image, off + 32)? as usize;
+            let p_memsz = elf_v1_read_u64(image, off + 40)? as usize;
+            if p_vaddr < USER_CODE_VA || p_vaddr.checked_add(p_memsz as u64)? > code_end {
+                return None;
+            }
+
+            let file_end = p_offset.checked_add(p_filesz)?;
+            if file_end > image.len() {
+                return None;
+            }
+
+            let dst_off = (p_vaddr - USER_CODE_VA) as usize;
+            if !m3_copy_user_code(dst_off, &image[p_offset..file_end]) {
+                return None;
+            }
+            if p_memsz > p_filesz && !m3_zero_user_code(dst_off + p_filesz, p_memsz - p_filesz) {
+                return None;
+            }
+        }
+
+        Some(e_entry)
+    }
+
+    unsafe fn setup_user_elf_pages(image: &[u8]) -> Option<u64> {
+        let hhdm_resp_ptr = core::ptr::read_volatile(
+            core::ptr::addr_of!(HHDM_REQUEST.response));
+        let kaddr_resp_ptr = core::ptr::read_volatile(
+            core::ptr::addr_of!(KADDR_REQUEST.response));
+        let hhdm = (*hhdm_resp_ptr).offset;
+        let kphys = (*kaddr_resp_ptr).physical_base;
+        let kvirt = (*kaddr_resp_ptr).virtual_base;
+        HHDM_OFFSET = hhdm;
+        let kv2p = |va: u64| -> u64 { va - kvirt + kphys };
+
+        let cr3: u64;
+        core::arch::asm!("mov {}, cr3", out(reg) cr3, options(nomem, nostack));
+        let old_pml4_phys = cr3 & 0x000F_FFFF_FFFF_F000;
+        let old_pml4 = (old_pml4_phys + hhdm) as *const u64;
+        let new_pml4 = USER_PML4.0.as_mut_ptr() as *mut u64;
+        for i in 0..512 { *new_pml4.add(i) = *old_pml4.add(i); }
+
+        let pdpt = USER_PDPT.0.as_mut_ptr() as *mut u64;
+        *pdpt = kv2p(USER_PD.0.as_ptr() as u64) | 0x07;
+
+        let pd = USER_PD.0.as_mut_ptr() as *mut u64;
+        *pd.add(2) = kv2p(USER_PT_CODE.0.as_ptr() as u64) | 0x07;
+        *pd.add(3) = kv2p(USER_PT_STACK.0.as_ptr() as u64) | 0x07;
+
+        let code_flags = if cfg!(feature = "go_test") { 0x07 } else { 0x05 };
+        let pt_code = USER_PT_CODE.0.as_mut_ptr() as *mut u64;
+        *pt_code.add(0) = kv2p(USER_CODE_PAGE.0.as_ptr() as u64) | code_flags;
+        #[cfg(feature = "go_test")]
+        {
+            *pt_code.add(1) = kv2p(USER_CODE_PAGE_2.0.as_ptr() as u64) | code_flags;
+            *pt_code.add(2) = kv2p(USER_CODE_PAGE_3.0.as_ptr() as u64) | code_flags;
+            *pt_code.add(3) = kv2p(USER_CODE_PAGE_4.0.as_ptr() as u64) | code_flags;
+        }
+
+        let pt_stack = USER_PT_STACK.0.as_mut_ptr() as *mut u64;
+        *pt_stack.add(511) = kv2p(USER_STACK_PAGE.0.as_ptr() as u64) | 0x07;
+        *pt_stack.add(510) = kv2p(M3_STACK_PAGE_1.0.as_ptr() as u64) | 0x07;
+        *pt_stack.add(509) = kv2p(M3_STACK_PAGE_2.0.as_ptr() as u64) | 0x07;
+        *pt_stack.add(508) = kv2p(M3_STACK_PAGE_3.0.as_ptr() as u64) | 0x07;
+        #[cfg(feature = "go_test")]
+        {
+            *pt_stack.add(510) = kv2p(USER_STACK_PAGE_2.0.as_ptr() as u64) | 0x07;
+            *pt_stack.add(509) = kv2p(USER_STACK_PAGE_3.0.as_ptr() as u64) | 0x07;
+            *pt_stack.add(508) = kv2p(USER_STACK_PAGE_4.0.as_ptr() as u64) | 0x07;
+            *pt_stack.add(507) = kv2p(USER_STACK_PAGE_5.0.as_ptr() as u64) | 0x07;
+            *pt_stack.add(506) = kv2p(USER_STACK_PAGE_6.0.as_ptr() as u64) | 0x07;
+            *pt_stack.add(505) = kv2p(USER_STACK_PAGE_7.0.as_ptr() as u64) | 0x07;
+            *pt_stack.add(504) = kv2p(USER_STACK_PAGE_8.0.as_ptr() as u64) | 0x07;
+            *pt_stack.add(503) = kv2p(USER_HEAP_PAGE_1.0.as_ptr() as u64) | 0x07;
+            *pt_stack.add(502) = kv2p(USER_HEAP_PAGE_2.0.as_ptr() as u64) | 0x07;
+            *pt_stack.add(501) = kv2p(USER_HEAP_PAGE_3.0.as_ptr() as u64) | 0x07;
+            *pt_stack.add(500) = kv2p(USER_HEAP_PAGE_4.0.as_ptr() as u64) | 0x07;
+        }
+
+        *new_pml4 = kv2p(USER_PDPT.0.as_ptr() as u64) | 0x07;
+        let new_pml4_phys = kv2p(new_pml4 as u64);
+        core::arch::asm!("mov cr3, {}", in(reg) new_pml4_phys, options(nostack));
+
+        m3_reset_state();
+        m3_zero_user_code_pages();
+        m3_load_user_elf_image(image)
+    }
 }
 
 // --------------- M3: User program blobs --------------------------------------
@@ -2228,6 +2447,30 @@ static USER_YIELD_BLOB: [u8; 53] = [
 
 #[cfg(feature = "go_test")]
 static GO_USER_BIN: &[u8] = include_bytes!("../../out/gousr.bin");
+
+// --------------- X1 runtime-backed compatibility ELF corpus ------------------
+
+#[cfg(feature = "compat_real_test")]
+#[derive(Clone, Copy)]
+struct CompatRealApp {
+    name: &'static [u8],
+    image: &'static [u8],
+}
+
+#[cfg(feature = "compat_real_test")]
+static X1_CLI_FILE_ELF: &[u8] = include_bytes!("../../out/x1-cli-file.elf");
+
+#[cfg(feature = "compat_real_test")]
+static X1_PROC_SOCK_ELF: &[u8] = include_bytes!("../../out/x1-proc-sock.elf");
+
+#[cfg(feature = "compat_real_test")]
+static COMPAT_REAL_APPS: [CompatRealApp; 2] = [
+    CompatRealApp { name: b"x1-cli-file", image: X1_CLI_FILE_ELF },
+    CompatRealApp { name: b"x1-proc-sock", image: X1_PROC_SOCK_ELF },
+];
+
+#[cfg(feature = "compat_real_test")]
+static mut COMPAT_REAL_APP_INDEX: usize = 0;
 
 // --------------- G2 spike: std-port candidate blob ----------------------------
 
@@ -2601,7 +2844,11 @@ cfg_r4! {
     extern "C" fn r4_all_done() -> ! {
         #[cfg(feature = "stress_ipc_test")]
         serial_write(b"STRESS: ipc ok");
-        #[cfg(feature = "go_test")]
+        #[cfg(feature = "compat_real_test")]
+        unsafe {
+            compat_real_finish_current_app();
+        }
+        #[cfg(all(feature = "go_test", not(feature = "compat_real_test")))]
         serial_write(b"RUGO: halt ok\n");
         qemu_exit(0x31);
         loop { unsafe { core::arch::asm!("cli; hlt", options(nomem, nostack)); } }
@@ -5188,7 +5435,7 @@ unsafe fn virtio_net_send(frame: &[u8]) -> bool {
 
 /// sys_net_send(user_ptr, len) -> bytes sent or -1
 /// Syscall 15: send a raw Ethernet frame from user buffer.
-#[cfg(feature = "net_test")]
+#[cfg(any(feature = "net_test", feature = "go_test"))]
 #[allow(dead_code)]
 unsafe fn sys_net_send(buf: u64, len: u64) -> u64 {
     if len == 0 || len > 1514 { return 0xFFFF_FFFF_FFFF_FFFF; }
@@ -5200,7 +5447,7 @@ unsafe fn sys_net_send(buf: u64, len: u64) -> u64 {
 
 /// sys_net_recv(user_ptr, cap) -> bytes received or 0
 /// Syscall 16: receive a raw Ethernet frame into user buffer (non-blocking).
-#[cfg(feature = "net_test")]
+#[cfg(any(feature = "net_test", feature = "go_test"))]
 #[allow(dead_code)]
 unsafe fn sys_net_recv(buf: u64, cap: u64) -> u64 {
     if cap == 0 || cap > 1514 { return 0; }
@@ -6282,6 +6529,53 @@ unsafe fn r4_c4_runtime_init() {
     r4_net_reset(nic_ready);
 }
 
+#[cfg(feature = "compat_real_test")]
+unsafe fn compat_real_enter_current_app() -> ! {
+    if COMPAT_REAL_APP_INDEX >= COMPAT_REAL_APPS.len() {
+        serial_write(b"X1: suite ok\n");
+        serial_write(b"RUGO: halt ok\n");
+        qemu_exit(0x31);
+        loop { core::arch::asm!("cli; hlt", options(nomem, nostack)); }
+    }
+
+    let app = COMPAT_REAL_APPS[COMPAT_REAL_APP_INDEX];
+    serial_write(b"X1APP: launch ");
+    serial_write(app.name);
+    serial_write(b"\n");
+
+    m3_reset_state();
+    r4_net_reset(R4_NET_NIC_READY);
+    for tid in 0..R4_MAX_TASKS {
+        R4_TASKS[tid] = R4Task::EMPTY;
+    }
+    R4_CURRENT = 0;
+    R4_NUM_TASKS = 1;
+    R4_THREADS_CREATED = 0;
+
+    let entry = match setup_user_elf_pages(app.image) {
+        Some(v) => v,
+        None => {
+            serial_write(b"X1APP: load fail\n");
+            qemu_exit(0x33);
+            loop { core::arch::asm!("cli; hlt", options(nomem, nostack)); }
+        }
+    };
+
+    r4_init_task(0, entry, USER_STACK_TOP, 0);
+    R4_TASKS[0].state = R4State::Running;
+    enter_ring3_at(entry, USER_STACK_TOP);
+}
+
+#[cfg(feature = "compat_real_test")]
+unsafe fn compat_real_finish_current_app() -> ! {
+    let app = COMPAT_REAL_APPS[COMPAT_REAL_APP_INDEX];
+    serial_write(b"X1APP: done ");
+    serial_write(app.name);
+    serial_write(b"\n");
+    COMPAT_REAL_APP_INDEX += 1;
+    compat_real_enter_current_app();
+}
+
 // --------------- Paging verification ---------------
 
 fn check_paging() {
@@ -6992,7 +7286,6 @@ pub extern "C" fn kmain() -> ! {
         // --- pkg: find hello.pkg in file table ---
         let pkg_name: &[u8; 9] = b"hello.pkg";
         let mut pkg_sector = 0u32;
-        let mut pkg_size = 0u32;
         let mut pkg_found = false;
         let fc = if file_count > 16 { 16 } else { file_count as usize };
         let mut fi = 0usize;
@@ -7008,10 +7301,6 @@ pub extern "C" fn kmain() -> ! {
                 pkg_sector = u32::from_le_bytes([
                     ft_buf[base + 24], ft_buf[base + 25],
                     ft_buf[base + 26], ft_buf[base + 27],
-                ]);
-                pkg_size = u32::from_le_bytes([
-                    ft_buf[base + 28], ft_buf[base + 29],
-                    ft_buf[base + 30], ft_buf[base + 31],
                 ]);
                 pkg_found = true;
                 break;
@@ -7065,12 +7354,34 @@ pub extern "C" fn kmain() -> ! {
         let kstack = &stack_top as *const u8 as u64;
         tss_init(kstack);
         HHDM_OFFSET = (*hhdm_resp_ptr).offset;
-        setup_user_pages(hello_bin);
-        enter_ring3_at(USER_CODE_VA, USER_STACK_TOP);
+        if hello_bin.len() >= 4 && &hello_bin[..4] == b"\x7FELF" {
+            let entry = match setup_user_elf_pages(hello_bin) {
+                Some(v) => v,
+                None => {
+                    serial_write(b"PKG: bad elf\n");
+                    qemu_exit(0x31);
+                    loop { core::arch::asm!("cli; hlt", options(nomem, nostack)); }
+                }
+            };
+            serial_write(b"PKG: elf ok\n");
+            enter_ring3_at(entry, USER_STACK_TOP);
+        } else {
+            setup_user_pages(hello_bin);
+            enter_ring3_at(USER_CODE_VA, USER_STACK_TOP);
+        }
     }
 
     // G1: go_test — TinyGo user program
-    #[cfg(feature = "go_test")]
+    #[cfg(feature = "compat_real_test")]
+    unsafe {
+        let kstack = &stack_top as *const u8 as u64;
+        tss_init(kstack);
+        r4_c4_runtime_init();
+        COMPAT_REAL_APP_INDEX = 0;
+        compat_real_enter_current_app();
+    }
+
+    #[cfg(all(feature = "go_test", not(feature = "compat_real_test")))]
     unsafe {
         let kstack = &stack_top as *const u8 as u64;
         tss_init(kstack);

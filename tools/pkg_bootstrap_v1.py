@@ -22,6 +22,10 @@ SFS_MAGIC = 0x53465331  # "SFS1"
 DISK_SIZE = 1024 * 1024
 SECTOR_SIZE = 512
 DEFAULT_REPO_KEY = "rugo-dev-bootstrap-key"
+ELF_BASE_VADDR = 0x400000
+ELF_HEADER_SIZE = 64
+ELF_PHDR_SIZE = 56
+ELF_CODE_OFFSET = 0x80
 
 
 def _canonical_json(obj):
@@ -32,8 +36,8 @@ def _sha256_hex(data):
     return hashlib.sha256(data).hexdigest()
 
 
-def build_debug_write_app(message):
-    """Build a tiny x86-64 user payload that sys_debug_write's `message`."""
+def build_debug_write_elf(message):
+    """Build a tiny ELF64 ET_EXEC payload that sys_debug_write's `message`."""
     if isinstance(message, str):
         msg = message.encode("ascii")
     else:
@@ -44,20 +48,63 @@ def build_debug_write_app(message):
     if len(msg) > 0xFFFF_FFFF:
         raise ValueError("message is too large")
 
-    # lea rdi, [rip+12]
-    # mov rsi, <len>
+    # lea rdi, [rip+disp32]
+    # mov esi, <len>
     # xor eax, eax
+    # int 0x80
+    # mov eax, 2
     # int 0x80
     # hlt
     code = bytearray(
-        b"\x48\x8D\x3D\x0C\x00\x00\x00"
-        b"\x48\xC7\xC6"
+        b"\x48\x8D\x3D\x00\x00\x00\x00"
+        b"\xBE"
         b"\x00\x00\x00\x00"
-        b"\x31\xC0\xCD\x80\xF4"
+        b"\x31\xC0\xCD\x80"
+        b"\xB8\x02\x00\x00\x00"
+        b"\xCD\x80\xF4"
     )
-    code[10:14] = struct.pack("<I", len(msg))
+    msg_disp = len(code) - 7
+    code[3:7] = struct.pack("<i", msg_disp)
+    code[8:12] = struct.pack("<I", len(msg))
     code.extend(msg)
-    return bytes(code)
+
+    image_size = ELF_CODE_OFFSET + len(code)
+    e_ident = b"\x7FELF" + bytes([2, 1, 1, 0, 0]) + b"\x00" * 7
+    elf_header = struct.pack(
+        "<16sHHIQQQIHHHHHH",
+        e_ident,
+        2,  # ET_EXEC
+        0x3E,  # EM_X86_64
+        1,
+        ELF_BASE_VADDR + ELF_CODE_OFFSET,
+        ELF_HEADER_SIZE,
+        0,
+        0,
+        ELF_HEADER_SIZE,
+        ELF_PHDR_SIZE,
+        1,
+        0,
+        0,
+        0,
+    )
+    program_header = struct.pack(
+        "<IIQQQQQQ",
+        1,  # PT_LOAD
+        5,  # PF_R | PF_X
+        0,
+        ELF_BASE_VADDR,
+        ELF_BASE_VADDR,
+        image_size,
+        image_size,
+        0x1000,
+    )
+    padding = b"\x00" * (ELF_CODE_OFFSET - len(elf_header) - len(program_header))
+    return elf_header + program_header + padding + bytes(code)
+
+
+def build_debug_write_app(message):
+    """Build a tiny x86-64 user payload that prints via the real ELF loader."""
+    return build_debug_write_elf(message)
 
 
 def build_pkg_v1(name, version, payload, abi_profile="compat_profile_v1"):

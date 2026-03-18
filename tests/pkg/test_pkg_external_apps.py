@@ -15,6 +15,7 @@ import pkg_bootstrap_v1 as pkgv1
 
 def test_pkg_v1_manifest_roundtrip():
     payload = pkgv1.build_debug_write_app("APP: external lane\n")
+    assert payload.startswith(b"\x7fELF")
     blob = pkgv1.build_pkg_v1("external-hello", "1.2.3", payload)
     manifest, parsed_payload = pkgv1.parse_pkg_v1(blob)
 
@@ -47,6 +48,7 @@ def test_repo_metadata_signature_verification():
 
 def test_install_bridge_writes_runtime_hello_pkg(tmp_path):
     payload = pkgv1.build_debug_write_app("APP: bridge install\n")
+    assert payload.startswith(b"\x7fELF")
     blob = pkgv1.build_pkg_v1("external-hello", "1.2.3", payload)
     disk_path = tmp_path / "fs-external.img"
 
@@ -71,9 +73,12 @@ def test_install_bridge_writes_runtime_hello_pkg(tmp_path):
     pkg_offset = start_sector * 512
     pkg_magic = struct.unpack("<I", raw[pkg_offset : pkg_offset + 4])[0]
     assert pkg_magic == pkgv1.PKG_V0_MAGIC
+    payload_offset = pkg_offset + 64
+    assert raw[payload_offset : payload_offset + 4] == b"\x7fELF"
 
 
 def test_external_package_runs_in_qemu(qemu_serial_pkg_external):
     out = qemu_serial_pkg_external.stdout
     assert "PKG: hash ok" in out, f"Missing package hash marker. Got:\n{out}"
+    assert "PKG: elf ok" in out, f"Missing package ELF marker. Got:\n{out}"
     assert "APP: hello world" in out, f"Missing external app marker. Got:\n{out}"

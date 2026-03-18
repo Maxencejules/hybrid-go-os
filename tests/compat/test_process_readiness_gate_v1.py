@@ -22,12 +22,15 @@ def test_process_readiness_gate_v1_wiring_and_artifacts(tmp_path: Path):
     required = [
         "docs/M41_EXECUTION_BACKLOG.md",
         "docs/abi/compat_profile_v5.md",
+        "docs/abi/compat_runtime_corpus_v1.md",
         "docs/runtime/syscall_coverage_matrix_v4.md",
         "docs/abi/process_model_v4.md",
         "docs/abi/readiness_io_model_v1.md",
         "tools/run_compat_surface_campaign_v2.py",
         "tools/run_posix_gap_report_v2.py",
         "tests/compat/test_compat_docs_v5.py",
+        "tests/compat/test_real_compat_docs_v1.py",
+        "tests/compat/test_real_compat_suite_v1.py",
         "tests/compat/test_fork_clone_surface_v1.py",
         "tests/compat/test_epoll_surface_v1.py",
         "tests/compat/test_process_model_v4.py",
@@ -52,7 +55,10 @@ def test_process_readiness_gate_v1_wiring_and_artifacts(tmp_path: Path):
     assert "test-process-readiness-parity-v1" in makefile
     for entry in [
         "tools/run_compat_surface_campaign_v2.py --out $(OUT)/compat-surface-v2.json",
+        "$(MAKE) test-real-compat-runtime-v1",
         "$(MAKE) test-posix-gap-closure-v2",
+        "tests/compat/test_real_compat_docs_v1.py",
+        "tests/compat/test_real_compat_suite_v1.py",
         "tests/compat/test_compat_docs_v5.py",
         "tests/compat/test_fork_clone_surface_v1.py",
         "tests/compat/test_epoll_surface_v1.py",

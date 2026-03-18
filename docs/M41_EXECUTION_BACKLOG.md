@@ -201,6 +201,17 @@ Make process/readiness compatibility closure release-blocking.
   - `docs/STATUS.md`
   - `README.md`
 
+## X1 runtime-backed closure addendum (2026-03-18)
+
+- Added a runtime-backed compatibility corpus that executes real ELF apps on
+  the default lane for `poll`, `sys_thread_spawn`, `sys_wait`, and socket
+  lifecycle coverage.
+- `make test-process-readiness-parity-v1` now depends on
+  `make test-real-compat-runtime-v1` so process/readiness claims are checked on
+  the live runtime before the contract suites run.
+- Deferred `fork`, `clone`, and `epoll` behavior is now enforced by real ABI
+  probes that must keep returning deterministic unsupported results.
+
 ## Non-goals for M41 backlog
 
 - Claiming full Linux ABI parity in one milestone.

@@ -15,6 +15,7 @@ def test_compat_v2_gate_wiring_and_artifacts():
         "docs/M17_EXECUTION_BACKLOG.md",
         "docs/abi/syscall_v2.md",
         "docs/abi/compat_profile_v2.md",
+        "docs/abi/compat_runtime_corpus_v1.md",
         "docs/abi/elf_loader_contract_v2.md",
         "docs/runtime/syscall_coverage_matrix_v2.md",
         "tests/compat/v2_model.py",
@@ -22,6 +23,8 @@ def test_compat_v2_gate_wiring_and_artifacts():
         "tests/compat/test_elf_loader_dynamic_v2.py",
         "tests/compat/test_posix_profile_v2.py",
         "tests/compat/test_external_apps_tier_v2.py",
+        "tests/compat/test_real_compat_docs_v1.py",
+        "tests/compat/test_real_compat_suite_v1.py",
     ]
     for rel in required:
         assert (ROOT / rel).is_file(), f"missing M17 artifact: {rel}"
@@ -33,11 +36,14 @@ def test_compat_v2_gate_wiring_and_artifacts():
     status = _read("docs/STATUS.md")
 
     assert "test-compat-v2" in makefile
+    assert "test-real-compat-runtime-v1" in makefile
     for test_name in [
         "tests/compat/test_abi_profile_v2_docs.py",
         "tests/compat/test_elf_loader_dynamic_v2.py",
         "tests/compat/test_posix_profile_v2.py",
         "tests/compat/test_external_apps_tier_v2.py",
+        "tests/compat/test_real_compat_docs_v1.py",
+        "tests/compat/test_real_compat_suite_v1.py",
         "tests/compat/test_compat_gate_v2.py",
     ]:
         assert test_name in makefile
@@ -50,4 +56,3 @@ def test_compat_v2_gate_wiring_and_artifacts():
     assert "Status: done" in backlog
     assert "M17" in milestones
     assert "M17" in status
-
