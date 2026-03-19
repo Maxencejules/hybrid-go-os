@@ -39,6 +39,63 @@ macro_rules! cfg_r4 {
     };
 }
 
+mod arch_x86;
+mod memory;
+mod net;
+mod process;
+mod sched;
+mod storage;
+mod syscall;
+mod trap;
+
+use arch_x86::{gdt_init, idt_init, inb, outb, qemu_exit};
+#[cfg(any(
+    feature = "blk_test",
+    feature = "blk_invariants_test",
+    feature = "fs_test",
+    feature = "net_test",
+    feature = "go_test",
+))]
+use arch_x86::{inl, inw, outl, outw};
+#[cfg(any(
+    feature = "user_hello_test",
+    feature = "syscall_test",
+    feature = "thread_exit_test",
+    feature = "thread_spawn_test",
+    feature = "vm_map_test",
+    feature = "syscall_invalid_test",
+    feature = "stress_syscall_test",
+    feature = "yield_test",
+    feature = "user_fault_test",
+    feature = "ipc_test",
+    feature = "shm_test",
+    feature = "ipc_badptr_send_test",
+    feature = "ipc_badptr_recv_test",
+    feature = "ipc_badptr_svc_test",
+    feature = "ipc_buffer_full_test",
+    feature = "ipc_waiter_busy_test",
+    feature = "svc_overwrite_test",
+    feature = "svc_full_test",
+    feature = "svc_bad_endpoint_test",
+    feature = "stress_ipc_test",
+    feature = "quota_endpoints_test",
+    feature = "quota_shm_test",
+    feature = "quota_threads_test",
+    feature = "blk_test",
+    feature = "fs_test",
+    feature = "go_test",
+    feature = "go_std_test",
+    feature = "sec_rights_test",
+    feature = "sec_filter_test",
+))]
+use arch_x86::{enter_ring3_at, tss_init};
+use memory::{
+    check_page_user_perms, copyin_user, copyinstr_user, copyout_user, user_pages_ok, user_range_ok,
+    USER_PERM_READ, USER_PERM_WRITE, USER_VA_LIMIT,
+};
+#[cfg(feature = "sched_test")]
+use sched::{pic_init, pit_init, sched_init, thread_create};
+
 // --------------- M8 PR-2: ELF loader policy helpers -------------------------
 
 const ELF_V1_MAX_PHNUM: u16 = 32;
@@ -231,48 +288,6 @@ fn elf_v1_build_auxv(entry: u64, phdr: u64, phent: u64, phnum: u64) -> [(u64, u6
     ]
 }
 
-// --------------- Port I/O ---------------
-
-#[inline(always)]
-unsafe fn outb(port: u16, value: u8) {
-    core::arch::asm!("out dx, al", in("dx") port, in("al") value, options(nomem, nostack));
-}
-
-#[inline(always)]
-unsafe fn inb(port: u16) -> u8 {
-    let val: u8;
-    core::arch::asm!("in al, dx", out("al") val, in("dx") port, options(nomem, nostack));
-    val
-}
-
-#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "net_test", feature = "go_test"))]
-#[inline(always)]
-unsafe fn outw(port: u16, value: u16) {
-    core::arch::asm!("out dx, ax", in("dx") port, in("ax") value, options(nomem, nostack));
-}
-
-#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "net_test", feature = "go_test"))]
-#[inline(always)]
-unsafe fn outl(port: u16, value: u32) {
-    core::arch::asm!("out dx, eax", in("dx") port, in("eax") value, options(nomem, nostack));
-}
-
-#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "net_test", feature = "go_test"))]
-#[inline(always)]
-unsafe fn inl(port: u16) -> u32 {
-    let val: u32;
-    core::arch::asm!("in eax, dx", out("eax") val, in("dx") port, options(nomem, nostack));
-    val
-}
-
-#[cfg(any(feature = "blk_test", feature = "blk_invariants_test", feature = "fs_test", feature = "net_test", feature = "go_test"))]
-#[inline(always)]
-unsafe fn inw(port: u16) -> u16 {
-    let val: u16;
-    core::arch::asm!("in ax, dx", out("ax") val, in("dx") port, options(nomem, nostack));
-    val
-}
-
 // --------------- Serial (COM1) ---------------
 
 const COM1: u16 = 0x3F8;
@@ -399,533 +414,10 @@ static mut KADDR_REQUEST: LimineKaddrRequest = LimineKaddrRequest {
     response: core::ptr::null(),
 };
 
-// --------------- QEMU debug exit ---------------
-
-const DEBUG_EXIT_PORT: u16 = 0xF4;
-
-fn qemu_exit(code: u8) {
-    unsafe { outb(DEBUG_EXIT_PORT, code); }
-}
-
-// --------------- GDT ---------------
-
-#[repr(C, packed)]
-struct DtPtr {
-    limit: u16,
-    base: u64,
-}
-
-static mut GDT: [u64; 7] = [
-    0x0000_0000_0000_0000, // 0x00 Null
-    0x00AF_9A00_0000_FFFF, // 0x08 Kernel code 64-bit (DPL=0)
-    0x00CF_9200_0000_FFFF, // 0x10 Kernel data (DPL=0)
-    0x00CF_F200_0000_FFFF, // 0x18 User data (DPL=3)
-    0x00AF_FA00_0000_FFFF, // 0x20 User code 64-bit (DPL=3)
-    0,                      // 0x28 TSS descriptor low
-    0,                      // 0x30 TSS descriptor high
-];
-
-unsafe fn gdt_init() {
-    let limit = (core::mem::size_of_val(&GDT) - 1) as u16;
-    let base = GDT.as_ptr() as u64;
-    let ptr = DtPtr { limit, base };
-    core::arch::asm!("lgdt [{}]", in(reg) &ptr);
-    core::arch::asm!(
-        "push 0x08",
-        "lea {tmp}, [rip + 2f]",
-        "push {tmp}",
-        ".byte 0x48, 0xCB",
-        "2:",
-        "mov {tmp:x}, 0x10",
-        "mov ds, {tmp:x}",
-        "mov es, {tmp:x}",
-        "mov fs, {tmp:x}",
-        "mov gs, {tmp:x}",
-        "mov ss, {tmp:x}",
-        tmp = lateout(reg) _,
-    );
-}
-
-// --------------- TSS (needed for ring 3 -> ring 0 transitions) ---------------
-
-cfg_user! {
-    #[repr(C, packed)]
-    struct Tss {
-        reserved0: u32,
-        rsp0: u64,
-        rsp1: u64,
-        rsp2: u64,
-        reserved1: u64,
-        ist: [u64; 7],
-        reserved2: u64,
-        reserved3: u16,
-        iopb_offset: u16,
-    }
-
-    static mut TSS: Tss = Tss {
-        reserved0: 0,
-        rsp0: 0, rsp1: 0, rsp2: 0,
-        reserved1: 0,
-        ist: [0; 7],
-        reserved2: 0,
-        reserved3: 0,
-        iopb_offset: 104,
-    };
-
-    unsafe fn tss_init(kernel_stack_top: u64) {
-        TSS.rsp0 = kernel_stack_top;
-        let tss_addr = &TSS as *const Tss as u64;
-        GDT[5] = (103u64)
-                | ((tss_addr & 0xFFFF) << 16)
-                | (((tss_addr >> 16) & 0xFF) << 32)
-                | (0x89u64 << 40)
-                | (((tss_addr >> 24) & 0xFF) << 56);
-        GDT[6] = tss_addr >> 32;
-        let limit = (core::mem::size_of_val(&GDT) - 1) as u16;
-        let base = GDT.as_ptr() as u64;
-        let gdt_ptr = DtPtr { limit, base };
-        core::arch::asm!("lgdt [{}]", in(reg) &gdt_ptr);
-        core::arch::asm!(
-            "mov ax, 0x28",
-            "ltr ax",
-            out("ax") _,
-            options(nostack),
-        );
-    }
-}
-
-// --------------- IDT ---------------
-
-#[derive(Clone, Copy)]
-#[repr(C, packed)]
-struct IdtEntry {
-    offset_low: u16,
-    selector: u16,
-    ist: u8,
-    type_attr: u8,
-    offset_mid: u16,
-    offset_high: u32,
-    reserved: u32,
-}
-
-impl IdtEntry {
-    const NULL: Self = Self {
-        offset_low: 0, selector: 0, ist: 0, type_attr: 0,
-        offset_mid: 0, offset_high: 0, reserved: 0,
-    };
-}
-
-static mut IDT: [IdtEntry; 256] = [IdtEntry::NULL; 256];
-
-unsafe fn idt_set_gate(vector: usize, handler: u64) {
-    IDT[vector] = IdtEntry {
-        offset_low: handler as u16,
-        selector: 0x08,
-        ist: 0,
-        type_attr: 0x8E,
-        offset_mid: (handler >> 16) as u16,
-        offset_high: (handler >> 32) as u32,
-        reserved: 0,
-    };
-}
-
-unsafe fn idt_init() {
-    extern "C" {
-        fn isr_stub_0();
-        fn isr_stub_3();
-        fn isr_stub_8();
-        fn isr_stub_13();
-        fn isr_stub_14();
-        fn isr_stub_32();
-        #[cfg(any(feature = "blk_test", feature = "fs_test", feature = "go_test"))]
-        fn isr_stub_64();
-        #[cfg(any(feature = "blk_test", feature = "fs_test", feature = "go_test"))]
-        fn isr_stub_65();
-        fn isr_stub_128();
-    }
-
-    idt_set_gate(0,  isr_stub_0  as *const () as u64);
-    idt_set_gate(3,  isr_stub_3  as *const () as u64);
-    idt_set_gate(8,  isr_stub_8  as *const () as u64);
-    idt_set_gate(13, isr_stub_13 as *const () as u64);
-    idt_set_gate(14, isr_stub_14 as *const () as u64);
-    idt_set_gate(32, isr_stub_32 as *const () as u64);
-    #[cfg(any(feature = "blk_test", feature = "fs_test", feature = "go_test"))]
-    {
-        idt_set_gate(64, isr_stub_64 as *const () as u64);
-        idt_set_gate(65, isr_stub_65 as *const () as u64);
-    }
-
-    let handler = isr_stub_128 as *const () as u64;
-    IDT[128] = IdtEntry {
-        offset_low: handler as u16,
-        selector: 0x08,
-        ist: 0,
-        type_attr: 0xEE, // DPL=3
-        offset_mid: (handler >> 16) as u16,
-        offset_high: (handler >> 32) as u32,
-        reserved: 0,
-    };
-
-    let ptr = DtPtr {
-        limit: (256 * core::mem::size_of::<IdtEntry>() - 1) as u16,
-        base: IDT.as_ptr() as u64,
-    };
-    core::arch::asm!("lidt [{}]", in(reg) &ptr, options(nostack));
-}
-
-// --------------- Trap handler ------------------------------------------------
-//
-// Frame layout (22 u64s):
-//   [0..14]  r15 r14 r13 r12 r11 r10 r9 r8 rbp rdi rsi rdx rcx rbx rax
-//   [15] int_num  [16] error_code
-//   [17] rip  [18] cs  [19] rflags  [20] rsp  [21] ss
-
-#[no_mangle]
-pub extern "C" fn trap_handler(frame: *mut u64) {
-    unsafe {
-        let int_num = *frame.add(15);
-        let error_code = *frame.add(16);
-
-        match int_num {
-            0 => {
-                serial_write(b"TRAP: div0\n");
-                qemu_exit(0x31);
-                loop { core::arch::asm!("cli; hlt", options(nomem, nostack)); }
-            }
-            3 => {
-                serial_write(b"TRAP: ok\n");
-                qemu_exit(0x31);
-                loop { core::arch::asm!("cli; hlt", options(nomem, nostack)); }
-            }
-            8 => {
-                serial_write(b"TRAP: double fault\n");
-                qemu_exit(0x31);
-                loop { core::arch::asm!("cli; hlt", options(nomem, nostack)); }
-            }
-            13 => {
-                let cs = *frame.add(18);
-                if cs & 3 == 3 {
-                    #[cfg(feature = "go_test")]
-                    {
-                        serial_write(b"USERGPF: err=0x");
-                        serial_write_hex(error_code);
-                        serial_write(b" rip=0x");
-                        serial_write_hex(*frame.add(17));
-                        serial_write(b"\n");
-                    }
-                    handle_user_fault(frame);
-                    return;
-                }
-                serial_write(b"TRAP: gpf err=0x");
-                serial_write_hex(error_code);
-                serial_write(b"\n");
-                qemu_exit(0x31);
-                loop { core::arch::asm!("cli; hlt", options(nomem, nostack)); }
-            }
-            14 => {
-                let cs = *frame.add(18);
-                if cs & 3 == 3 {
-                    #[cfg(feature = "go_test")]
-                    {
-                        let cr2: u64;
-                        core::arch::asm!("mov {}, cr2", out(reg) cr2, options(nomem, nostack));
-                        serial_write(b"USERPF: addr=0x");
-                        serial_write_hex(cr2);
-                        serial_write(b" err=0x");
-                        serial_write_hex(error_code);
-                        serial_write(b" rip=0x");
-                        serial_write_hex(*frame.add(17));
-                        serial_write(b"\n");
-                    }
-                    handle_user_fault(frame);
-                    return;
-                }
-                let cr2: u64;
-                core::arch::asm!("mov {}, cr2", out(reg) cr2, options(nomem, nostack));
-                serial_write(b"PF: addr=0x");
-                serial_write_hex(cr2);
-                serial_write(b" err=0x");
-                serial_write_hex(error_code);
-                serial_write(b"\n");
-                qemu_exit(0x31);
-                loop { core::arch::asm!("cli; hlt", options(nomem, nostack)); }
-            }
-            #[cfg(feature = "sched_test")]
-            32 => {
-                TICK_COUNT += 1;
-                if TICK_COUNT == 100 {
-                    serial_write(b"TICK: 100\n");
-                }
-                pic_send_eoi(0);
-                if TICK_COUNT >= 400 {
-                    qemu_exit(0x31);
-                    loop { core::arch::asm!("cli; hlt", options(nomem, nostack)); }
-                }
-                schedule();
-            }
-            #[cfg(any(feature = "blk_test", feature = "fs_test", feature = "go_test"))]
-            64 | 65 => {
-                if runtime::native::handle_irq(int_num) {
-                    return;
-                }
-            }
-            128 => {
-                syscall_dispatch(frame);
-            }
-            _ => {}
-        }
-    }
-}
-
-// --------------- User fault containment --------------------------------------
-
-extern "C" fn user_fault_return() -> ! {
-    serial_write(b"RUGO: halt ok\n");
-    qemu_exit(0x31);
-    loop {
-        unsafe { core::arch::asm!("cli; hlt", options(nomem, nostack)); }
-    }
-}
-
-extern "C" { static stack_top: u8; }
-
-#[cfg(not(any(feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_recv_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "ipc_waiter_busy_test", feature = "svc_overwrite_test", feature = "svc_full_test", feature = "svc_bad_endpoint_test", feature = "stress_ipc_test", feature = "quota_endpoints_test", feature = "quota_shm_test", feature = "quota_threads_test")))]
-unsafe fn m3_return_to_kernel_halt(frame: *mut u64) {
-    let kstack = &stack_top as *const u8 as u64;
-    *frame.add(17) = user_fault_return as *const () as u64;
-    *frame.add(18) = 0x08;
-    *frame.add(19) = 0x02;
-    *frame.add(20) = kstack;
-    *frame.add(21) = 0x10;
-}
-
-unsafe fn handle_user_fault(frame: *mut u64) {
-    // R4: kill current task and switch to next
-    #[cfg(any(feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_recv_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "ipc_waiter_busy_test", feature = "svc_overwrite_test", feature = "svc_full_test", feature = "svc_bad_endpoint_test", feature = "stress_ipc_test", feature = "quota_endpoints_test", feature = "quota_shm_test", feature = "quota_threads_test", feature = "go_test"))]
-    {
-        r4_exit_and_switch(frame, 1);
-        return;
-    }
-
-    // M3: kill user task and return to kernel
-    #[cfg(not(any(feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_recv_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "ipc_waiter_busy_test", feature = "svc_overwrite_test", feature = "svc_full_test", feature = "svc_bad_endpoint_test", feature = "stress_ipc_test", feature = "quota_endpoints_test", feature = "quota_shm_test", feature = "quota_threads_test", feature = "go_test")))]
-    {
-        serial_write(b"USER: killed\n");
-        m3_return_to_kernel_halt(frame);
-    }
-}
-
-// --------------- Syscall dispatch (int 0x80) ---------------------------------
-
 static mut HHDM_OFFSET: u64 = 0;
 
-cfg_m3! {
-    static mut MONOTONIC_TICK: u64 = 1;
-}
-
-unsafe fn syscall_dispatch(frame: *mut u64) {
-    let nr   = *frame.add(14); // rax
-    let arg1 = *frame.add(9);  // rdi
-    let arg2 = *frame.add(10); // rsi
-    let arg3 = *frame.add(11); // rdx
-
-    // M5: blk_test dispatch
-    #[cfg(feature = "blk_test")]
-    {
-        if nr == 98 {
-            qemu_exit(arg1 as u8);
-            loop { core::arch::asm!("cli; hlt", options(nomem, nostack)); }
-        }
-        match nr {
-            0  => { *frame.add(14) = sys_debug_write(arg1, arg2); }
-            3  => { *frame.add(14) = sys_yield(); }
-            13 => { *frame.add(14) = sys_blk_read(arg1, arg2, arg3); }
-            14 => { *frame.add(14) = sys_blk_write(arg1, arg2, arg3); }
-            _  => { *frame.add(14) = 0xFFFF_FFFF_FFFF_FFFF; }
-        }
-        return;
-    }
-
-    // R4 dispatch
-    #[cfg(any(feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_recv_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "ipc_waiter_busy_test", feature = "svc_overwrite_test", feature = "svc_full_test", feature = "svc_bad_endpoint_test", feature = "stress_ipc_test", feature = "quota_endpoints_test", feature = "quota_shm_test", feature = "quota_threads_test", feature = "go_test"))]
-    {
-        if nr == 98 {
-            qemu_exit(arg1 as u8);
-            loop { core::arch::asm!("cli; hlt", options(nomem, nostack)); }
-        }
-        match nr {
-            0  => { *frame.add(14) = sys_debug_write(arg1, arg2); }
-            1  => { *frame.add(14) = sys_thread_spawn_r4(arg1); }
-            2  => { r4_exit_and_switch(frame, 0); }
-            3  => { r4_yield_and_switch(frame); }
-            17 => { *frame.add(14) = sys_ipc_endpoint_create_r4(); }
-            6  => { *frame.add(14) = sys_shm_create_r4(arg1); }
-            7  => { *frame.add(14) = sys_shm_map_r4(arg1, arg2, arg3); }
-            15 => { *frame.add(14) = sys_net_send(arg1, arg2); }
-            16 => { *frame.add(14) = sys_net_recv(arg1, arg2); }
-            42 => { *frame.add(14) = sys_shm_unmap_r4(arg1); }
-            8  => { *frame.add(14) = sys_ipc_send_r4(arg1, arg2, arg3); }
-            9  => { sys_ipc_recv_r4(frame, arg1, arg2, arg3); } // may swap frame
-            10 => { *frame.add(14) = sys_time_now(); }
-            11 => { *frame.add(14) = sys_svc_register_r4(arg1, arg2, arg3); }
-            12 => { *frame.add(14) = sys_svc_lookup_r4(arg1, arg2); }
-            18 => { *frame.add(14) = sys_open_v1(arg1, arg2, arg3); }
-            19 => { *frame.add(14) = sys_read_v1(arg1, arg2, arg3); }
-            20 => { *frame.add(14) = sys_write_v1(arg1, arg2, arg3); }
-            21 => { *frame.add(14) = sys_close_v1(arg1); }
-            22 => { sys_wait_r4(frame, arg1, arg2, arg3); }
-            23 => { *frame.add(14) = sys_poll_v1(arg1, arg2, arg3); }
-            28 => { *frame.add(14) = sys_proc_info_r4(arg1, arg2, arg3); }
-            29 => { *frame.add(14) = sys_sched_set_r4(arg1, arg2); }
-            30 => { *frame.add(14) = sys_fsync_v1(arg1); }
-            31 => { *frame.add(14) = sys_socket_open_r4(arg1, arg2); }
-            32 => { *frame.add(14) = sys_socket_bind_r4(arg1, arg2, arg3); }
-            33 => { *frame.add(14) = sys_socket_listen_r4(arg1, arg2); }
-            34 => { *frame.add(14) = sys_socket_connect_r4(arg1, arg2, arg3); }
-            35 => { *frame.add(14) = sys_socket_accept_r4(arg1, arg2, arg3); }
-            36 => { *frame.add(14) = sys_socket_send_r4(arg1, arg2, arg3); }
-            37 => { *frame.add(14) = sys_socket_recv_r4(arg1, arg2, arg3); }
-            38 => { *frame.add(14) = sys_socket_close_r4(arg1); }
-            39 => { *frame.add(14) = sys_net_if_config_r4(arg1, arg2, arg3); }
-            40 => { *frame.add(14) = sys_net_route_add_r4(arg1, arg2, arg3); }
-            41 => { *frame.add(14) = sys_isolation_config_r4(arg1, arg2, arg3); }
-            43 => { *frame.add(14) = sys_fork_deferred_v1(); }
-            44 => { *frame.add(14) = sys_clone_deferred_v1(); }
-            45 => { *frame.add(14) = sys_epoll_deferred_v1(); }
-            _  => { *frame.add(14) = 0xFFFF_FFFF_FFFF_FFFF; }
-        }
-        return;
-    }
-
-    // M3 dispatch
-    #[cfg(not(any(feature = "ipc_test", feature = "shm_test", feature = "ipc_badptr_send_test", feature = "ipc_badptr_recv_test", feature = "ipc_badptr_svc_test", feature = "ipc_buffer_full_test", feature = "ipc_waiter_busy_test", feature = "svc_overwrite_test", feature = "svc_full_test", feature = "svc_bad_endpoint_test", feature = "stress_ipc_test", feature = "quota_endpoints_test", feature = "quota_shm_test", feature = "quota_threads_test", feature = "go_test")))]
-    {
-        #[cfg(any(feature = "user_hello_test", feature = "syscall_test", feature = "thread_exit_test", feature = "thread_spawn_test", feature = "vm_map_test", feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test", feature = "user_fault_test", feature = "blk_test", feature = "fs_test", feature = "go_test", feature = "go_std_test", feature = "sec_rights_test", feature = "sec_filter_test"))]
-        {
-            if !m10_syscall_allowed(nr) {
-                *frame.add(14) = 0xFFFF_FFFF_FFFF_FFFF;
-                return;
-            }
-        }
-
-        if nr == 2 {
-            sys_thread_exit_m3(frame);
-            return;
-        }
-
-        #[cfg(any(
-            feature = "syscall_invalid_test",
-            feature = "stress_syscall_test",
-            feature = "yield_test",
-            feature = "thread_spawn_test",
-            feature = "vm_map_test",
-            feature = "sec_rights_test",
-            feature = "sec_filter_test"
-        ))]
-        {
-            if nr == 98 {
-                qemu_exit(arg1 as u8);
-                loop { core::arch::asm!("cli; hlt", options(nomem, nostack)); }
-            }
-        }
-
-        let ret: u64 = match nr {
-            0  => sys_debug_write(arg1, arg2),
-            #[cfg(any(feature = "user_hello_test", feature = "syscall_test", feature = "thread_exit_test", feature = "thread_spawn_test", feature = "vm_map_test", feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test", feature = "user_fault_test", feature = "blk_test", feature = "fs_test", feature = "go_test", feature = "go_std_test", feature = "sec_rights_test", feature = "sec_filter_test"))]
-            1  => sys_thread_spawn_m3(frame, arg1),
-            #[cfg(any(feature = "user_hello_test", feature = "syscall_test", feature = "thread_exit_test", feature = "thread_spawn_test", feature = "vm_map_test", feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test", feature = "user_fault_test", feature = "blk_test", feature = "fs_test", feature = "go_test", feature = "go_std_test", feature = "sec_rights_test", feature = "sec_filter_test"))]
-            3  => sys_yield_m3(frame),
-            #[cfg(not(any(feature = "user_hello_test", feature = "syscall_test", feature = "thread_exit_test", feature = "thread_spawn_test", feature = "vm_map_test", feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test", feature = "user_fault_test", feature = "blk_test", feature = "fs_test", feature = "go_test", feature = "go_std_test", feature = "sec_rights_test", feature = "sec_filter_test")))]
-            3  => sys_yield(),
-            #[cfg(any(feature = "user_hello_test", feature = "syscall_test", feature = "thread_exit_test", feature = "thread_spawn_test", feature = "vm_map_test", feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test", feature = "user_fault_test", feature = "blk_test", feature = "fs_test", feature = "go_test", feature = "go_std_test", feature = "sec_rights_test", feature = "sec_filter_test"))]
-            4  => sys_vm_map_m3(arg1, arg2),
-            #[cfg(any(feature = "user_hello_test", feature = "syscall_test", feature = "thread_exit_test", feature = "thread_spawn_test", feature = "vm_map_test", feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test", feature = "user_fault_test", feature = "blk_test", feature = "fs_test", feature = "go_test", feature = "go_std_test", feature = "sec_rights_test", feature = "sec_filter_test"))]
-            5  => sys_vm_unmap_m3(arg1, arg2),
-            10 => sys_time_now(),
-            #[cfg(any(feature = "user_hello_test", feature = "syscall_test", feature = "thread_exit_test", feature = "thread_spawn_test", feature = "vm_map_test", feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test", feature = "user_fault_test", feature = "blk_test", feature = "fs_test", feature = "go_test", feature = "go_std_test", feature = "sec_rights_test", feature = "sec_filter_test"))]
-            18 => sys_open_v1(arg1, arg2, arg3),
-            #[cfg(any(feature = "user_hello_test", feature = "syscall_test", feature = "thread_exit_test", feature = "thread_spawn_test", feature = "vm_map_test", feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test", feature = "user_fault_test", feature = "blk_test", feature = "fs_test", feature = "go_test", feature = "go_std_test", feature = "sec_rights_test", feature = "sec_filter_test"))]
-            19 => sys_read_v1(arg1, arg2, arg3),
-            #[cfg(any(feature = "user_hello_test", feature = "syscall_test", feature = "thread_exit_test", feature = "thread_spawn_test", feature = "vm_map_test", feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test", feature = "user_fault_test", feature = "blk_test", feature = "fs_test", feature = "go_test", feature = "go_std_test", feature = "sec_rights_test", feature = "sec_filter_test"))]
-            20 => sys_write_v1(arg1, arg2, arg3),
-            #[cfg(any(feature = "user_hello_test", feature = "syscall_test", feature = "thread_exit_test", feature = "thread_spawn_test", feature = "vm_map_test", feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test", feature = "user_fault_test", feature = "blk_test", feature = "fs_test", feature = "go_test", feature = "go_std_test", feature = "sec_rights_test", feature = "sec_filter_test"))]
-            21 => sys_close_v1(arg1),
-            #[cfg(any(feature = "user_hello_test", feature = "syscall_test", feature = "thread_exit_test", feature = "thread_spawn_test", feature = "vm_map_test", feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test", feature = "user_fault_test", feature = "blk_test", feature = "fs_test", feature = "go_test", feature = "go_std_test", feature = "sec_rights_test", feature = "sec_filter_test"))]
-            22 => sys_wait_v1(arg1, arg2, arg3),
-            #[cfg(any(feature = "user_hello_test", feature = "syscall_test", feature = "thread_exit_test", feature = "thread_spawn_test", feature = "vm_map_test", feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test", feature = "user_fault_test", feature = "blk_test", feature = "fs_test", feature = "go_test", feature = "go_std_test", feature = "sec_rights_test", feature = "sec_filter_test"))]
-            23 => sys_poll_v1(arg1, arg2, arg3),
-            #[cfg(any(feature = "user_hello_test", feature = "syscall_test", feature = "thread_exit_test", feature = "thread_spawn_test", feature = "vm_map_test", feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test", feature = "user_fault_test", feature = "blk_test", feature = "fs_test", feature = "go_test", feature = "go_std_test", feature = "sec_rights_test", feature = "sec_filter_test"))]
-            24 => sys_fd_rights_get_v1(arg1),
-            #[cfg(any(feature = "user_hello_test", feature = "syscall_test", feature = "thread_exit_test", feature = "thread_spawn_test", feature = "vm_map_test", feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test", feature = "user_fault_test", feature = "blk_test", feature = "fs_test", feature = "go_test", feature = "go_std_test", feature = "sec_rights_test", feature = "sec_filter_test"))]
-            25 => sys_fd_rights_reduce_v1(arg1, arg2),
-            #[cfg(any(feature = "user_hello_test", feature = "syscall_test", feature = "thread_exit_test", feature = "thread_spawn_test", feature = "vm_map_test", feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test", feature = "user_fault_test", feature = "blk_test", feature = "fs_test", feature = "go_test", feature = "go_std_test", feature = "sec_rights_test", feature = "sec_filter_test"))]
-            26 => sys_fd_rights_transfer_v1(arg1, arg2),
-            #[cfg(any(feature = "user_hello_test", feature = "syscall_test", feature = "thread_exit_test", feature = "thread_spawn_test", feature = "vm_map_test", feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test", feature = "user_fault_test", feature = "blk_test", feature = "fs_test", feature = "go_test", feature = "go_std_test", feature = "sec_rights_test", feature = "sec_filter_test"))]
-            27 => sys_sec_profile_set_v1(arg1),
-            #[cfg(any(feature = "user_hello_test", feature = "syscall_test", feature = "thread_exit_test", feature = "thread_spawn_test", feature = "vm_map_test", feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test", feature = "user_fault_test", feature = "blk_test", feature = "fs_test", feature = "go_test", feature = "go_std_test", feature = "sec_rights_test", feature = "sec_filter_test"))]
-            30 => sys_fsync_v1(arg1),
-            #[cfg(any(feature = "user_hello_test", feature = "syscall_test", feature = "thread_exit_test", feature = "thread_spawn_test", feature = "vm_map_test", feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test", feature = "user_fault_test", feature = "blk_test", feature = "fs_test", feature = "go_test", feature = "go_std_test", feature = "sec_rights_test", feature = "sec_filter_test"))]
-            43 => sys_fork_deferred_v1(),
-            #[cfg(any(feature = "user_hello_test", feature = "syscall_test", feature = "thread_exit_test", feature = "thread_spawn_test", feature = "vm_map_test", feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test", feature = "user_fault_test", feature = "blk_test", feature = "fs_test", feature = "go_test", feature = "go_std_test", feature = "sec_rights_test", feature = "sec_filter_test"))]
-            44 => sys_clone_deferred_v1(),
-            #[cfg(any(feature = "user_hello_test", feature = "syscall_test", feature = "thread_exit_test", feature = "thread_spawn_test", feature = "vm_map_test", feature = "syscall_invalid_test", feature = "stress_syscall_test", feature = "yield_test", feature = "user_fault_test", feature = "blk_test", feature = "fs_test", feature = "go_test", feature = "go_std_test", feature = "sec_rights_test", feature = "sec_filter_test"))]
-            45 => sys_epoll_deferred_v1(),
-            _  => 0xFFFF_FFFF_FFFF_FFFF,
-        };
-        *frame.add(14) = ret;
-    }
-}
-
-unsafe fn sys_debug_write(buf: u64, len: u64) -> u64 {
-    let max_len = 256u64;
-    let actual_len = if len > max_len { max_len } else { len };
-    if actual_len == 0 { return 0; }
-
-    let mut kbuf = [0u8; 256];
-    let n = actual_len as usize;
-    if copyin_user(&mut kbuf, buf, n).is_err() { return 0xFFFF_FFFF_FFFF_FFFF; }
-    serial_write(&kbuf[..n]);
-    actual_len
-}
-
-unsafe fn sys_time_now() -> u64 {
-    #[cfg(any(
-        feature = "user_hello_test",
-        feature = "syscall_test",
-        feature = "stress_syscall_test",
-        feature = "user_fault_test",
-        feature = "go_test",
-        feature = "go_std_test",
-        feature = "sec_rights_test",
-        feature = "sec_filter_test"
-    ))]
-    {
-        let t = MONOTONIC_TICK;
-        MONOTONIC_TICK += 1;
-        return t;
-    }
-    #[cfg(not(any(
-        feature = "user_hello_test",
-        feature = "syscall_test",
-        feature = "stress_syscall_test",
-        feature = "user_fault_test",
-        feature = "go_test",
-        feature = "go_std_test",
-        feature = "sec_rights_test",
-        feature = "sec_filter_test"
-    )))]
-    { 0 }
-}
-
-unsafe fn sys_yield() -> u64 {
-    #[cfg(feature = "sched_test")]
-    {
-        if NUM_THREADS > 0 {
-            schedule();
-        }
-    }
-    0
+extern "C" {
+    static stack_top: u8;
 }
 
 cfg_m3! {
@@ -1038,7 +530,7 @@ cfg_m3! {
             Ok(v) => v,
             Err(_) => return 0xFFFF_FFFF_FFFF_FFFF,
         };
-        let bytes = path.as_slice();
+        let bytes: &[u8] = &path;
         if !m10_profile_path_allowed(bytes) {
             return 0xFFFF_FFFF_FFFF_FFFF;
         }
@@ -1078,7 +570,7 @@ cfg_m3! {
         }
         #[cfg(feature = "go_test")]
         {
-            if r4_storage_available() && m8_path_matches(bytes, b"/runtime/journal.bin") {
+            if storage::r4_storage_available() && m8_path_matches(bytes, b"/runtime/journal.bin") {
                 if !r4_current_has_cap(R4_TASK_CAP_STORAGE) {
                     return 0xFFFF_FFFF_FFFF_FFFF;
                 }
@@ -1094,7 +586,7 @@ cfg_m3! {
                 M8_FD_TABLE[fd as usize].rights = effective;
                 return fd;
             }
-            if r4_storage_available() && m8_path_matches(bytes, b"/runtime/state.bin") {
+            if storage::r4_storage_available() && m8_path_matches(bytes, b"/runtime/state.bin") {
                 if !r4_current_has_cap(R4_TASK_CAP_STORAGE) {
                     return 0xFFFF_FFFF_FFFF_FFFF;
                 }
@@ -1110,7 +602,7 @@ cfg_m3! {
                 M8_FD_TABLE[fd as usize].rights = effective;
                 return fd;
             }
-            if r4_storage_available() && m8_path_matches(bytes, b"/runtime/pkgstate.bin") {
+            if storage::r4_storage_available() && m8_path_matches(bytes, b"/runtime/pkgstate.bin") {
                 if !r4_current_has_cap(R4_TASK_CAP_STORAGE) {
                     return 0xFFFF_FFFF_FFFF_FFFF;
                 }
@@ -1126,7 +618,7 @@ cfg_m3! {
                 M8_FD_TABLE[fd as usize].rights = effective;
                 return fd;
             }
-            if r4_storage_available() && m8_path_matches(bytes, b"/runtime/platform.bin") {
+            if storage::r4_storage_available() && m8_path_matches(bytes, b"/runtime/platform.bin") {
                 if !r4_current_has_cap(R4_TASK_CAP_STORAGE) {
                     return 0xFFFF_FFFF_FFFF_FFFF;
                 }
@@ -1180,7 +672,7 @@ cfg_m3! {
             M8FdKind::JournalFile => 0xFFFF_FFFF_FFFF_FFFF,
             #[cfg(feature = "go_test")]
             M8FdKind::StateFile => {
-                let total = r4_storage_state_len();
+                let total = storage::r4_storage_state_len();
                 let off = M8_FD_TABLE[idx].offset;
                 if off >= total {
                     return 0;
@@ -1189,7 +681,7 @@ cfg_m3! {
                 let remaining = total - off;
                 let n = if req < remaining { req } else { remaining };
                 let mut kbuf = [0u8; 496];
-                if !r4_storage_copy_state(off, &mut kbuf[..n]) {
+                if !storage::r4_storage_copy_state(off, &mut kbuf[..n]) {
                     return 0xFFFF_FFFF_FFFF_FFFF;
                 }
                 if copyout_user(buf, &kbuf[..n], n).is_err() {
@@ -1200,7 +692,7 @@ cfg_m3! {
             }
             #[cfg(feature = "go_test")]
             M8FdKind::PkgStateFile => {
-                let total = r4_storage_runtime_len(R4StorageRuntimeFile::PkgState);
+                let total = storage::r4_storage_runtime_len(storage::R4StorageRuntimeFile::PkgState);
                 let off = M8_FD_TABLE[idx].offset;
                 if off >= total {
                     return 0;
@@ -1208,9 +700,9 @@ cfg_m3! {
                 let req = len as usize;
                 let remaining = total - off;
                 let n = if req < remaining { req } else { remaining };
-                let mut kbuf = [0u8; R4_STORAGE_RUNTIME_FILE_MAX_BYTES];
-                if !r4_storage_runtime_copy(
-                    R4StorageRuntimeFile::PkgState,
+                let mut kbuf = [0u8; storage::R4_STORAGE_RUNTIME_FILE_MAX_BYTES];
+                if !storage::r4_storage_runtime_copy(
+                    storage::R4StorageRuntimeFile::PkgState,
                     off,
                     &mut kbuf[..n],
                 ) {
@@ -1224,7 +716,7 @@ cfg_m3! {
             }
             #[cfg(feature = "go_test")]
             M8FdKind::PlatformFile => {
-                let total = r4_storage_runtime_len(R4StorageRuntimeFile::Platform);
+                let total = storage::r4_storage_runtime_len(storage::R4StorageRuntimeFile::Platform);
                 let off = M8_FD_TABLE[idx].offset;
                 if off >= total {
                     return 0;
@@ -1232,9 +724,9 @@ cfg_m3! {
                 let req = len as usize;
                 let remaining = total - off;
                 let n = if req < remaining { req } else { remaining };
-                let mut kbuf = [0u8; R4_STORAGE_RUNTIME_FILE_MAX_BYTES];
-                if !r4_storage_runtime_copy(
-                    R4StorageRuntimeFile::Platform,
+                let mut kbuf = [0u8; storage::R4_STORAGE_RUNTIME_FILE_MAX_BYTES];
+                if !storage::r4_storage_runtime_copy(
+                    storage::R4StorageRuntimeFile::Platform,
                     off,
                     &mut kbuf[..n],
                 ) {
@@ -1283,7 +775,7 @@ cfg_m3! {
                 if copyin_user(&mut kbuf[..n], buf, n).is_err() {
                     return 0xFFFF_FFFF_FFFF_FFFF;
                 }
-                if !r4_storage_write_journal(&kbuf[..n]) {
+                if !storage::r4_storage_write_journal(&kbuf[..n]) {
                     return 0xFFFF_FFFF_FFFF_FFFF;
                 }
                 M8_FD_TABLE[idx].offset = n;
@@ -1294,11 +786,11 @@ cfg_m3! {
             #[cfg(feature = "go_test")]
             M8FdKind::PkgStateFile => {
                 let n = len as usize;
-                let mut kbuf = [0u8; R4_STORAGE_RUNTIME_FILE_MAX_BYTES];
+                let mut kbuf = [0u8; storage::R4_STORAGE_RUNTIME_FILE_MAX_BYTES];
                 if copyin_user(&mut kbuf[..n], buf, n).is_err() {
                     return 0xFFFF_FFFF_FFFF_FFFF;
                 }
-                if !r4_storage_runtime_write(R4StorageRuntimeFile::PkgState, &kbuf[..n]) {
+                if !storage::r4_storage_runtime_write(storage::R4StorageRuntimeFile::PkgState, &kbuf[..n]) {
                     return 0xFFFF_FFFF_FFFF_FFFF;
                 }
                 M8_FD_TABLE[idx].offset = n;
@@ -1307,11 +799,11 @@ cfg_m3! {
             #[cfg(feature = "go_test")]
             M8FdKind::PlatformFile => {
                 let n = len as usize;
-                let mut kbuf = [0u8; R4_STORAGE_RUNTIME_FILE_MAX_BYTES];
+                let mut kbuf = [0u8; storage::R4_STORAGE_RUNTIME_FILE_MAX_BYTES];
                 if copyin_user(&mut kbuf[..n], buf, n).is_err() {
                     return 0xFFFF_FFFF_FFFF_FFFF;
                 }
-                if !r4_storage_runtime_write(R4StorageRuntimeFile::Platform, &kbuf[..n]) {
+                if !storage::r4_storage_runtime_write(storage::R4StorageRuntimeFile::Platform, &kbuf[..n]) {
                     return 0xFFFF_FFFF_FFFF_FFFF;
                 }
                 M8_FD_TABLE[idx].offset = n;
@@ -1335,7 +827,7 @@ cfg_m3! {
                 if M8_FD_TABLE[idx].rights & M10_RIGHT_WRITE == 0 {
                     return 0xFFFF_FFFF_FFFF_FFFF;
                 }
-                if r4_storage_fsync() { 0 } else { 0xFFFF_FFFF_FFFF_FFFF }
+                if storage::r4_storage_fsync() { 0 } else { 0xFFFF_FFFF_FFFF_FFFF }
             }
             #[cfg(feature = "go_test")]
             M8FdKind::PkgStateFile | M8FdKind::PlatformFile => {
@@ -1464,7 +956,7 @@ cfg_m3! {
                         M8FdKind::StateFile => {
                             if events & POLLIN != 0
                                 && rights & M10_RIGHT_READ != 0
-                                && M8_FD_TABLE[idx].offset < r4_storage_state_len()
+                                && M8_FD_TABLE[idx].offset < storage::r4_storage_state_len()
                             {
                                 revents |= POLLIN;
                             }
@@ -1474,7 +966,7 @@ cfg_m3! {
                             if events & POLLIN != 0
                                 && rights & M10_RIGHT_READ != 0
                                 && M8_FD_TABLE[idx].offset
-                                    < r4_storage_runtime_len(R4StorageRuntimeFile::PkgState)
+                                    < storage::r4_storage_runtime_len(storage::R4StorageRuntimeFile::PkgState)
                             {
                                 revents |= POLLIN;
                             }
@@ -1487,7 +979,7 @@ cfg_m3! {
                             if events & POLLIN != 0
                                 && rights & M10_RIGHT_READ != 0
                                 && M8_FD_TABLE[idx].offset
-                                    < r4_storage_runtime_len(R4StorageRuntimeFile::Platform)
+                                    < storage::r4_storage_runtime_len(storage::R4StorageRuntimeFile::Platform)
                             {
                                 revents |= POLLIN;
                             }
@@ -1543,7 +1035,7 @@ unsafe fn sys_thread_exit_m3(frame: *mut u64) {
         }
     }
     serial_write(b"THREAD_EXIT: ok\n");
-    m3_return_to_kernel_halt(frame);
+    trap::m3_return_to_kernel_halt(frame);
 }
 
 #[cfg(feature = "fs_test")]
@@ -1673,137 +1165,6 @@ fn sha256_digest(data: &[u8]) -> [u8; 32] {
     out
 }
 
-// --------------- User pointer validation (page table walk) -------------------
-
-const USER_VA_LIMIT: u64 = 0x0000_8000_0000_0000;
-const USER_PERM_READ: u64 = 1 << 0;
-const USER_PERM_WRITE: u64 = 1 << 1;
-const USER_COPYINSTR_MAX: usize = 256;
-
-#[allow(dead_code)]
-struct Vec<T> {
-    len: usize,
-    buf: [u8; USER_COPYINSTR_MAX],
-    _marker: core::marker::PhantomData<T>,
-}
-
-impl Vec<u8> {
-    fn new() -> Self {
-        Self {
-            len: 0,
-            buf: [0u8; USER_COPYINSTR_MAX],
-            _marker: core::marker::PhantomData,
-        }
-    }
-
-    fn push(&mut self, b: u8) -> Result<(), ()> {
-        if self.len >= self.buf.len() { return Err(()); }
-        self.buf[self.len] = b;
-        self.len += 1;
-        Ok(())
-    }
-
-    fn as_slice(&self) -> &[u8] {
-        &self.buf[..self.len]
-    }
-}
-
-impl core::ops::Deref for Vec<u8> {
-    type Target = [u8];
-    fn deref(&self) -> &Self::Target {
-        self.as_slice()
-    }
-}
-
-unsafe fn check_page_user_perms(va: u64, hhdm: u64, required_perms: u64) -> bool {
-    let need_write = (required_perms & USER_PERM_WRITE) != 0;
-    let cr3: u64;
-    core::arch::asm!("mov {}, cr3", out(reg) cr3, options(nomem, nostack));
-    let pml4_phys = cr3 & 0x000F_FFFF_FFFF_F000;
-    let pml4 = (pml4_phys + hhdm) as *const u64;
-    let pml4e = *pml4.add(((va >> 39) & 0x1FF) as usize);
-    if pml4e & 1 == 0 || pml4e & 4 == 0 { return false; }
-    if need_write && pml4e & 2 == 0 { return false; }
-    let pdpt = ((pml4e & 0x000F_FFFF_FFFF_F000) + hhdm) as *const u64;
-    let pdpte = *pdpt.add(((va >> 30) & 0x1FF) as usize);
-    if pdpte & 1 == 0 || pdpte & 4 == 0 { return false; }
-    if need_write && pdpte & 2 == 0 { return false; }
-    if pdpte & 0x80 != 0 { return true; }
-    let pd = ((pdpte & 0x000F_FFFF_FFFF_F000) + hhdm) as *const u64;
-    let pde = *pd.add(((va >> 21) & 0x1FF) as usize);
-    if pde & 1 == 0 || pde & 4 == 0 { return false; }
-    if need_write && pde & 2 == 0 { return false; }
-    if pde & 0x80 != 0 { return true; }
-    let pt = ((pde & 0x000F_FFFF_FFFF_F000) + hhdm) as *const u64;
-    let pte = *pt.add(((va >> 12) & 0x1FF) as usize);
-    if pte & 1 == 0 || pte & 4 == 0 { return false; }
-    if need_write && pte & 2 == 0 { return false; }
-    true
-}
-
-// --------------- Uniform user-memory access helpers --------------------------
-fn user_range_ok(ptr: u64, len: usize) -> bool {
-    if len == 0 { return true; }
-    match ptr.checked_add(len as u64) {
-        Some(end) => ptr < USER_VA_LIMIT && end <= USER_VA_LIMIT,
-        None => false,
-    }
-}
-
-unsafe fn user_pages_ok(ptr: u64, len: usize, required_perms: u64) -> bool {
-    if len == 0 { return true; }
-    if !user_range_ok(ptr, len) { return false; }
-    let hhdm = HHDM_OFFSET;
-    let start_page = ptr & !0xFFF;
-    let end = match ptr.checked_add(len as u64 - 1) {
-        Some(v) => v,
-        None => return false,
-    };
-    let end_page = end & !0xFFF;
-    let mut page = start_page;
-    loop {
-        if !check_page_user_perms(page, hhdm, required_perms) {
-            return false;
-        }
-        if page >= end_page { break; }
-        page += 4096;
-    }
-    true
-}
-
-unsafe fn copyin_user(dst: &mut [u8], user_ptr: u64, len: usize) -> Result<(), ()> {
-    if len > dst.len() { return Err(()); }
-    if !user_range_ok(user_ptr, len) { return Err(()); }
-    if !user_pages_ok(user_ptr, len, USER_PERM_READ) { return Err(()); }
-    if len > 0 {
-        core::ptr::copy_nonoverlapping(user_ptr as *const u8, dst.as_mut_ptr(), len);
-    }
-    Ok(())
-}
-
-unsafe fn copyout_user(user_ptr: u64, src: &[u8], len: usize) -> Result<(), ()> {
-    if len > src.len() { return Err(()); }
-    if !user_range_ok(user_ptr, len) { return Err(()); }
-    if !user_pages_ok(user_ptr, len, USER_PERM_WRITE) { return Err(()); }
-    if len > 0 {
-        core::ptr::copy_nonoverlapping(src.as_ptr(), user_ptr as *mut u8, len);
-    }
-    Ok(())
-}
-
-unsafe fn copyinstr_user(user_ptr: u64, max: usize) -> Result<Vec<u8>, ()> {
-    let limit = if max > USER_COPYINSTR_MAX { USER_COPYINSTR_MAX } else { max };
-    if !user_range_ok(user_ptr, limit) { return Err(()); }
-    if !user_pages_ok(user_ptr, limit, USER_PERM_READ) { return Err(()); }
-    let mut out = Vec::new();
-    for i in 0..limit {
-        let b = *(user_ptr as *const u8).add(i);
-        out.push(b)?;
-        if b == 0 { return Ok(out); }
-    }
-    Err(()) // no NUL found within limit
-}
-
 // --------------- User page table infrastructure (shared M3+R4) ---------------
 
 cfg_user! {
@@ -1822,19 +1183,6 @@ cfg_user! {
     static mut USER_CODE_PAGE: Page = Page([0; 4096]);
     static mut USER_STACK_PAGE: Page = Page([0; 4096]);
 
-    unsafe fn enter_ring3_at(code_va: u64, user_sp: u64) -> ! {
-        core::arch::asm!(
-            "push 0x1B",       // SS = user data (0x18 | RPL=3)
-            "push {stack}",    // RSP
-            "push 0x002",      // RFLAGS (IF=0)
-            "push 0x23",       // CS = user code (0x20 | RPL=3)
-            "push {code}",     // RIP
-            "iretq",
-            stack = in(reg) user_sp,
-            code = in(reg) code_va,
-            options(noreturn),
-        );
-    }
 }
 
 // --------------- M3: User thread + vm model ----------------------------------
@@ -3043,7 +2391,7 @@ cfg_r4! {
         match r4_find_ready(R4_CURRENT) {
             Some(tid) => { r4_switch_to(frame, tid); }
             None => {
-                // All tasks done — exit
+                // All tasks done â€” exit
                 let kstack = &stack_top as *const u8 as u64;
                 *frame.add(17) = r4_all_done as *const () as u64;
                 *frame.add(18) = 0x08;
@@ -3059,7 +2407,7 @@ cfg_r4! {
         serial_write(b"STRESS: ipc ok");
         #[cfg(feature = "compat_real_test")]
         unsafe {
-            compat_real_finish_current_app();
+            process::compat_real_finish_current_app();
         }
         #[cfg(all(feature = "go_test", not(feature = "compat_real_test")))]
         serial_write(b"RUGO: halt ok\n");
@@ -3108,7 +2456,7 @@ cfg_r4! {
         #[cfg(feature = "go_test")]
         {
             r4_release_owned_fds(tid);
-            r4_release_owned_sockets(tid);
+            net::r4_release_owned_sockets(tid);
             r4_release_owned_endpoints(tid);
             r4_release_stale_services();
         }
@@ -3136,7 +2484,7 @@ cfg_r4! {
         let socket_limit = ((limits >> 8) & 0xFF) as u8;
         let endpoint_limit = ((limits >> 16) & 0xFF) as u8;
         if fd_limit as usize > M8_FD_MAX.saturating_sub(3)
-            || socket_limit as usize > R4_NET_SOCKET_MAX
+            || socket_limit as usize > net::R4_NET_SOCKET_MAX
             || endpoint_limit as usize > R4_MAX_ENDPOINTS
         {
             return None;
@@ -3513,7 +2861,7 @@ cfg_r4! {
             return 0;
         }
 
-        // No waiter — buffer the message
+        // No waiter â€” buffer the message
         R4_ENDPOINTS[ep].msg_data[..n].copy_from_slice(&kbuf[..n]);
         R4_ENDPOINTS[ep].msg_len = n;
         R4_ENDPOINTS[ep].has_msg = true;
@@ -3564,7 +2912,7 @@ cfg_r4! {
             return;
         }
 
-        // No message — block current task and switch
+        // No message â€” block current task and switch
         R4_TASKS[R4_CURRENT].recv_ep = endpoint;
         R4_TASKS[R4_CURRENT].recv_buf = buf;
         R4_TASKS[R4_CURRENT].recv_cap = cap_n as u64;
@@ -3576,7 +2924,7 @@ cfg_r4! {
         match r4_find_ready(R4_CURRENT) {
             Some(tid) => { r4_switch_to(frame, tid); }
             None => {
-                // Deadlock — no ready tasks
+                // Deadlock â€” no ready tasks
                 serial_write(b"R4: deadlock\n");
                 let kstack = &stack_top as *const u8 as u64;
                 *frame.add(17) = r4_all_done as *const () as u64;
@@ -4157,7 +3505,7 @@ struct VringDesc {
 }
 
 // Block request header layout (written via raw offsets, 16 bytes):
-//   offset 0: type_ (u32) — VIRTIO_BLK_T_IN=0, VIRTIO_BLK_T_OUT=1
+//   offset 0: type_ (u32) â€” VIRTIO_BLK_T_IN=0, VIRTIO_BLK_T_OUT=1
 //   offset 4: reserved (u32)
 //   offset 8: sector (u64)
 
@@ -4296,7 +3644,7 @@ unsafe fn virtio_blk_init(iobase: u16) -> bool {
     // Step 3: Driver
     outb(iobase + VIRTIO_DEVICE_STATUS, 1 | 2);
 
-    // Step 4: Feature negotiation — accept no features
+    // Step 4: Feature negotiation â€” accept no features
     let _features = inl(iobase + VIRTIO_DEVICE_FEATURES);
     outl(iobase + VIRTIO_GUEST_FEATURES, 0);
 
@@ -4491,7 +3839,7 @@ unsafe fn sys_blk_write(lba: u64, buf: u64, len: u64) -> u64 {
 //   4. sys_blk_read(lba=0, buf, 512)
 //   5. Checks buf[0] == 0xAA && buf[511] == 0xAA
 //   6. Prints "BLK: rw ok\n" via sys_debug_write
-//   7. HLTs (triggers GPF → kernel exit)
+//   7. HLTs (triggers GPF â†’ kernel exit)
 
 #[cfg(feature = "blk_test")]
 static BLK_TEST_BLOB: [u8; 111] = [
@@ -4556,7 +3904,7 @@ static BLK_TEST_BLOB: [u8; 111] = [
     0x31, 0xC0,
     // int 0x80
     0xCD, 0x80,
-    // hlt (triggers GPF in ring 3 → kernel exit)
+    // hlt (triggers GPF in ring 3 â†’ kernel exit)
     0xF4,
     // .bad:
     0xF4,
@@ -4763,7 +4111,7 @@ static IPC_PING_BLOB: [u8; 102] = [
     b'P', b'I', b'N', b'G', b':', b' ', b'o', b'k', b'\n', // @93: marke
 ];
 
-// IPC bad-pointer send blob (single task: send with unmapped buf → expect -1)
+// IPC bad-pointer send blob (single task: send with unmapped buf â†’ expect -1)
 #[cfg(feature = "stress_ipc_test")]
 static STRESS_IPC_SENDER_A_BLOB: [u8; 56] = [
     // mov r12d, 200
@@ -4900,7 +4248,7 @@ static IPC_BADPTR_SEND_BLOB: [u8; 75] = [
     b'r', b' ', b's', b'e', b'n', b'd', b' ', b'o', b'k', b'\n',
 ];
 
-// IPC bad-pointer recv blob (single task: recv with unmapped buf → expect -1)
+// IPC bad-pointer recv blob (single task: recv with unmapped buf â†’ expect -1)
 #[cfg(feature = "ipc_badptr_recv_test")]
 static IPC_BADPTR_RECV_BLOB: [u8; 75] = [
     // sys_ipc_recv(endpoint=0, buf=0xDEADBEEF, cap=16)
@@ -4929,7 +4277,7 @@ static IPC_BADPTR_RECV_BLOB: [u8; 75] = [
     b'r', b' ', b'r', b'e', b'c', b'v', b' ', b'o', b'k', b'\n',
 ];
 
-// Service registry bad-pointer blob (single task: register with unmapped name → expect -1)
+// Service registry bad-pointer blob (single task: register with unmapped name â†’ expect -1)
 #[cfg(feature = "ipc_badptr_svc_test")]
 static SVC_BADPTR_BLOB: [u8; 70] = [
     // sys_svc_register(name_ptr=0xDEAD0000, name_len=8, endpoint=0)
@@ -4988,7 +4336,7 @@ static SVC_BAD_ENDPOINT_BLOB: [u8; 84] = [
     b'n', b'd', b'p', b'o', b'i', b'n', b't', b' ', b'o', b'k', b'\n',
 ];
 
-// IPC buffer-full blob (single task: send1 ok, send2 → -1, recv → msg1 intact)
+// IPC buffer-full blob (single task: send1 ok, send2 â†’ -1, recv â†’ msg1 intact)
 #[cfg(feature = "ipc_buffer_full_test")]
 static IPC_BUFFER_FULL_BLOB: [u8; 137] = [
     // --- Step 1: sys_ipc_send(ep=0, &msg1, 4) ---
@@ -5000,7 +4348,7 @@ static IPC_BUFFER_FULL_BLOB: [u8; 137] = [
     // Check rax == 0 (success)
     0x48, 0x85, 0xC0,                             // test rax, rax
     0x75, 0x59,                                   // jnz fail @0x73
-    // --- Step 2: sys_ipc_send(ep=0, &msg2, 4) → must return -1 ---
+    // --- Step 2: sys_ipc_send(ep=0, &msg2, 4) â†’ must return -1 ---
     0x31, 0xFF,                                   // xor edi, edi
     0x48, 0x8D, 0x35, 0x55, 0x00, 0x00, 0x00,   // lea rsi, [rip+0x55]  -> msg2 @0x78
     0xBA, 0x04, 0x00, 0x00, 0x00,               // mov edx, 4
@@ -5009,7 +4357,7 @@ static IPC_BUFFER_FULL_BLOB: [u8; 137] = [
     // Check rax == -1 (buffer full)
     0x48, 0x83, 0xF8, 0xFF,                       // cmp rax, -1
     0x75, 0x3E,                                   // jne fail @0x73
-    // --- Step 3: sys_ipc_recv(ep=0, rsp-256, 256) → delivers msg1 ---
+    // --- Step 3: sys_ipc_recv(ep=0, rsp-256, 256) â†’ delivers msg1 ---
     0x31, 0xFF,                                   // xor edi, edi
     0x48, 0x89, 0xE6,                             // mov rsi, rsp
     0x48, 0x81, 0xEE, 0x00, 0x01, 0x00, 0x00,   // sub rsi, 0x100
@@ -5019,7 +4367,7 @@ static IPC_BUFFER_FULL_BLOB: [u8; 137] = [
     // Check rax == 4 (msg1 length)
     0x48, 0x83, 0xF8, 0x04,                       // cmp rax, 4
     0x75, 0x20,                                   // jne fail @0x73
-    // Check first byte == 'A' (0x41) — proves msg1 not overwritten
+    // Check first byte == 'A' (0x41) â€” proves msg1 not overwritten
     0x48, 0x89, 0xE6,                             // mov rsi, rsp
     0x48, 0x81, 0xEE, 0x00, 0x01, 0x00, 0x00,   // sub rsi, 0x100
     0x80, 0x3E, 0x41,                             // cmp byte [rsi], 0x41
@@ -5116,7 +4464,7 @@ static IPC_WAITER_CONTENDER_BLOB: [u8; 154] = [
     b'k', b'\n',
 ];
 
-// SVC overwrite blob (single task: register "foo"→1, register "foo"→2, lookup must return 2)
+// SVC overwrite blob (single task: register "foo"â†’1, register "foo"â†’2, lookup must return 2)
 #[cfg(feature = "svc_overwrite_test")]
 static SVC_OVERWRITE_BLOB: [u8; 122] = [
     // --- Step 1: sys_svc_register("foo", 3, 1) ---
@@ -5128,7 +4476,7 @@ static SVC_OVERWRITE_BLOB: [u8; 122] = [
     // Check rax == 0
     0x48, 0x85, 0xC0,                             // test rax, rax
     0x75, 0x47,                                   // jnz fail @0x64
-    // --- Step 2: sys_svc_register("foo", 3, 2) — overwrite ---
+    // --- Step 2: sys_svc_register("foo", 3, 2) â€” overwrite ---
     0x48, 0x8D, 0x3D, 0x41, 0x00, 0x00, 0x00,   // lea rdi, [rip+0x41]  -> "foo" @0x65
     0xBE, 0x03, 0x00, 0x00, 0x00,               // mov esi, 3
     0xBA, 0x02, 0x00, 0x00, 0x00,               // mov edx, 2 (endpoint)
@@ -5467,1594 +4815,6 @@ static SHM_PRESSURE_BLOB: [u8; 264] = [
     0x50, 0x52, 0x45, 0x53, 0x53, 0x55, 0x52, 0x45, 0x3A, 0x20, 0x73, 0x68, 0x6D, 0x20, 0x6F, 0x6B,
 ];
 
-// =============================================================================
-// M7: VirtIO net driver + net syscalls + UDP echo
-// =============================================================================
-
-// --------------- M7: VirtIO net device config --------------------------------
-
-#[cfg(any(feature = "net_test", feature = "go_test"))]
-const VIRTIO_NET_HDR_SIZE: usize = 10; // legacy, no MRG_RXBUF
-
-#[cfg(any(feature = "net_test", feature = "go_test"))]
-const NET_GUEST_IP: [u8; 4] = [10, 0, 2, 15]; // QEMU SLIRP default
-
-#[cfg(any(feature = "net_test", feature = "go_test"))]
-const NET_ECHO_PORT: u16 = runtime::networking::UDP_ECHO_PORT;
-
-// --------------- M7: PCI scan for virtio-net ---------------------------------
-
-#[cfg(any(feature = "net_test", feature = "go_test"))]
-unsafe fn pci_find_virtio_net() -> Option<u16> {
-    // VirtIO-net transitional: vendor 0x1AF4, device 0x1000
-    pci_find_virtio_legacy_iobase(0x1000)
-}
-
-// --------------- M7: Static memory for VirtIO net ----------------------------
-
-#[cfg(any(feature = "net_test", feature = "go_test"))]
-#[repr(C, align(4096))]
-struct NetVqPages([u8; 16384]); // 4 pages per virtqueue
-
-#[cfg(any(feature = "net_test", feature = "go_test"))]
-#[repr(C, align(4096))]
-struct NetBuf([u8; 4096]);
-
-#[cfg(any(feature = "net_test", feature = "go_test"))]
-static mut NET_IOBASE: u16 = 0;
-#[cfg(any(feature = "net_test", feature = "go_test"))]
-static mut NET_MAC: [u8; 6] = [0; 6];
-#[cfg(any(feature = "net_test", feature = "go_test"))]
-static mut NET_KV2P_DELTA: u64 = 0;
-
-// RX queue
-#[cfg(any(feature = "net_test", feature = "go_test"))]
-static mut NET_RXQ_MEM: NetVqPages = NetVqPages([0; 16384]);
-#[cfg(any(feature = "net_test", feature = "go_test"))]
-static mut NET_RX_BUF: NetBuf = NetBuf([0; 4096]);
-#[cfg(any(feature = "net_test", feature = "go_test"))]
-static mut NET_RX_DESCS: *mut u8 = core::ptr::null_mut();
-#[cfg(any(feature = "net_test", feature = "go_test"))]
-static mut NET_RX_AVAIL: *mut u8 = core::ptr::null_mut();
-#[cfg(any(feature = "net_test", feature = "go_test"))]
-static mut NET_RX_USED: *const u8 = core::ptr::null();
-#[cfg(any(feature = "net_test", feature = "go_test"))]
-static mut NET_RX_LAST_USED: u16 = 0;
-#[cfg(any(feature = "net_test", feature = "go_test"))]
-static mut NET_RX_QSIZE: u16 = 0;
-
-// TX queue
-#[cfg(any(feature = "net_test", feature = "go_test"))]
-static mut NET_TXQ_MEM: NetVqPages = NetVqPages([0; 16384]);
-#[cfg(any(feature = "net_test", feature = "go_test"))]
-static mut NET_TX_BUF: NetBuf = NetBuf([0; 4096]);
-#[cfg(any(feature = "net_test", feature = "go_test"))]
-static mut NET_TX_DESCS: *mut u8 = core::ptr::null_mut();
-#[cfg(any(feature = "net_test", feature = "go_test"))]
-static mut NET_TX_AVAIL: *mut u8 = core::ptr::null_mut();
-#[cfg(any(feature = "net_test", feature = "go_test"))]
-static mut NET_TX_USED: *const u8 = core::ptr::null();
-#[cfg(any(feature = "net_test", feature = "go_test"))]
-static mut NET_TX_LAST_USED: u16 = 0;
-#[cfg(any(feature = "net_test", feature = "go_test"))]
-static mut NET_TX_QSIZE: u16 = 0;
-
-#[cfg(any(feature = "net_test", feature = "go_test"))]
-unsafe fn net_kv2p(va: u64) -> u64 {
-    va.wrapping_add(NET_KV2P_DELTA)
-}
-
-// --------------- M7: VirtIO net init -----------------------------------------
-
-#[cfg(any(feature = "net_test", feature = "go_test"))]
-unsafe fn virtio_net_init(iobase: u16) -> bool {
-    NET_IOBASE = iobase;
-
-    // Reset
-    outb(iobase + VIRTIO_DEVICE_STATUS, 0);
-    // Acknowledge
-    outb(iobase + VIRTIO_DEVICE_STATUS, 1);
-    // Driver
-    outb(iobase + VIRTIO_DEVICE_STATUS, 1 | 2);
-    // Feature negotiation — accept no features (no offloading)
-    let _features = inl(iobase + VIRTIO_DEVICE_FEATURES);
-    outl(iobase + VIRTIO_GUEST_FEATURES, 0);
-
-    // Read MAC address from device-specific config (offset 0x14)
-    for i in 0..6u16 {
-        NET_MAC[i as usize] = inb(iobase + 0x14 + i);
-    }
-
-    // --- Setup RX queue (queue 0) ---
-    outw(iobase + VIRTIO_QUEUE_SEL, 0);
-    let rxqsz = inw(iobase + VIRTIO_QUEUE_SIZE);
-    if rxqsz == 0 {
-        outb(iobase + VIRTIO_DEVICE_STATUS, 0x80);
-        return false;
-    }
-    NET_RX_QSIZE = rxqsz;
-    core::ptr::write_bytes(NET_RXQ_MEM.0.as_mut_ptr(), 0, NET_RXQ_MEM.0.len());
-    let rxbase = NET_RXQ_MEM.0.as_mut_ptr();
-    NET_RX_DESCS = rxbase;
-    let rx_avail_off = (rxqsz as usize) * 16;
-    NET_RX_AVAIL = rxbase.add(rx_avail_off);
-    let rx_avail_end = rx_avail_off + 6 + 2 * (rxqsz as usize);
-    let rx_used_off = (rx_avail_end + 4095) & !4095;
-    NET_RX_USED = rxbase.add(rx_used_off);
-    NET_RX_LAST_USED = 0;
-    let rxq_phys = net_kv2p(rxbase as u64);
-    outl(iobase + VIRTIO_QUEUE_PFN, (rxq_phys >> 12) as u32);
-
-    // --- Setup TX queue (queue 1) ---
-    outw(iobase + VIRTIO_QUEUE_SEL, 1);
-    let txqsz = inw(iobase + VIRTIO_QUEUE_SIZE);
-    if txqsz == 0 {
-        outb(iobase + VIRTIO_DEVICE_STATUS, 0x80);
-        return false;
-    }
-    NET_TX_QSIZE = txqsz;
-    core::ptr::write_bytes(NET_TXQ_MEM.0.as_mut_ptr(), 0, NET_TXQ_MEM.0.len());
-    let txbase = NET_TXQ_MEM.0.as_mut_ptr();
-    NET_TX_DESCS = txbase;
-    let tx_avail_off = (txqsz as usize) * 16;
-    NET_TX_AVAIL = txbase.add(tx_avail_off);
-    let tx_avail_end = tx_avail_off + 6 + 2 * (txqsz as usize);
-    let tx_used_off = (tx_avail_end + 4095) & !4095;
-    NET_TX_USED = txbase.add(tx_used_off);
-    NET_TX_LAST_USED = 0;
-    let txq_phys = net_kv2p(txbase as u64);
-    outl(iobase + VIRTIO_QUEUE_PFN, (txq_phys >> 12) as u32);
-
-    // DRIVER_OK
-    outb(iobase + VIRTIO_DEVICE_STATUS, 1 | 2 | 4);
-
-    // Pre-post RX buffer
-    virtio_net_post_rx();
-    true
-}
-
-// --------------- M7: RX buffer posting ---------------------------------------
-
-#[cfg(any(feature = "net_test", feature = "go_test"))]
-unsafe fn virtio_net_post_rx() {
-    let buf_phys = net_kv2p(NET_RX_BUF.0.as_ptr() as u64);
-    // Descriptor 0: device-writable, receives virtio_net_hdr + frame
-    let d0 = NET_RX_DESCS;
-    core::ptr::write(d0.add(0) as *mut u64, buf_phys);
-    core::ptr::write(d0.add(8) as *mut u32, NET_RX_BUF.0.len() as u32);
-    core::ptr::write(d0.add(12) as *mut u16, VRING_DESC_F_WRITE);
-    core::ptr::write(d0.add(14) as *mut u16, 0);
-
-    // Add to available ring
-    let avail = NET_RX_AVAIL;
-    let avail_idx = core::ptr::read_volatile((avail as *const u16).add(1));
-    let qsz = NET_RX_QSIZE as usize;
-    let ring_slot = (avail as *mut u16).add(2 + (avail_idx as usize % qsz));
-    core::ptr::write_volatile(ring_slot, 0u16);
-    core::arch::asm!("mfence", options(nostack));
-    core::ptr::write_volatile((avail as *mut u16).add(1), avail_idx.wrapping_add(1));
-
-    // Notify device (queue 0)
-    outw(NET_IOBASE + VIRTIO_QUEUE_NOTIFY, 0);
-}
-
-// --------------- M7: Receive frame -------------------------------------------
-
-/// Non-blocking receive. Returns frame length (excluding virtio_net_hdr), or 0.
-#[cfg(any(feature = "net_test", feature = "go_test"))]
-unsafe fn virtio_net_recv(buf: &mut [u8]) -> usize {
-    let used = NET_RX_USED;
-    let used_idx = core::ptr::read_volatile((used as *const u16).add(1));
-    if used_idx == NET_RX_LAST_USED {
-        return 0;
-    }
-    NET_RX_LAST_USED = NET_RX_LAST_USED.wrapping_add(1);
-
-    // Read length from used ring entry
-    let qsz = NET_RX_QSIZE as usize;
-    let entry_idx = (used_idx.wrapping_sub(1) as usize) % qsz;
-    let entry_ptr = (used as *const u8).add(4 + entry_idx * 8);
-    let total_len = core::ptr::read(entry_ptr.add(4) as *const u32) as usize;
-
-    // Acknowledge ISR
-    let _ = inb(NET_IOBASE + VIRTIO_ISR_STATUS);
-
-    // Strip virtio_net_hdr
-    if total_len <= VIRTIO_NET_HDR_SIZE {
-        virtio_net_post_rx();
-        return 0;
-    }
-    let frame_len = total_len - VIRTIO_NET_HDR_SIZE;
-    let copy_len = if frame_len > buf.len() { buf.len() } else { frame_len };
-    core::ptr::copy_nonoverlapping(
-        NET_RX_BUF.0.as_ptr().add(VIRTIO_NET_HDR_SIZE),
-        buf.as_mut_ptr(),
-        copy_len,
-    );
-
-    // Re-post RX buffer for next packet
-    virtio_net_post_rx();
-    copy_len
-}
-
-// --------------- M7: Send frame ----------------------------------------------
-
-/// Send an Ethernet frame. Prepends virtio_net_hdr (all zeros). Returns true on success.
-#[cfg(any(feature = "net_test", feature = "go_test"))]
-unsafe fn virtio_net_send(frame: &[u8]) -> bool {
-    let total_len = VIRTIO_NET_HDR_SIZE + frame.len();
-    if total_len > NET_TX_BUF.0.len() {
-        return false;
-    }
-
-    // Prepare TX buffer: zero virtio_net_hdr + frame data
-    core::ptr::write_bytes(NET_TX_BUF.0.as_mut_ptr(), 0, VIRTIO_NET_HDR_SIZE);
-    core::ptr::copy_nonoverlapping(
-        frame.as_ptr(),
-        NET_TX_BUF.0.as_mut_ptr().add(VIRTIO_NET_HDR_SIZE),
-        frame.len(),
-    );
-
-    let buf_phys = net_kv2p(NET_TX_BUF.0.as_ptr() as u64);
-    let qsz = NET_TX_QSIZE as usize;
-
-    // Descriptor 0: device reads entire buffer
-    let d0 = NET_TX_DESCS;
-    core::ptr::write(d0.add(0) as *mut u64, buf_phys);
-    core::ptr::write(d0.add(8) as *mut u32, total_len as u32);
-    core::ptr::write(d0.add(12) as *mut u16, 0); // no WRITE flag = device reads
-    core::ptr::write(d0.add(14) as *mut u16, 0);
-
-    // Add to available ring
-    let avail = NET_TX_AVAIL;
-    let avail_idx = core::ptr::read_volatile((avail as *const u16).add(1));
-    let ring_slot = (avail as *mut u16).add(2 + (avail_idx as usize % qsz));
-    core::ptr::write_volatile(ring_slot, 0u16);
-    core::arch::asm!("mfence", options(nostack));
-    core::ptr::write_volatile((avail as *mut u16).add(1), avail_idx.wrapping_add(1));
-
-    // Notify device (queue 1)
-    outw(NET_IOBASE + VIRTIO_QUEUE_NOTIFY, 1);
-
-    // Poll used ring for completion
-    let used = NET_TX_USED;
-    let mut timeout: u32 = 10_000_000;
-    loop {
-        let idx = core::ptr::read_volatile((used as *const u16).add(1));
-        if idx != NET_TX_LAST_USED {
-            break;
-        }
-        core::arch::asm!("pause", options(nomem, nostack));
-        timeout -= 1;
-        if timeout == 0 {
-            return false;
-        }
-    }
-    NET_TX_LAST_USED = NET_TX_LAST_USED.wrapping_add(1);
-    let _ = inb(NET_IOBASE + VIRTIO_ISR_STATUS);
-    true
-}
-
-// --------------- M7: Net syscalls (raw frame) --------------------------------
-
-/// sys_net_send(user_ptr, len) -> bytes sent or -1
-/// Syscall 15: send a raw Ethernet frame from user buffer.
-#[cfg(any(feature = "net_test", feature = "go_test"))]
-#[allow(dead_code)]
-unsafe fn sys_net_send(buf: u64, len: u64) -> u64 {
-    if len == 0 || len > 1514 { return 0xFFFF_FFFF_FFFF_FFFF; }
-    let mut kbuf = [0u8; 1514];
-    let n = len as usize;
-    if copyin_user(&mut kbuf[..n], buf, n).is_err() { return 0xFFFF_FFFF_FFFF_FFFF; }
-    if virtio_net_send(&kbuf[..n]) { len } else { 0xFFFF_FFFF_FFFF_FFFF }
-}
-
-/// sys_net_recv(user_ptr, cap) -> bytes received or 0
-/// Syscall 16: receive a raw Ethernet frame into user buffer (non-blocking).
-#[cfg(any(feature = "net_test", feature = "go_test"))]
-#[allow(dead_code)]
-unsafe fn sys_net_recv(buf: u64, cap: u64) -> u64 {
-    if cap == 0 || cap > 1514 { return 0; }
-    let cap_n = cap as usize;
-    if !user_range_ok(buf, cap_n) || !user_pages_ok(buf, cap_n, USER_PERM_WRITE) {
-        return 0xFFFF_FFFF_FFFF_FFFF;
-    }
-    let mut kbuf = [0u8; 1514];
-    let n = virtio_net_recv(&mut kbuf[..cap_n]);
-    if n > 0 {
-        if copyout_user(buf, &kbuf[..n], n).is_err() {
-            return 0xFFFF_FFFF_FFFF_FFFF;
-        }
-    }
-    n as u64
-}
-
-// --------------- M7: Network protocol handling -------------------------------
-
-/// Handle a received Ethernet frame. Returns true if a UDP echo was performed.
-#[cfg(feature = "net_test")]
-unsafe fn net_handle_frame(frame: &[u8]) -> bool {
-    if frame.len() < 14 { return false; }
-    let ethertype = u16::from_be_bytes([frame[12], frame[13]]);
-    match ethertype {
-        runtime::networking::ETHERTYPE_ARP => { net_handle_arp(frame); false }
-        runtime::networking::ETHERTYPE_IPV4 => net_handle_ipv4(frame),
-        _ => false,
-    }
-}
-
-/// Handle ARP request: if target IP is ours, send ARP reply.
-#[cfg(feature = "net_test")]
-unsafe fn net_handle_arp(frame: &[u8]) {
-    if frame.len() < 42 { return; }
-    let arp = &frame[14..];
-    // Only handle ARP request (opcode 1)
-    let opcode = u16::from_be_bytes([arp[6], arp[7]]);
-    if opcode != 1 { return; }
-    // Check target IP is ours
-    if arp[24] != NET_GUEST_IP[0] || arp[25] != NET_GUEST_IP[1]
-        || arp[26] != NET_GUEST_IP[2] || arp[27] != NET_GUEST_IP[3] { return; }
-
-    // Build ARP reply
-    let mut reply = [0u8; 42];
-    // Ethernet: dst = sender's MAC, src = our MAC, type = ARP
-    reply[0..6].copy_from_slice(&frame[6..12]);
-    reply[6..12].copy_from_slice(&NET_MAC);
-    reply[12] = 0x08; reply[13] = 0x06;
-    // ARP: HTYPE=Ethernet, PTYPE=IPv4, HLEN=6, PLEN=4, Opcode=Reply
-    reply[14] = 0x00; reply[15] = 0x01;
-    reply[16] = 0x08; reply[17] = 0x00;
-    reply[18] = 6; reply[19] = 4;
-    reply[20] = 0x00; reply[21] = 0x02;
-    // Sender = us
-    reply[22..28].copy_from_slice(&NET_MAC);
-    reply[28..32].copy_from_slice(&NET_GUEST_IP);
-    // Target = original sender
-    reply[32..38].copy_from_slice(&arp[8..14]);
-    reply[38..42].copy_from_slice(&arp[14..18]);
-
-    virtio_net_send(&reply);
-}
-
-/// Handle IPv4/UDP: if UDP to echo port, echo back and return true.
-#[cfg(feature = "net_test")]
-unsafe fn net_handle_ipv4(frame: &[u8]) -> bool {
-    let ip = &frame[14..];
-    let ip_hdr_len = ((ip[0] & 0x0F) as usize) * 4;
-    if ip_hdr_len < 20 { return false; }
-    if frame.len() < 14 + ip_hdr_len + 8 { return false; }
-    // Check protocol = UDP (17)
-    if ip[9] != runtime::networking::IPPROTO_UDP { return false; }
-    // Check destination IP is ours
-    if ip[16] != NET_GUEST_IP[0] || ip[17] != NET_GUEST_IP[1]
-        || ip[18] != NET_GUEST_IP[2] || ip[19] != NET_GUEST_IP[3] { return false; }
-
-    // Parse UDP header
-    let udp = &ip[ip_hdr_len..];
-    let src_port = u16::from_be_bytes([udp[0], udp[1]]);
-    let dst_port = u16::from_be_bytes([udp[2], udp[3]]);
-    if !runtime::networking::is_udp_echo_port(dst_port) { return false; }
-
-    // Build echo reply — copy entire frame, then swap fields
-    let total = frame.len();
-    if total > 1514 { return false; }
-    let mut reply = [0u8; 1514];
-    reply[..total].copy_from_slice(&frame[..total]);
-
-    // Swap Ethernet MACs
-    reply[0..6].copy_from_slice(&frame[6..12]);
-    reply[6..12].copy_from_slice(&NET_MAC);
-
-    // Swap IP addresses
-    let rip = &mut reply[14..];
-    let orig_src = [ip[12], ip[13], ip[14], ip[15]];
-    rip[12..16].copy_from_slice(&ip[16..20]);
-    rip[16..20].copy_from_slice(&orig_src);
-
-    // Recalculate IP header checksum
-    rip[10] = 0; rip[11] = 0;
-    let cksum = net_ip_checksum(&rip[..ip_hdr_len]);
-    rip[10] = (cksum >> 8) as u8;
-    rip[11] = (cksum & 0xFF) as u8;
-
-    // Swap UDP ports
-    let rudp = &mut rip[ip_hdr_len..];
-    rudp[0] = (dst_port >> 8) as u8;
-    rudp[1] = (dst_port & 0xFF) as u8;
-    rudp[2] = (src_port >> 8) as u8;
-    rudp[3] = (src_port & 0xFF) as u8;
-    // Zero UDP checksum (valid for IPv4)
-    rudp[6] = 0; rudp[7] = 0;
-
-    serial_write(b"NET: udp echo\n");
-    virtio_net_send(&reply[..total]);
-    true
-}
-
-/// Internet checksum (RFC 1071) over a byte slice.
-#[cfg(feature = "net_test")]
-fn net_ip_checksum(data: &[u8]) -> u16 {
-    let mut sum: u32 = 0;
-    let mut i = 0;
-    while i + 1 < data.len() {
-        sum += u16::from_be_bytes([data[i], data[i + 1]]) as u32;
-        i += 2;
-    }
-    if i < data.len() {
-        sum += (data[i] as u32) << 8;
-    }
-    while sum > 0xFFFF {
-        sum = (sum & 0xFFFF) + (sum >> 16);
-    }
-    !(sum as u16)
-}
-
-// --------------- C4: go_test durable storage runtime -------------------------
-
-#[cfg(feature = "go_test")]
-const R4_STORAGE_JOURNAL_MAGIC: u32 = 0x4A52_4E31;
-#[cfg(feature = "go_test")]
-const R4_STORAGE_STATE_MAGIC: u32 = 0x5354_4131;
-#[cfg(feature = "go_test")]
-const R4_STORAGE_JOURNAL_SECTOR: u64 = 8;
-#[cfg(feature = "go_test")]
-const R4_STORAGE_STATE_SECTOR: u64 = 9;
-#[cfg(feature = "go_test")]
-const R4_STORAGE_MAX_BYTES: usize = 480;
-#[cfg(feature = "go_test")]
-const R4_STORAGE_RUNTIME_FILE_MAX_BYTES: usize = 64;
-#[cfg(feature = "go_test")]
-const R4_STORAGE_RUNTIME_FILE_COUNT: usize = 2;
-#[cfg(feature = "go_test")]
-const R4_STORAGE_PKGSTATE_MAGIC: u32 = 0x504B_4731;
-#[cfg(feature = "go_test")]
-const R4_STORAGE_PLATFORM_MAGIC: u32 = 0x5046_5431;
-#[cfg(feature = "go_test")]
-const R4_STORAGE_PKGSTATE_SECTOR: u64 = 10;
-#[cfg(feature = "go_test")]
-const R4_STORAGE_PLATFORM_SECTOR: u64 = 11;
-
-#[cfg(feature = "go_test")]
-static mut R4_STORAGE_READY: bool = false;
-#[cfg(feature = "go_test")]
-static mut R4_STORAGE_RECOVERED: bool = false;
-#[cfg(feature = "go_test")]
-static mut R4_STORAGE_SEQ: u32 = 0;
-#[cfg(feature = "go_test")]
-static mut R4_STORAGE_DURABLE_LEN: usize = 0;
-#[cfg(feature = "go_test")]
-static mut R4_STORAGE_DURABLE: [u8; R4_STORAGE_MAX_BYTES] = [0; R4_STORAGE_MAX_BYTES];
-#[cfg(feature = "go_test")]
-static mut R4_STORAGE_JOURNAL_LEN: usize = 0;
-#[cfg(feature = "go_test")]
-static mut R4_STORAGE_JOURNAL: [u8; R4_STORAGE_MAX_BYTES] = [0; R4_STORAGE_MAX_BYTES];
-#[cfg(feature = "go_test")]
-static mut R4_STORAGE_RUNTIME_FILE_LEN: [usize; R4_STORAGE_RUNTIME_FILE_COUNT] =
-    [0; R4_STORAGE_RUNTIME_FILE_COUNT];
-#[cfg(feature = "go_test")]
-static mut R4_STORAGE_RUNTIME_FILE_SEQ: [u32; R4_STORAGE_RUNTIME_FILE_COUNT] =
-    [0; R4_STORAGE_RUNTIME_FILE_COUNT];
-#[cfg(feature = "go_test")]
-static mut R4_STORAGE_RUNTIME_FILE_CACHE: [[u8; R4_STORAGE_RUNTIME_FILE_MAX_BYTES];
-    R4_STORAGE_RUNTIME_FILE_COUNT] = [[0; R4_STORAGE_RUNTIME_FILE_MAX_BYTES];
-    R4_STORAGE_RUNTIME_FILE_COUNT];
-
-#[cfg(feature = "go_test")]
-unsafe fn r4_storage_available() -> bool {
-    R4_STORAGE_READY
-}
-
-#[cfg(feature = "go_test")]
-unsafe fn r4_storage_state_len() -> usize {
-    R4_STORAGE_DURABLE_LEN
-}
-
-#[cfg(feature = "go_test")]
-unsafe fn r4_storage_copy_state(offset: usize, dst: &mut [u8]) -> bool {
-    if offset > R4_STORAGE_DURABLE_LEN || offset + dst.len() > R4_STORAGE_DURABLE_LEN {
-        return false;
-    }
-    dst.copy_from_slice(&R4_STORAGE_DURABLE[offset..offset + dst.len()]);
-    true
-}
-
-#[cfg(feature = "go_test")]
-#[derive(Clone, Copy)]
-enum R4StorageRuntimeFile {
-    PkgState = 0,
-    Platform = 1,
-}
-
-#[cfg(feature = "go_test")]
-unsafe fn r4_storage_runtime_magic(file: R4StorageRuntimeFile) -> u32 {
-    match file {
-        R4StorageRuntimeFile::PkgState => R4_STORAGE_PKGSTATE_MAGIC,
-        R4StorageRuntimeFile::Platform => R4_STORAGE_PLATFORM_MAGIC,
-    }
-}
-
-#[cfg(feature = "go_test")]
-unsafe fn r4_storage_runtime_sector(file: R4StorageRuntimeFile) -> u64 {
-    match file {
-        R4StorageRuntimeFile::PkgState => R4_STORAGE_PKGSTATE_SECTOR,
-        R4StorageRuntimeFile::Platform => R4_STORAGE_PLATFORM_SECTOR,
-    }
-}
-
-#[cfg(feature = "go_test")]
-unsafe fn r4_storage_runtime_index(file: R4StorageRuntimeFile) -> usize {
-    file as usize
-}
-
-#[cfg(feature = "go_test")]
-unsafe fn r4_storage_runtime_len(file: R4StorageRuntimeFile) -> usize {
-    R4_STORAGE_RUNTIME_FILE_LEN[r4_storage_runtime_index(file)]
-}
-
-#[cfg(feature = "go_test")]
-unsafe fn r4_storage_runtime_copy(
-    file: R4StorageRuntimeFile,
-    offset: usize,
-    dst: &mut [u8],
-) -> bool {
-    let idx = r4_storage_runtime_index(file);
-    let total = R4_STORAGE_RUNTIME_FILE_LEN[idx];
-    if offset > total || offset + dst.len() > total {
-        return false;
-    }
-    dst.copy_from_slice(&R4_STORAGE_RUNTIME_FILE_CACHE[idx][offset..offset + dst.len()]);
-    true
-}
-
-#[cfg(feature = "go_test")]
-unsafe fn r4_storage_runtime_load(file: R4StorageRuntimeFile) {
-    let idx = r4_storage_runtime_index(file);
-    R4_STORAGE_RUNTIME_FILE_LEN[idx] = 0;
-    R4_STORAGE_RUNTIME_FILE_SEQ[idx] = 0;
-    core::ptr::write_bytes(
-        R4_STORAGE_RUNTIME_FILE_CACHE[idx].as_mut_ptr(),
-        0,
-        R4_STORAGE_RUNTIME_FILE_CACHE[idx].len(),
-    );
-    if !block_io_dispatch(false, r4_storage_runtime_sector(file), 512, false) {
-        return;
-    }
-    let magic = u32::from_le_bytes([
-        BLK_DATA_PAGE.0[0],
-        BLK_DATA_PAGE.0[1],
-        BLK_DATA_PAGE.0[2],
-        BLK_DATA_PAGE.0[3],
-    ]);
-    if magic != r4_storage_runtime_magic(file) {
-        return;
-    }
-    let len = u32::from_le_bytes([
-        BLK_DATA_PAGE.0[8],
-        BLK_DATA_PAGE.0[9],
-        BLK_DATA_PAGE.0[10],
-        BLK_DATA_PAGE.0[11],
-    ]) as usize;
-    if len > R4_STORAGE_RUNTIME_FILE_MAX_BYTES {
-        return;
-    }
-    let seq = u32::from_le_bytes([
-        BLK_DATA_PAGE.0[12],
-        BLK_DATA_PAGE.0[13],
-        BLK_DATA_PAGE.0[14],
-        BLK_DATA_PAGE.0[15],
-    ]);
-    R4_STORAGE_RUNTIME_FILE_LEN[idx] = len;
-    R4_STORAGE_RUNTIME_FILE_SEQ[idx] = seq;
-    if len != 0 {
-        R4_STORAGE_RUNTIME_FILE_CACHE[idx][..len]
-            .copy_from_slice(&BLK_DATA_PAGE.0[16..16 + len]);
-    }
-}
-
-#[cfg(feature = "go_test")]
-unsafe fn r4_storage_runtime_write(file: R4StorageRuntimeFile, data: &[u8]) -> bool {
-    if !R4_STORAGE_READY || data.len() > R4_STORAGE_RUNTIME_FILE_MAX_BYTES {
-        return false;
-    }
-    let idx = r4_storage_runtime_index(file);
-    let seq = R4_STORAGE_RUNTIME_FILE_SEQ[idx].wrapping_add(1);
-    if !r4_storage_write_record(
-        r4_storage_runtime_sector(file),
-        r4_storage_runtime_magic(file),
-        0,
-        seq,
-        data,
-        matches!(ACTIVE_BLOCK_DRIVER, ActiveBlockDriver::Nvme),
-    ) {
-        return false;
-    }
-    R4_STORAGE_RUNTIME_FILE_SEQ[idx] = seq;
-    R4_STORAGE_RUNTIME_FILE_LEN[idx] = data.len();
-    core::ptr::write_bytes(
-        R4_STORAGE_RUNTIME_FILE_CACHE[idx].as_mut_ptr(),
-        0,
-        R4_STORAGE_RUNTIME_FILE_CACHE[idx].len(),
-    );
-    if !data.is_empty() {
-        R4_STORAGE_RUNTIME_FILE_CACHE[idx][..data.len()].copy_from_slice(data);
-    }
-    true
-}
-
-#[cfg(feature = "go_test")]
-unsafe fn r4_storage_reset_cache() {
-    R4_STORAGE_READY = false;
-    R4_STORAGE_RECOVERED = false;
-    R4_STORAGE_SEQ = 0;
-    R4_STORAGE_DURABLE_LEN = 0;
-    R4_STORAGE_JOURNAL_LEN = 0;
-    core::ptr::write_bytes(R4_STORAGE_DURABLE.as_mut_ptr(), 0, R4_STORAGE_DURABLE.len());
-    core::ptr::write_bytes(R4_STORAGE_JOURNAL.as_mut_ptr(), 0, R4_STORAGE_JOURNAL.len());
-    let mut idx = 0usize;
-    while idx < R4_STORAGE_RUNTIME_FILE_COUNT {
-        R4_STORAGE_RUNTIME_FILE_LEN[idx] = 0;
-        R4_STORAGE_RUNTIME_FILE_SEQ[idx] = 0;
-        core::ptr::write_bytes(
-            R4_STORAGE_RUNTIME_FILE_CACHE[idx].as_mut_ptr(),
-            0,
-            R4_STORAGE_RUNTIME_FILE_CACHE[idx].len(),
-        );
-        idx += 1;
-    }
-}
-
-#[cfg(feature = "go_test")]
-unsafe fn r4_storage_write_record(
-    sector: u64,
-    magic: u32,
-    flags: u32,
-    seq: u32,
-    data: &[u8],
-    fua: bool,
-) -> bool {
-    if data.len() > R4_STORAGE_MAX_BYTES {
-        return false;
-    }
-    core::ptr::write_bytes(BLK_DATA_PAGE.0.as_mut_ptr(), 0, 512);
-    BLK_DATA_PAGE.0[0..4].copy_from_slice(&magic.to_le_bytes());
-    BLK_DATA_PAGE.0[4..8].copy_from_slice(&flags.to_le_bytes());
-    BLK_DATA_PAGE.0[8..12].copy_from_slice(&(data.len() as u32).to_le_bytes());
-    BLK_DATA_PAGE.0[12..16].copy_from_slice(&seq.to_le_bytes());
-    if !data.is_empty() {
-        BLK_DATA_PAGE.0[16..16 + data.len()].copy_from_slice(data);
-    }
-    block_io_dispatch(true, sector, 512, fua)
-}
-
-#[cfg(feature = "go_test")]
-unsafe fn r4_storage_load_state_cache() {
-    R4_STORAGE_DURABLE_LEN = 0;
-    if !block_io_dispatch(false, R4_STORAGE_STATE_SECTOR, 512, false) {
-        return;
-    }
-    let magic = u32::from_le_bytes([
-        BLK_DATA_PAGE.0[0],
-        BLK_DATA_PAGE.0[1],
-        BLK_DATA_PAGE.0[2],
-        BLK_DATA_PAGE.0[3],
-    ]);
-    if magic != R4_STORAGE_STATE_MAGIC {
-        return;
-    }
-    let len = u32::from_le_bytes([
-        BLK_DATA_PAGE.0[8],
-        BLK_DATA_PAGE.0[9],
-        BLK_DATA_PAGE.0[10],
-        BLK_DATA_PAGE.0[11],
-    ]) as usize;
-    if len > R4_STORAGE_MAX_BYTES {
-        return;
-    }
-    let seq = u32::from_le_bytes([
-        BLK_DATA_PAGE.0[12],
-        BLK_DATA_PAGE.0[13],
-        BLK_DATA_PAGE.0[14],
-        BLK_DATA_PAGE.0[15],
-    ]);
-    R4_STORAGE_SEQ = seq;
-    R4_STORAGE_DURABLE_LEN = len;
-    if len != 0 {
-        R4_STORAGE_DURABLE[..len].copy_from_slice(&BLK_DATA_PAGE.0[16..16 + len]);
-    }
-}
-
-#[cfg(feature = "go_test")]
-unsafe fn r4_storage_clear_journal() -> bool {
-    R4_STORAGE_JOURNAL_LEN = 0;
-    core::ptr::write_bytes(R4_STORAGE_JOURNAL.as_mut_ptr(), 0, R4_STORAGE_JOURNAL.len());
-    r4_storage_write_record(
-        R4_STORAGE_JOURNAL_SECTOR,
-        R4_STORAGE_JOURNAL_MAGIC,
-        0,
-        R4_STORAGE_SEQ,
-        &[],
-        matches!(ACTIVE_BLOCK_DRIVER, ActiveBlockDriver::Nvme),
-    )
-}
-
-#[cfg(feature = "go_test")]
-unsafe fn r4_storage_commit_state(data: &[u8]) -> bool {
-    if data.len() > R4_STORAGE_MAX_BYTES {
-        return false;
-    }
-    if !r4_storage_write_record(
-        R4_STORAGE_STATE_SECTOR,
-        R4_STORAGE_STATE_MAGIC,
-        0,
-        R4_STORAGE_SEQ,
-        data,
-        matches!(ACTIVE_BLOCK_DRIVER, ActiveBlockDriver::Nvme),
-    ) {
-        return false;
-    }
-    R4_STORAGE_DURABLE_LEN = data.len();
-    if !data.is_empty() {
-        R4_STORAGE_DURABLE[..data.len()].copy_from_slice(data);
-    }
-    true
-}
-
-#[cfg(feature = "go_test")]
-unsafe fn r4_storage_boot_recover() {
-    if !block_io_dispatch(false, R4_STORAGE_JOURNAL_SECTOR, 512, false) {
-        r4_storage_load_state_cache();
-        return;
-    }
-    let magic = u32::from_le_bytes([
-        BLK_DATA_PAGE.0[0],
-        BLK_DATA_PAGE.0[1],
-        BLK_DATA_PAGE.0[2],
-        BLK_DATA_PAGE.0[3],
-    ]);
-    let flags = u32::from_le_bytes([
-        BLK_DATA_PAGE.0[4],
-        BLK_DATA_PAGE.0[5],
-        BLK_DATA_PAGE.0[6],
-        BLK_DATA_PAGE.0[7],
-    ]);
-    let len = u32::from_le_bytes([
-        BLK_DATA_PAGE.0[8],
-        BLK_DATA_PAGE.0[9],
-        BLK_DATA_PAGE.0[10],
-        BLK_DATA_PAGE.0[11],
-    ]) as usize;
-    let seq = u32::from_le_bytes([
-        BLK_DATA_PAGE.0[12],
-        BLK_DATA_PAGE.0[13],
-        BLK_DATA_PAGE.0[14],
-        BLK_DATA_PAGE.0[15],
-    ]);
-    if seq > R4_STORAGE_SEQ {
-        R4_STORAGE_SEQ = seq;
-    }
-    if magic == R4_STORAGE_JOURNAL_MAGIC && flags == 1 && len <= R4_STORAGE_MAX_BYTES {
-        R4_STORAGE_JOURNAL_LEN = len;
-        if len != 0 {
-            R4_STORAGE_JOURNAL[..len].copy_from_slice(&BLK_DATA_PAGE.0[16..16 + len]);
-        }
-        if r4_storage_commit_state(&R4_STORAGE_JOURNAL[..len]) && r4_storage_clear_journal() {
-            R4_STORAGE_RECOVERED = true;
-            serial_write(b"RECOV: replay ok\n");
-        }
-    }
-    r4_storage_load_state_cache();
-}
-
-#[cfg(feature = "go_test")]
-unsafe fn r4_storage_write_journal(data: &[u8]) -> bool {
-    if !R4_STORAGE_READY || data.is_empty() || data.len() > R4_STORAGE_MAX_BYTES {
-        return false;
-    }
-    R4_STORAGE_SEQ = R4_STORAGE_SEQ.wrapping_add(1);
-    R4_STORAGE_JOURNAL_LEN = data.len();
-    R4_STORAGE_JOURNAL[..data.len()].copy_from_slice(data);
-    r4_storage_write_record(
-        R4_STORAGE_JOURNAL_SECTOR,
-        R4_STORAGE_JOURNAL_MAGIC,
-        1,
-        R4_STORAGE_SEQ,
-        data,
-        false,
-    )
-}
-
-#[cfg(feature = "go_test")]
-unsafe fn r4_storage_fsync() -> bool {
-    if !R4_STORAGE_READY || R4_STORAGE_JOURNAL_LEN == 0 {
-        return false;
-    }
-    let len = R4_STORAGE_JOURNAL_LEN;
-    if !r4_storage_commit_state(&R4_STORAGE_JOURNAL[..len]) {
-        return false;
-    }
-    if !r4_storage_clear_journal() {
-        return false;
-    }
-    if matches!(ACTIVE_BLOCK_DRIVER, ActiveBlockDriver::Nvme) {
-        serial_write(b"BLK: fua ok\n");
-    }
-    if !block_flush_dispatch() {
-        return false;
-    }
-    serial_write(b"BLK: flush ordered\n");
-    true
-}
-
-#[cfg(feature = "go_test")]
-unsafe fn r4_storage_boot_probe() {
-    r4_storage_reset_cache();
-    let hhdm_resp_ptr = core::ptr::read_volatile(core::ptr::addr_of!(HHDM_REQUEST.response));
-    let kaddr_resp_ptr = core::ptr::read_volatile(core::ptr::addr_of!(KADDR_REQUEST.response));
-    let kphys = (*kaddr_resp_ptr).physical_base;
-    let kvirt = (*kaddr_resp_ptr).virtual_base;
-    HHDM_OFFSET = (*hhdm_resp_ptr).offset;
-    BLK_KV2P_DELTA = kphys.wrapping_sub(kvirt);
-
-    if block_driver_probe(true, cfg!(feature = "native_go_test"), cfg!(feature = "native_go_test"))
-    {
-        R4_STORAGE_READY = true;
-        serial_write(b"STORC4: block ready driver=");
-        serial_write(block_driver_class());
-        serial_write(b"\n");
-        r4_storage_boot_recover();
-        r4_storage_runtime_load(R4StorageRuntimeFile::PkgState);
-        r4_storage_runtime_load(R4StorageRuntimeFile::Platform);
-    }
-}
-
-// --------------- C4: go_test socket/runtime network --------------------------
-
-#[cfg(feature = "go_test")]
-const R4_NET_AF_INET: u64 = 2;
-#[cfg(feature = "go_test")]
-const R4_NET_AF_INET6: u64 = 10;
-#[cfg(feature = "go_test")]
-const R4_NET_SOCK_STREAM: u64 = 1;
-#[cfg(feature = "go_test")]
-const R4_NET_IF_MAX: usize = 2;
-#[cfg(feature = "go_test")]
-const R4_NET_ROUTE_MAX: usize = 8;
-#[cfg(feature = "go_test")]
-const R4_NET_SOCKET_MAX: usize = 16;
-#[cfg(feature = "go_test")]
-const R4_NET_RX_MAX: usize = 256;
-
-#[cfg(feature = "go_test")]
-#[derive(Clone, Copy)]
-struct R4NetInterface {
-    active: bool,
-    has_ipv4: bool,
-    ipv4: [u8; 4],
-    ipv4_prefix: u8,
-    has_ipv6: bool,
-    ipv6: [u8; 16],
-    ipv6_prefix: u8,
-}
-
-#[cfg(feature = "go_test")]
-impl R4NetInterface {
-    const EMPTY: Self = Self {
-        active: false,
-        has_ipv4: false,
-        ipv4: [0; 4],
-        ipv4_prefix: 0,
-        has_ipv6: false,
-        ipv6: [0; 16],
-        ipv6_prefix: 0,
-    };
-}
-
-#[cfg(feature = "go_test")]
-#[derive(Clone, Copy)]
-struct R4NetRoute {
-    active: bool,
-    family: u8,
-    prefix_len: u8,
-    if_index: u8,
-    dest: [u8; 16],
-}
-
-#[cfg(feature = "go_test")]
-impl R4NetRoute {
-    const EMPTY: Self = Self {
-        active: false,
-        family: 0,
-        prefix_len: 0,
-        if_index: 0,
-        dest: [0; 16],
-    };
-}
-
-#[cfg(feature = "go_test")]
-#[derive(Clone, Copy)]
-struct R4Socket {
-    active: bool,
-    owner_tid: usize,
-    domain: u8,
-    kind: u8,
-    state: u8,
-    if_index: u8,
-    backlog: u8,
-    peer: i16,
-    pending_accept: i16,
-    local_port: u16,
-    remote_port: u16,
-    local_addr: [u8; 16],
-    remote_addr: [u8; 16],
-    rx_len: usize,
-    rx_buf: [u8; R4_NET_RX_MAX],
-}
-
-#[cfg(feature = "go_test")]
-impl R4Socket {
-    const EMPTY: Self = Self {
-        active: false,
-        owner_tid: 0,
-        domain: 0,
-        kind: 0,
-        state: 0,
-        if_index: 0,
-        backlog: 0,
-        peer: -1,
-        pending_accept: -1,
-        local_port: 0,
-        remote_port: 0,
-        local_addr: [0; 16],
-        remote_addr: [0; 16],
-        rx_len: 0,
-        rx_buf: [0; R4_NET_RX_MAX],
-    };
-}
-
-#[cfg(feature = "go_test")]
-static mut R4_NET_INTERFACES: [R4NetInterface; R4_NET_IF_MAX] =
-    [R4NetInterface::EMPTY; R4_NET_IF_MAX];
-#[cfg(feature = "go_test")]
-static mut R4_NET_ROUTES: [R4NetRoute; R4_NET_ROUTE_MAX] =
-    [R4NetRoute::EMPTY; R4_NET_ROUTE_MAX];
-#[cfg(feature = "go_test")]
-static mut R4_SOCKETS: [R4Socket; R4_NET_SOCKET_MAX] =
-    [R4Socket::EMPTY; R4_NET_SOCKET_MAX];
-#[cfg(feature = "go_test")]
-static mut R4_NET_NIC_READY: bool = false;
-
-#[cfg(feature = "go_test")]
-unsafe fn r4_net_reset(has_nic: bool) {
-    R4_NET_NIC_READY = has_nic;
-    for idx in 0..R4_NET_IF_MAX {
-        R4_NET_INTERFACES[idx] = R4NetInterface::EMPTY;
-    }
-    for idx in 0..R4_NET_ROUTE_MAX {
-        R4_NET_ROUTES[idx] = R4NetRoute::EMPTY;
-    }
-    for idx in 0..R4_NET_SOCKET_MAX {
-        R4_SOCKETS[idx] = R4Socket::EMPTY;
-    }
-    R4_NET_INTERFACES[0].active = true;
-    R4_NET_INTERFACES[0].has_ipv4 = true;
-    R4_NET_INTERFACES[0].ipv4 = [127, 0, 0, 1];
-    R4_NET_INTERFACES[0].ipv4_prefix = 8;
-    R4_NET_INTERFACES[0].has_ipv6 = true;
-    R4_NET_INTERFACES[0].ipv6 = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1];
-    R4_NET_INTERFACES[0].ipv6_prefix = 128;
-    if has_nic {
-        R4_NET_INTERFACES[1].active = true;
-    }
-}
-
-#[cfg(feature = "go_test")]
-fn r4_net_family_ok(family: u8) -> bool {
-    family as u64 == R4_NET_AF_INET || family as u64 == R4_NET_AF_INET6
-}
-
-#[cfg(feature = "go_test")]
-fn r4_net_prefix_ok(family: u8, prefix: u8) -> bool {
-    if family as u64 == R4_NET_AF_INET {
-        prefix <= 32
-    } else if family as u64 == R4_NET_AF_INET6 {
-        prefix <= 128
-    } else {
-        false
-    }
-}
-
-#[cfg(feature = "go_test")]
-fn r4_net_prefix_match(family: u8, left: &[u8; 16], right: &[u8; 16], prefix: u8) -> bool {
-    let total_bits = if family as u64 == R4_NET_AF_INET { 32 } else { 128 };
-    if prefix > total_bits {
-        return false;
-    }
-    let compare_len = if family as u64 == R4_NET_AF_INET { 4 } else { 16 };
-    let mut bits_left = prefix as usize;
-    for idx in 0..compare_len {
-        if bits_left == 0 {
-            return true;
-        }
-        let bit_count = if bits_left >= 8 { 8 } else { bits_left };
-        let mask = (!0u8) << (8 - bit_count);
-        if (left[idx] & mask) != (right[idx] & mask) {
-            return false;
-        }
-        bits_left -= bit_count;
-    }
-    true
-}
-
-#[cfg(feature = "go_test")]
-unsafe fn r4_net_copy_record(ptr: u64, len: u64, out: &mut [u8]) -> bool {
-    if len < out.len() as u64 {
-        return false;
-    }
-    copyin_user(out, ptr, out.len()).is_ok()
-}
-
-#[cfg(feature = "go_test")]
-unsafe fn r4_net_copy_sockaddr(ptr: u64, len: u64) -> Option<(u8, u16, [u8; 16])> {
-    let mut raw = [0u8; 32];
-    if !r4_net_copy_record(ptr, len, &mut raw) {
-        return None;
-    }
-    let family = u64::from_le_bytes(raw[0..8].try_into().ok()?) as u8;
-    let port = u64::from_le_bytes(raw[8..16].try_into().ok()?) as u16;
-    if !r4_net_family_ok(family) || port == 0 {
-        return None;
-    }
-    let mut addr = [0u8; 16];
-    addr.copy_from_slice(&raw[16..32]);
-    Some((family, port, addr))
-}
-
-#[cfg(feature = "go_test")]
-unsafe fn r4_net_copy_cfg(ptr: u64, len: u64) -> Option<(u8, u8, [u8; 16])> {
-    let mut raw = [0u8; 32];
-    if !r4_net_copy_record(ptr, len, &mut raw) {
-        return None;
-    }
-    let family = u64::from_le_bytes(raw[0..8].try_into().ok()?) as u8;
-    let prefix_len = u64::from_le_bytes(raw[8..16].try_into().ok()?) as u8;
-    if !r4_net_family_ok(family) || !r4_net_prefix_ok(family, prefix_len) {
-        return None;
-    }
-    let mut addr = [0u8; 16];
-    addr.copy_from_slice(&raw[16..32]);
-    Some((family, prefix_len, addr))
-}
-
-#[cfg(feature = "go_test")]
-unsafe fn r4_net_interface_addr(family: u8, if_index: usize) -> Option<[u8; 16]> {
-    if if_index >= R4_NET_IF_MAX || !R4_NET_INTERFACES[if_index].active {
-        return None;
-    }
-    if family as u64 == R4_NET_AF_INET {
-        if !R4_NET_INTERFACES[if_index].has_ipv4 {
-            return None;
-        }
-        let mut out = [0u8; 16];
-        out[0..4].copy_from_slice(&R4_NET_INTERFACES[if_index].ipv4);
-        return Some(out);
-    }
-    if !R4_NET_INTERFACES[if_index].has_ipv6 {
-        return None;
-    }
-    Some(R4_NET_INTERFACES[if_index].ipv6)
-}
-
-#[cfg(feature = "go_test")]
-unsafe fn r4_net_addr_on_interface(family: u8, if_index: usize, addr: &[u8; 16]) -> bool {
-    match r4_net_interface_addr(family, if_index) {
-        Some(bound) => bound == *addr,
-        None => false,
-    }
-}
-
-#[cfg(feature = "go_test")]
-unsafe fn r4_net_find_route(family: u8, dest: &[u8; 16]) -> Option<usize> {
-    let mut best: Option<usize> = None;
-    let mut best_prefix = 0u8;
-    for idx in 0..R4_NET_ROUTE_MAX {
-        if !R4_NET_ROUTES[idx].active || R4_NET_ROUTES[idx].family != family {
-            continue;
-        }
-        if !r4_net_prefix_match(family, &R4_NET_ROUTES[idx].dest, dest, R4_NET_ROUTES[idx].prefix_len) {
-            continue;
-        }
-        if best.is_none() || R4_NET_ROUTES[idx].prefix_len >= best_prefix {
-            best = Some(idx);
-            best_prefix = R4_NET_ROUTES[idx].prefix_len;
-        }
-    }
-    best
-}
-
-#[cfg(feature = "go_test")]
-unsafe fn r4_net_alloc_socket() -> Option<usize> {
-    for idx in 0..R4_NET_SOCKET_MAX {
-        if !R4_SOCKETS[idx].active {
-            R4_SOCKETS[idx] = R4Socket::EMPTY;
-            R4_SOCKETS[idx].active = true;
-            return Some(idx);
-        }
-    }
-    None
-}
-
-#[cfg(feature = "go_test")]
-#[inline(always)]
-unsafe fn r4_socket_owner_ok(socket_id: usize) -> bool {
-    socket_id < R4_NET_SOCKET_MAX
-        && R4_SOCKETS[socket_id].active
-        && R4_SOCKETS[socket_id].owner_tid == R4_CURRENT
-}
-
-#[cfg(feature = "go_test")]
-unsafe fn r4_release_socket(socket_id: usize) {
-    if socket_id >= R4_NET_SOCKET_MAX || !R4_SOCKETS[socket_id].active {
-        return;
-    }
-
-    let owner_tid = R4_SOCKETS[socket_id].owner_tid;
-    let peer = R4_SOCKETS[socket_id].peer;
-    let pending_accept = R4_SOCKETS[socket_id].pending_accept;
-
-    R4_SOCKETS[socket_id] = R4Socket::EMPTY;
-
-    if owner_tid < R4_NUM_TASKS && R4_TASKS[owner_tid].socket_count != 0 {
-        R4_TASKS[owner_tid].socket_count -= 1;
-    }
-
-    if peer >= 0 {
-        let pid = peer as usize;
-        if pid < R4_NET_SOCKET_MAX
-            && R4_SOCKETS[pid].active
-            && R4_SOCKETS[pid].peer == socket_id as i16
-        {
-            R4_SOCKETS[pid].peer = -1;
-        }
-    }
-
-    if pending_accept >= 0 {
-        let acc = pending_accept as usize;
-        if acc < R4_NET_SOCKET_MAX && R4_SOCKETS[acc].active {
-            r4_release_socket(acc);
-        }
-    }
-}
-
-#[cfg(feature = "go_test")]
-unsafe fn r4_release_owned_sockets(owner_tid: usize) {
-    for socket_id in 0..R4_NET_SOCKET_MAX {
-        if R4_SOCKETS[socket_id].active && R4_SOCKETS[socket_id].owner_tid == owner_tid {
-            r4_release_socket(socket_id);
-        }
-    }
-    if owner_tid < R4_NUM_TASKS {
-        R4_TASKS[owner_tid].socket_count = 0;
-    }
-}
-
-#[cfg(feature = "go_test")]
-unsafe fn r4_net_port_in_use(family: u8, addr: &[u8; 16], port: u16) -> bool {
-    for idx in 0..R4_NET_SOCKET_MAX {
-        if !R4_SOCKETS[idx].active {
-            continue;
-        }
-        if R4_SOCKETS[idx].domain == family
-            && R4_SOCKETS[idx].local_port == port
-            && R4_SOCKETS[idx].local_addr == *addr
-            && R4_SOCKETS[idx].state >= 2
-        {
-            return true;
-        }
-    }
-    false
-}
-
-#[cfg(feature = "go_test")]
-unsafe fn r4_net_find_listener(family: u8, addr: &[u8; 16], port: u16, if_index: u8) -> Option<usize> {
-    for idx in 0..R4_NET_SOCKET_MAX {
-        if !R4_SOCKETS[idx].active {
-            continue;
-        }
-        if R4_SOCKETS[idx].domain != family
-            || R4_SOCKETS[idx].kind as u64 != R4_NET_SOCK_STREAM
-            || R4_SOCKETS[idx].state != 3
-        {
-            continue;
-        }
-        if R4_SOCKETS[idx].local_port == port
-            && R4_SOCKETS[idx].local_addr == *addr
-            && R4_SOCKETS[idx].if_index == if_index
-        {
-            return Some(idx);
-        }
-    }
-    None
-}
-
-#[cfg(feature = "go_test")]
-unsafe fn sys_socket_open_r4(domain: u64, kind: u64) -> u64 {
-    let dom = domain as u8;
-    let typ = kind as u8;
-    if !r4_net_family_ok(dom) || kind != R4_NET_SOCK_STREAM {
-        return 0xFFFF_FFFF_FFFF_FFFF;
-    }
-    if !r4_current_has_cap(R4_TASK_CAP_NETWORK) {
-        return 0xFFFF_FFFF_FFFF_FFFF;
-    }
-    if !runtime::isolation::under_quota(
-        R4_TASKS[R4_CURRENT].socket_count,
-        R4_TASKS[R4_CURRENT].socket_limit as usize,
-    ) {
-        return 0xFFFF_FFFF_FFFF_FFFF;
-    }
-    match r4_net_alloc_socket() {
-        Some(idx) => {
-            R4_SOCKETS[idx].owner_tid = R4_CURRENT;
-            R4_SOCKETS[idx].domain = dom;
-            R4_SOCKETS[idx].kind = typ;
-            R4_SOCKETS[idx].state = 1;
-            R4_TASKS[R4_CURRENT].socket_count += 1;
-            idx as u64
-        }
-        None => 0xFFFF_FFFF_FFFF_FFFF,
-    }
-}
-
-#[cfg(feature = "go_test")]
-unsafe fn sys_socket_bind_r4(socket_id: u64, addr_ptr: u64, addr_len: u64) -> u64 {
-    let sid = socket_id as usize;
-    if sid >= R4_NET_SOCKET_MAX || !R4_SOCKETS[sid].active {
-        return 0xFFFF_FFFF_FFFF_FFFF;
-    }
-    if !r4_socket_owner_ok(sid) {
-        return 0xFFFF_FFFF_FFFF_FFFF;
-    }
-    let (family, port, addr) = match r4_net_copy_sockaddr(addr_ptr, addr_len) {
-        Some(v) => v,
-        None => return 0xFFFF_FFFF_FFFF_FFFF,
-    };
-    if R4_SOCKETS[sid].domain != family || !r4_net_family_ok(family) {
-        return 0xFFFF_FFFF_FFFF_FFFF;
-    }
-    let mut found_if = None;
-    for if_index in 0..R4_NET_IF_MAX {
-        if r4_net_addr_on_interface(family, if_index, &addr) {
-            found_if = Some(if_index as u8);
-            break;
-        }
-    }
-    let if_index = match found_if {
-        Some(idx) => idx,
-        None => return 0xFFFF_FFFF_FFFF_FFFF,
-    };
-    if r4_net_port_in_use(family, &addr, port) {
-        return 0xFFFF_FFFF_FFFF_FFFF;
-    }
-    R4_SOCKETS[sid].if_index = if_index;
-    R4_SOCKETS[sid].local_addr = addr;
-    R4_SOCKETS[sid].local_port = port;
-    R4_SOCKETS[sid].state = 2;
-    0
-}
-
-#[cfg(feature = "go_test")]
-unsafe fn sys_socket_listen_r4(socket_id: u64, backlog: u64) -> u64 {
-    let sid = socket_id as usize;
-    if sid >= R4_NET_SOCKET_MAX || !R4_SOCKETS[sid].active {
-        return 0xFFFF_FFFF_FFFF_FFFF;
-    }
-    if !r4_socket_owner_ok(sid) {
-        return 0xFFFF_FFFF_FFFF_FFFF;
-    }
-    if R4_SOCKETS[sid].kind as u64 != R4_NET_SOCK_STREAM || R4_SOCKETS[sid].state != 2 {
-        return 0xFFFF_FFFF_FFFF_FFFF;
-    }
-    R4_SOCKETS[sid].backlog = if backlog == 0 { 1 } else { backlog as u8 };
-    R4_SOCKETS[sid].pending_accept = -1;
-    R4_SOCKETS[sid].state = 3;
-    0
-}
-
-#[cfg(feature = "go_test")]
-unsafe fn sys_socket_connect_r4(socket_id: u64, addr_ptr: u64, addr_len: u64) -> u64 {
-    let sid = socket_id as usize;
-    if sid >= R4_NET_SOCKET_MAX || !R4_SOCKETS[sid].active {
-        return 0xFFFF_FFFF_FFFF_FFFF;
-    }
-    if !r4_socket_owner_ok(sid) {
-        return 0xFFFF_FFFF_FFFF_FFFF;
-    }
-    let (family, port, addr) = match r4_net_copy_sockaddr(addr_ptr, addr_len) {
-        Some(v) => v,
-        None => return 0xFFFF_FFFF_FFFF_FFFF,
-    };
-    if R4_SOCKETS[sid].domain != family || R4_SOCKETS[sid].kind as u64 != R4_NET_SOCK_STREAM {
-        return 0xFFFF_FFFF_FFFF_FFFF;
-    }
-    let route_idx = match r4_net_find_route(family, &addr) {
-        Some(idx) => idx,
-        None => return 0xFFFF_FFFF_FFFF_FFFF,
-    };
-    let if_index = R4_NET_ROUTES[route_idx].if_index;
-    let listener = match r4_net_find_listener(family, &addr, port, if_index) {
-        Some(idx) => idx,
-        None => return 0xFFFF_FFFF_FFFF_FFFF,
-    };
-    if R4_SOCKETS[listener].pending_accept >= 0 {
-        return 0xFFFF_FFFF_FFFF_FFFF;
-    }
-    let listener_owner = R4_SOCKETS[listener].owner_tid;
-    if listener_owner >= R4_NUM_TASKS
-        || !runtime::isolation::under_quota(
-            R4_TASKS[listener_owner].socket_count,
-            R4_TASKS[listener_owner].socket_limit as usize,
-        )
-    {
-        return 0xFFFF_FFFF_FFFF_FFFF;
-    }
-    let accepted = match r4_net_alloc_socket() {
-        Some(idx) => idx,
-        None => return 0xFFFF_FFFF_FFFF_FFFF,
-    };
-    let local_addr = match r4_net_interface_addr(family, if_index as usize) {
-        Some(addr) => addr,
-        None => return 0xFFFF_FFFF_FFFF_FFFF,
-    };
-    let local_port = if R4_SOCKETS[sid].local_port == 0 {
-        40000u16.wrapping_add(sid as u16)
-    } else {
-        R4_SOCKETS[sid].local_port
-    };
-    R4_SOCKETS[sid].if_index = if_index;
-    R4_SOCKETS[sid].local_addr = local_addr;
-    R4_SOCKETS[sid].local_port = local_port;
-    R4_SOCKETS[sid].remote_addr = addr;
-    R4_SOCKETS[sid].remote_port = port;
-    R4_SOCKETS[sid].peer = accepted as i16;
-    R4_SOCKETS[sid].state = 4;
-
-    R4_SOCKETS[accepted].owner_tid = listener_owner;
-    R4_SOCKETS[accepted].domain = family;
-    R4_SOCKETS[accepted].kind = R4_NET_SOCK_STREAM as u8;
-    R4_SOCKETS[accepted].state = 4;
-    R4_SOCKETS[accepted].if_index = if_index;
-    R4_SOCKETS[accepted].local_addr = addr;
-    R4_SOCKETS[accepted].local_port = port;
-    R4_SOCKETS[accepted].remote_addr = local_addr;
-    R4_SOCKETS[accepted].remote_port = local_port;
-    R4_SOCKETS[accepted].peer = sid as i16;
-    R4_TASKS[listener_owner].socket_count += 1;
-
-    R4_SOCKETS[listener].pending_accept = accepted as i16;
-    0
-}
-
-#[cfg(feature = "go_test")]
-unsafe fn sys_socket_accept_r4(socket_id: u64, addr_ptr: u64, addr_len_ptr: u64) -> u64 {
-    let sid = socket_id as usize;
-    if sid >= R4_NET_SOCKET_MAX || !R4_SOCKETS[sid].active || R4_SOCKETS[sid].state != 3 {
-        return 0xFFFF_FFFF_FFFF_FFFF;
-    }
-    if !r4_socket_owner_ok(sid) {
-        return 0xFFFF_FFFF_FFFF_FFFF;
-    }
-    let accepted = R4_SOCKETS[sid].pending_accept;
-    if accepted < 0 {
-        return 0xFFFF_FFFF_FFFF_FFFF;
-    }
-    let acc = accepted as usize;
-    let mut raw = [0u8; 32];
-    raw[0..8].copy_from_slice(&(R4_SOCKETS[acc].domain as u64).to_le_bytes());
-    raw[8..16].copy_from_slice(&(R4_SOCKETS[acc].remote_port as u64).to_le_bytes());
-    raw[16..32].copy_from_slice(&R4_SOCKETS[acc].remote_addr);
-    if copyout_user(addr_ptr, &raw, raw.len()).is_err() {
-        return 0xFFFF_FFFF_FFFF_FFFF;
-    }
-    if copyout_user(addr_len_ptr, &(32u64).to_le_bytes(), 8).is_err() {
-        return 0xFFFF_FFFF_FFFF_FFFF;
-    }
-    R4_SOCKETS[sid].pending_accept = -1;
-    acc as u64
-}
-
-#[cfg(feature = "go_test")]
-unsafe fn sys_socket_send_r4(socket_id: u64, buf: u64, len: u64) -> u64 {
-    let sid = socket_id as usize;
-    if sid >= R4_NET_SOCKET_MAX || !R4_SOCKETS[sid].active || R4_SOCKETS[sid].state != 4 {
-        return 0xFFFF_FFFF_FFFF_FFFF;
-    }
-    if !r4_socket_owner_ok(sid) {
-        return 0xFFFF_FFFF_FFFF_FFFF;
-    }
-    let peer = R4_SOCKETS[sid].peer;
-    if peer < 0 {
-        return 0xFFFF_FFFF_FFFF_FFFF;
-    }
-    let pid = peer as usize;
-    if pid >= R4_NET_SOCKET_MAX || !R4_SOCKETS[pid].active {
-        return 0xFFFF_FFFF_FFFF_FFFF;
-    }
-    let n = len as usize;
-    if n == 0 || n > R4_NET_RX_MAX || R4_SOCKETS[pid].rx_len != 0 {
-        return 0xFFFF_FFFF_FFFF_FFFF;
-    }
-    if copyin_user(&mut R4_SOCKETS[pid].rx_buf[..n], buf, n).is_err() {
-        return 0xFFFF_FFFF_FFFF_FFFF;
-    }
-    R4_SOCKETS[pid].rx_len = n;
-    len
-}
-
-#[cfg(feature = "go_test")]
-unsafe fn sys_socket_recv_r4(socket_id: u64, buf: u64, len: u64) -> u64 {
-    let sid = socket_id as usize;
-    if sid >= R4_NET_SOCKET_MAX || !R4_SOCKETS[sid].active || R4_SOCKETS[sid].state != 4 {
-        return 0xFFFF_FFFF_FFFF_FFFF;
-    }
-    if !r4_socket_owner_ok(sid) {
-        return 0xFFFF_FFFF_FFFF_FFFF;
-    }
-    let n = R4_SOCKETS[sid].rx_len;
-    if n == 0 || len < n as u64 {
-        return 0xFFFF_FFFF_FFFF_FFFF;
-    }
-    if copyout_user(buf, &R4_SOCKETS[sid].rx_buf[..n], n).is_err() {
-        return 0xFFFF_FFFF_FFFF_FFFF;
-    }
-    R4_SOCKETS[sid].rx_len = 0;
-    n as u64
-}
-
-#[cfg(feature = "go_test")]
-unsafe fn sys_socket_close_r4(socket_id: u64) -> u64 {
-    let sid = socket_id as usize;
-    if sid >= R4_NET_SOCKET_MAX || !R4_SOCKETS[sid].active {
-        return 0xFFFF_FFFF_FFFF_FFFF;
-    }
-    if !r4_socket_owner_ok(sid) {
-        return 0xFFFF_FFFF_FFFF_FFFF;
-    }
-    r4_release_socket(sid);
-    0
-}
-
-#[cfg(feature = "go_test")]
-unsafe fn sys_net_if_config_r4(if_index: u64, cfg_ptr: u64, cfg_len: u64) -> u64 {
-    if !r4_current_has_cap(R4_TASK_CAP_NETWORK) {
-        return 0xFFFF_FFFF_FFFF_FFFF;
-    }
-    let idx = if_index as usize;
-    if idx >= R4_NET_IF_MAX || !R4_NET_INTERFACES[idx].active {
-        return 0xFFFF_FFFF_FFFF_FFFF;
-    }
-    let (family, prefix_len, addr) = match r4_net_copy_cfg(cfg_ptr, cfg_len) {
-        Some(v) => v,
-        None => return 0xFFFF_FFFF_FFFF_FFFF,
-    };
-    if family as u64 == R4_NET_AF_INET {
-        R4_NET_INTERFACES[idx].has_ipv4 = true;
-        R4_NET_INTERFACES[idx].ipv4.copy_from_slice(&addr[0..4]);
-        R4_NET_INTERFACES[idx].ipv4_prefix = prefix_len;
-        return 0;
-    }
-    R4_NET_INTERFACES[idx].has_ipv6 = true;
-    R4_NET_INTERFACES[idx].ipv6 = addr;
-    R4_NET_INTERFACES[idx].ipv6_prefix = prefix_len;
-    0
-}
-
-#[cfg(feature = "go_test")]
-unsafe fn sys_net_route_add_r4(if_index: u64, route_ptr: u64, route_len: u64) -> u64 {
-    if !r4_current_has_cap(R4_TASK_CAP_NETWORK) {
-        return 0xFFFF_FFFF_FFFF_FFFF;
-    }
-    let idx = if_index as usize;
-    if idx >= R4_NET_IF_MAX || !R4_NET_INTERFACES[idx].active {
-        return 0xFFFF_FFFF_FFFF_FFFF;
-    }
-    let (family, prefix_len, dest) = match r4_net_copy_cfg(route_ptr, route_len) {
-        Some(v) => v,
-        None => return 0xFFFF_FFFF_FFFF_FFFF,
-    };
-    if r4_net_interface_addr(family, idx).is_none() {
-        return 0xFFFF_FFFF_FFFF_FFFF;
-    }
-    for slot in 0..R4_NET_ROUTE_MAX {
-        if R4_NET_ROUTES[slot].active
-            && R4_NET_ROUTES[slot].family == family
-            && R4_NET_ROUTES[slot].prefix_len == prefix_len
-            && R4_NET_ROUTES[slot].if_index == idx as u8
-            && R4_NET_ROUTES[slot].dest == dest
-        {
-            return 0;
-        }
-    }
-    for slot in 0..R4_NET_ROUTE_MAX {
-        if !R4_NET_ROUTES[slot].active {
-            R4_NET_ROUTES[slot].active = true;
-            R4_NET_ROUTES[slot].family = family;
-            R4_NET_ROUTES[slot].prefix_len = prefix_len;
-            R4_NET_ROUTES[slot].if_index = idx as u8;
-            R4_NET_ROUTES[slot].dest = dest;
-            return 0;
-        }
-    }
-    0xFFFF_FFFF_FFFF_FFFF
-}
-
-#[cfg(feature = "go_test")]
-unsafe fn r4_c4_runtime_init() {
-    r4_storage_boot_probe();
-
-    let hhdm_resp_ptr = core::ptr::read_volatile(core::ptr::addr_of!(HHDM_REQUEST.response));
-    let kaddr_resp_ptr = core::ptr::read_volatile(core::ptr::addr_of!(KADDR_REQUEST.response));
-    let kphys = (*kaddr_resp_ptr).physical_base;
-    let kvirt = (*kaddr_resp_ptr).virtual_base;
-    let _hhdm = (*hhdm_resp_ptr).offset;
-    NET_KV2P_DELTA = kphys.wrapping_sub(kvirt);
-
-    let mut nic_ready = false;
-    if let Some(iobase) = pci_find_virtio_net() {
-        if virtio_net_init(iobase) {
-            nic_ready = true;
-            serial_write(b"NETC4: nic ready\n");
-        }
-    }
-    r4_net_reset(nic_ready);
-}
-
-#[cfg(feature = "compat_real_test")]
-unsafe fn compat_real_enter_current_app() -> ! {
-    if COMPAT_REAL_APP_INDEX >= COMPAT_REAL_APPS.len() {
-        serial_write(b"X1: suite ok\n");
-        serial_write(b"RUGO: halt ok\n");
-        qemu_exit(0x31);
-        loop { core::arch::asm!("cli; hlt", options(nomem, nostack)); }
-    }
-
-    let app = COMPAT_REAL_APPS[COMPAT_REAL_APP_INDEX];
-    serial_write(b"X1APP: launch ");
-    serial_write(app.name);
-    serial_write(b"\n");
-
-    m3_reset_state();
-    r4_net_reset(R4_NET_NIC_READY);
-    for tid in 0..R4_MAX_TASKS {
-        R4_TASKS[tid] = R4Task::EMPTY;
-    }
-    R4_CURRENT = 0;
-    R4_NUM_TASKS = 1;
-    R4_THREADS_CREATED = 0;
-
-    let entry = match setup_user_elf_pages(app.image) {
-        Some(v) => v,
-        None => {
-            serial_write(b"X1APP: load fail\n");
-            qemu_exit(0x33);
-            loop { core::arch::asm!("cli; hlt", options(nomem, nostack)); }
-        }
-    };
-
-    r4_init_task(0, entry, USER_STACK_TOP, 0);
-    R4_TASKS[0].state = R4State::Running;
-    enter_ring3_at(entry, USER_STACK_TOP);
-}
-
-#[cfg(feature = "compat_real_test")]
-unsafe fn compat_real_finish_current_app() -> ! {
-    let app = COMPAT_REAL_APPS[COMPAT_REAL_APP_INDEX];
-    serial_write(b"X1APP: done ");
-    serial_write(app.name);
-    serial_write(b"\n");
-    COMPAT_REAL_APP_INDEX += 1;
-    compat_real_enter_current_app();
-}
-
 // --------------- Paging verification ---------------
 
 fn check_paging() {
@@ -7067,143 +4827,6 @@ fn check_paging() {
     } else {
         serial_write(b"MM: paging=off\n");
     }
-}
-
-// --------------- PIC (8259) ---------------
-
-#[cfg(feature = "sched_test")]
-const PIC1_CMD: u16 = 0x20;
-#[cfg(feature = "sched_test")]
-const PIC1_DATA: u16 = 0x21;
-#[cfg(feature = "sched_test")]
-const PIC2_CMD: u16 = 0xA0;
-#[cfg(feature = "sched_test")]
-const PIC2_DATA: u16 = 0xA1;
-
-#[cfg(feature = "sched_test")]
-unsafe fn pic_init() {
-    outb(PIC1_CMD, 0x11);
-    outb(PIC2_CMD, 0x11);
-    outb(PIC1_DATA, 32);
-    outb(PIC2_DATA, 40);
-    outb(PIC1_DATA, 0x04);
-    outb(PIC2_DATA, 0x02);
-    outb(PIC1_DATA, 0x01);
-    outb(PIC2_DATA, 0x01);
-    outb(PIC1_DATA, 0xFE);
-    outb(PIC2_DATA, 0xFF);
-}
-
-#[cfg(feature = "sched_test")]
-unsafe fn pic_send_eoi(irq: u8) {
-    if irq >= 8 { outb(PIC2_CMD, 0x20); }
-    outb(PIC1_CMD, 0x20);
-}
-
-// --------------- PIT (8254) ---------------
-
-#[cfg(feature = "sched_test")]
-unsafe fn pit_init(freq: u32) {
-    let divisor = 1_193_182u32 / freq;
-    outb(0x43, 0x34);
-    outb(0x40, (divisor & 0xFF) as u8);
-    outb(0x40, ((divisor >> 8) & 0xFF) as u8);
-}
-
-// --------------- M2 Scheduler ---------------
-
-#[cfg(feature = "sched_test")]
-static mut TICK_COUNT: u64 = 0;
-
-#[cfg(feature = "sched_test")]
-const MAX_THREADS: usize = 4;
-#[cfg(feature = "sched_test")]
-const THREAD_STACK_SIZE: usize = 16384;
-
-#[cfg(feature = "sched_test")]
-#[derive(Clone, Copy, PartialEq)]
-#[repr(u8)]
-enum ThreadState { Dead = 0, Ready = 1, Running = 2 }
-
-#[cfg(feature = "sched_test")]
-#[derive(Clone, Copy)]
-#[repr(C)]
-struct Thread { rsp: u64, state: ThreadState }
-
-#[cfg(feature = "sched_test")]
-impl Thread {
-    const EMPTY: Self = Self { rsp: 0, state: ThreadState::Dead };
-}
-
-#[cfg(feature = "sched_test")]
-static mut THREADS: [Thread; MAX_THREADS] = [Thread::EMPTY; MAX_THREADS];
-#[cfg(feature = "sched_test")]
-static mut THREAD_STACKS: [[u8; THREAD_STACK_SIZE]; MAX_THREADS] =
-    [[0u8; THREAD_STACK_SIZE]; MAX_THREADS];
-#[cfg(feature = "sched_test")]
-static mut CURRENT_THREAD: usize = 0;
-#[cfg(feature = "sched_test")]
-static mut NUM_THREADS: usize = 0;
-
-#[cfg(feature = "sched_test")]
-extern "C" {
-    fn context_switch(old_rsp: *mut u64, new_rsp: u64);
-    fn thread_entry_trampoline();
-}
-
-#[cfg(feature = "sched_test")]
-unsafe fn sched_init() {
-    THREADS[0].state = ThreadState::Running;
-    THREADS[0].rsp = 0;
-    CURRENT_THREAD = 0;
-    NUM_THREADS = 1;
-}
-
-#[cfg(feature = "sched_test")]
-unsafe fn thread_create(func: extern "C" fn()) {
-    let tid = NUM_THREADS;
-    NUM_THREADS += 1;
-    let sp_top = THREAD_STACKS[tid].as_mut_ptr().add(THREAD_STACK_SIZE) as u64;
-    let mut sp = sp_top;
-    sp -= 8; *(sp as *mut u64) = thread_exit as *const () as u64;
-    sp -= 8; *(sp as *mut u64) = func as *const () as u64;
-    sp -= 8; *(sp as *mut u64) = thread_entry_trampoline as *const () as u64;
-    sp -= 8; *(sp as *mut u64) = 0; // r15
-    sp -= 8; *(sp as *mut u64) = 0; // r14
-    sp -= 8; *(sp as *mut u64) = 0; // r13
-    sp -= 8; *(sp as *mut u64) = 0; // r12
-    sp -= 8; *(sp as *mut u64) = 0; // rbx
-    sp -= 8; *(sp as *mut u64) = 0; // rbp
-    THREADS[tid].rsp = sp;
-    THREADS[tid].state = ThreadState::Ready;
-}
-
-#[cfg(feature = "sched_test")]
-unsafe fn schedule() {
-    let cur = CURRENT_THREAD;
-    let mut next = (cur + 1) % NUM_THREADS;
-    let start = next;
-    loop {
-        if THREADS[next].state == ThreadState::Ready { break; }
-        next = (next + 1) % NUM_THREADS;
-        if next == start { return; }
-    }
-    if next == cur { return; }
-    if THREADS[cur].state == ThreadState::Running { THREADS[cur].state = ThreadState::Ready; }
-    THREADS[next].state = ThreadState::Running;
-    CURRENT_THREAD = next;
-    let old_rsp = &mut THREADS[cur].rsp as *mut u64;
-    let new_rsp = THREADS[next].rsp;
-    context_switch(old_rsp, new_rsp);
-}
-
-#[cfg(feature = "sched_test")]
-extern "C" fn thread_exit() {
-    unsafe {
-        THREADS[CURRENT_THREAD].state = ThreadState::Dead;
-        schedule();
-    }
-    loop { unsafe { core::arch::asm!("cli; hlt", options(nomem, nostack)); } }
 }
 
 #[cfg(feature = "sched_test")]
@@ -7330,7 +4953,7 @@ pub extern "C" fn kmain() -> ! {
         enter_ring3_at(USER_CODE_VA, USER_STACK_TOP);
     }
 
-    // R4: ipc_test — ping-pong between two user tasks
+    // R4: ipc_test â€” ping-pong between two user tasks
     #[cfg(feature = "ipc_test")]
     unsafe {
         let kstack = &stack_top as *const u8 as u64;
@@ -7352,7 +4975,7 @@ pub extern "C" fn kmain() -> ! {
         enter_ring3_at(USER_CODE_VA, USER_STACK_TOP);
     }
 
-    // R4: shm_test — shared memory bulk transfe
+    // R4: shm_test â€” shared memory bulk transfe
     // R4: stress_ipc_test - two senders + two receivers
     #[cfg(feature = "stress_ipc_test")]
     unsafe {
@@ -7380,7 +5003,7 @@ pub extern "C" fn kmain() -> ! {
         enter_ring3_at(USER_CODE_VA, USER_STACK_TOP);
     }
 
-    // R4: shm_test â€” shared memory bulk transfer
+    // R4: shm_test - shared memory bulk transfer
     #[cfg(feature = "shm_test")]
     unsafe {
         let kstack = &stack_top as *const u8 as u64;
@@ -7414,7 +5037,7 @@ pub extern "C" fn kmain() -> ! {
         }
     }
 
-    // R4: ipc_badptr_send_test — single task sends to endpoint 0 with bad pointer
+    // R4: ipc_badptr_send_test â€” single task sends to endpoint 0 with bad pointer
     #[cfg(feature = "ipc_badptr_send_test")]
     unsafe {
         let kstack = &stack_top as *const u8 as u64;
@@ -7433,7 +5056,7 @@ pub extern "C" fn kmain() -> ! {
         enter_ring3_at(USER_CODE_VA, USER_STACK_TOP);
     }
 
-    // R4: ipc_badptr_recv_test — single task receives with bad pointer
+    // R4: ipc_badptr_recv_test â€” single task receives with bad pointer
     #[cfg(feature = "ipc_badptr_recv_test")]
     unsafe {
         let kstack = &stack_top as *const u8 as u64;
@@ -7452,7 +5075,7 @@ pub extern "C" fn kmain() -> ! {
         enter_ring3_at(USER_CODE_VA, USER_STACK_TOP);
     }
 
-    // R4: ipc_badptr_svc_test — single task calls svc_register with bad name pointer
+    // R4: ipc_badptr_svc_test â€” single task calls svc_register with bad name pointer
     #[cfg(feature = "ipc_badptr_svc_test")]
     unsafe {
         let kstack = &stack_top as *const u8 as u64;
@@ -7468,7 +5091,7 @@ pub extern "C" fn kmain() -> ! {
         enter_ring3_at(USER_CODE_VA, USER_STACK_TOP);
     }
 
-    // R4: ipc_buffer_full_test — single task verifies send returns -1 on occupied slot
+    // R4: ipc_buffer_full_test â€” single task verifies send returns -1 on occupied slot
     #[cfg(feature = "ipc_buffer_full_test")]
     unsafe {
         let kstack = &stack_top as *const u8 as u64;
@@ -7487,7 +5110,7 @@ pub extern "C" fn kmain() -> ! {
         enter_ring3_at(USER_CODE_VA, USER_STACK_TOP);
     }
 
-    // R4: ipc_waiter_busy_test — second waiter and truncation cases return -1
+    // R4: ipc_waiter_busy_test â€” second waiter and truncation cases return -1
     #[cfg(feature = "ipc_waiter_busy_test")]
     unsafe {
         let kstack = &stack_top as *const u8 as u64;
@@ -7507,7 +5130,7 @@ pub extern "C" fn kmain() -> ! {
         enter_ring3_at(USER_CODE_VA, USER_STACK_TOP);
     }
 
-    // R4: svc_overwrite_test — single task verifies duplicate registration overwrites endpoint
+    // R4: svc_overwrite_test â€” single task verifies duplicate registration overwrites endpoint
     #[cfg(feature = "svc_overwrite_test")]
     unsafe {
         let kstack = &stack_top as *const u8 as u64;
@@ -7527,7 +5150,7 @@ pub extern "C" fn kmain() -> ! {
         enter_ring3_at(USER_CODE_VA, USER_STACK_TOP);
     }
 
-    // R4: svc_full_test — single task verifies 5th unique registration returns -1
+    // R4: svc_full_test â€” single task verifies 5th unique registration returns -1
     #[cfg(feature = "svc_full_test")]
     unsafe {
         let kstack = &stack_top as *const u8 as u64;
@@ -7550,7 +5173,7 @@ pub extern "C" fn kmain() -> ! {
         enter_ring3_at(USER_CODE_VA, USER_STACK_TOP);
     }
 
-    // R4: svc_bad_endpoint_test — single task verifies register rejects inactive endpoint
+    // R4: svc_bad_endpoint_test â€” single task verifies register rejects inactive endpoint
     #[cfg(feature = "svc_bad_endpoint_test")]
     unsafe {
         let kstack = &stack_top as *const u8 as u64;
@@ -7611,7 +5234,7 @@ pub extern "C" fn kmain() -> ! {
         enter_ring3_at(USER_CODE_VA, USER_STACK_TOP);
     }
 
-    // M5: blk_test — block driver + syscalls
+    // M5: blk_test â€” block driver + syscalls
     #[cfg(feature = "blk_test")]
     unsafe {
         // Compute kv2p delta from Limine responses
@@ -7645,7 +5268,7 @@ pub extern "C" fn kmain() -> ! {
         enter_ring3_at(USER_CODE_VA, USER_STACK_TOP);
     }
 
-    // M5: blk_invariants_test — VirtIO block init hardening check
+    // M5: blk_invariants_test â€” VirtIO block init hardening check
     #[cfg(feature = "blk_invariants_test")]
     unsafe {
         let kaddr_resp_ptr = core::ptr::read_volatile(
@@ -7686,13 +5309,13 @@ pub extern "C" fn kmain() -> ! {
         loop { core::arch::asm!("cli; hlt", options(nomem, nostack)); }
     }
 
-    // M6: fs_test — Filesystem + package manager + shell
+    // M6: fs_test â€” Filesystem + package manager + shell
     //
     // Architecture A (services over IPC): the R4 IPC infrastructure is proven.
     // For v0 the kernel orchestrates fsd/pkg/sh logic (reading SimpleFS from
     // the VirtIO block disk, parsing the PKG format, extracting the hello
     // binary).  The hello app runs in genuine user mode (ring 3) to validate
-    // the full stack:  block driver → SimpleFS → PKG → user execution.
+    // the full stack:  block driver â†’ SimpleFS â†’ PKG â†’ user execution.
     #[cfg(feature = "fs_test")]
     unsafe {
         // --- block driver init (same as blk_test) ---
@@ -7831,21 +5454,21 @@ pub extern "C" fn kmain() -> ! {
         }
     }
 
-    // G1: go_test — TinyGo user program
+    // G1: go_test â€” TinyGo user program
     #[cfg(feature = "compat_real_test")]
     unsafe {
         let kstack = &stack_top as *const u8 as u64;
         tss_init(kstack);
-        r4_c4_runtime_init();
+        net::r4_c4_runtime_init();
         COMPAT_REAL_APP_INDEX = 0;
-        compat_real_enter_current_app();
+        process::compat_real_enter_current_app();
     }
 
     #[cfg(all(feature = "go_test", not(feature = "compat_real_test")))]
     unsafe {
         let kstack = &stack_top as *const u8 as u64;
         tss_init(kstack);
-        r4_c4_runtime_init();
+        net::r4_c4_runtime_init();
         #[cfg(feature = "go_desktop_test")]
         let go_user_bin = GO_DESKTOP_BIN;
         #[cfg(not(feature = "go_desktop_test"))]
@@ -7858,7 +5481,7 @@ pub extern "C" fn kmain() -> ! {
         enter_ring3_at(USER_CODE_VA, USER_STACK_TOP);
     }
 
-    // G2 spike: go_std_test — std-port candidate user program
+    // G2 spike: go_std_test â€” std-port candidate user program
     #[cfg(feature = "go_std_test")]
     unsafe {
         let kstack = &stack_top as *const u8 as u64;
@@ -7867,7 +5490,7 @@ pub extern "C" fn kmain() -> ! {
         enter_ring3_at(USER_CODE_VA, USER_STACK_TOP);
     }
 
-    // M10: sec_rights_test — per-handle rights reduction + transfer checks
+    // M10: sec_rights_test â€” per-handle rights reduction + transfer checks
     #[cfg(feature = "sec_rights_test")]
     unsafe {
         let kstack = &stack_top as *const u8 as u64;
@@ -7876,7 +5499,7 @@ pub extern "C" fn kmain() -> ! {
         enter_ring3_at(USER_CODE_VA, USER_STACK_TOP);
     }
 
-    // M10: sec_filter_test — syscall/profile sandbox checks
+    // M10: sec_filter_test â€” syscall/profile sandbox checks
     #[cfg(feature = "sec_filter_test")]
     unsafe {
         let kstack = &stack_top as *const u8 as u64;
@@ -7885,7 +5508,7 @@ pub extern "C" fn kmain() -> ! {
         enter_ring3_at(USER_CODE_VA, USER_STACK_TOP);
     }
 
-    // M7: net_test — VirtIO net + UDP echo
+    // M7: net_test â€” VirtIO net + UDP echo
     #[cfg(feature = "net_test")]
     unsafe {
         // Compute kv2p delta from Limine responses
@@ -7895,17 +5518,17 @@ pub extern "C" fn kmain() -> ! {
             core::ptr::addr_of!(KADDR_REQUEST.response));
         let kphys = (*kaddr_resp_ptr).physical_base;
         let kvirt = (*kaddr_resp_ptr).virtual_base;
-        NET_KV2P_DELTA = kphys.wrapping_sub(kvirt);
+        net::NET_KV2P_DELTA = kphys.wrapping_sub(kvirt);
 
         // PCI scan for VirtIO net device
-        match pci_find_virtio_net() {
+        match net::pci_find_virtio_net() {
             None => {
                 serial_write(b"NET: not found\n");
                 qemu_exit(0x31);
                 loop { core::arch::asm!("cli; hlt", options(nomem, nostack)); }
             }
             Some(iobase) => {
-                if !virtio_net_init(iobase) {
+                if !net::virtio_net_init(iobase) {
                     serial_write(b"NET: init failed\n");
                     qemu_exit(0x31);
                     loop { core::arch::asm!("cli; hlt", options(nomem, nostack)); }
@@ -7914,15 +5537,15 @@ pub extern "C" fn kmain() -> ! {
             }
         }
 
-        // Network polling loop — handle ARP and UDP echo
+        // Network polling loop â€” handle ARP and UDP echo
         let mut rx_frame = [0u8; 1514];
         let mut echoed = false;
         let mut poll_count: u64 = 0;
         let max_polls: u64 = 500_000_000;
         while !echoed && poll_count < max_polls {
-            let len = virtio_net_recv(&mut rx_frame);
+            let len = net::virtio_net_recv(&mut rx_frame);
             if len > 0 {
-                echoed = net_handle_frame(&rx_frame[..len]);
+                echoed = net::net_handle_frame(&rx_frame[..len]);
             }
             core::arch::asm!("pause", options(nomem, nostack));
             poll_count += 1;
