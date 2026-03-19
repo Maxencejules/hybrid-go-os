@@ -33,7 +33,7 @@ The front door of this repo is the live Rust-kernel plus Go-userspace lane.
 
 Visible proof paths:
 - `make image-demo` then `make boot-demo`
-  Boots `goinit -> gosvcm -> gosh -> timesvc` on the default TinyGo lane.
+  Boots `goinit -> gosvcm -> timesvc -> diagsvc/pkgsvc -> shell` on the default TinyGo lane.
   Proof: `tests/go/test_go_user_service.py`
 - `make image-kernel` then `make boot-kernel`
   Boots the kernel-only lane for boot, paging, trap, and scheduler work.

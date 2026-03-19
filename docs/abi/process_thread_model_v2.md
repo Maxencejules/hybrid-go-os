@@ -56,6 +56,8 @@ Required transitions:
 
 - The default Go init/service manager uses `sys_wait` to block on child service
   exits.
+- The default Go init/service manager waits for service `ready` state before
+  launching dependent services on the booted default lane.
 - Reaped child slots can be reused for bounded restart attempts in the same
   boot session.
 - `sys_proc_info` exposes task identity, parent, state, scheduler class, and

@@ -36,7 +36,8 @@ Scheduler policy identifier: `rugo.scheduling_policy.v2`
   - `best-effort` (`0`)
   - `critical` (`1`)
 - The default Go service manager applies `critical` class to `timesvc` and
-  `best-effort` to `diagsvc` and `shell` on the booted `image-go` path.
+  `best-effort` to `diagsvc`, `pkgsvc`, and `shell` on the booted `image-go`
+  path, with `shell` held until the required base services report `ready`.
 
 ## Soak and regression contract
 

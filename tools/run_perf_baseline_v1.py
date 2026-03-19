@@ -167,7 +167,7 @@ def _workload_metrics(capture: Dict[str, object]) -> Dict[str, Dict[str, float]]
         _line_latency_us(boot, "NETC4: listen ok", "NETC4: reply ok") for boot in boots
     ]
     restart_latencies = [
-        _line_latency_us(boot, "SVC: shell starting", "SVC: shell running") for boot in boots
+        _line_latency_us(boot, "SVC: shell starting", "SVC: shell ready") for boot in boots
     ]
     mixed_latencies = [
         _line_latency_us(boot, "ISOC5: observe ok", "SOAKC5: mixed ok") for boot in boots

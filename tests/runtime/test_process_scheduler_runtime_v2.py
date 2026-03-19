@@ -18,23 +18,24 @@ def test_process_scheduler_runtime_v2_waits_reaps_and_restarts(qemu_serial_go):
             "GOSH: start",
             "SVC: shell running",
             "GOSH: recycle",
-            "GOSVCM: reap shell",
             "SVC: shell failed",
+            "GOSVCM: reap shell failed",
             "GOSVCM: restart shell",
             "SVC: shell starting",
             "GOSH: start",
             "SVC: shell running",
             "GOSH: recycle",
-            "GOSVCM: reap shell",
             "SVC: shell failed",
+            "GOSVCM: reap shell failed",
             "GOSVCM: restart shell",
             "SVC: shell starting",
             "GOSH: start",
+            "SVC: shell running",
             "GOSH: lookup ok",
             "GOSH: recv deny",
             "GOSH: reg deny",
             "GOSH: spawn deny",
-            "SVC: shell running",
+            "SVC: shell ready",
             "TIMESVC: req ok",
             "TIMESVC: time ok",
             "GOSH: reply ok",
@@ -42,7 +43,8 @@ def test_process_scheduler_runtime_v2_waits_reaps_and_restarts(qemu_serial_go):
             "SVC: shell stopping",
             "SVC: shell stopped",
             "ISOC5: cleanup ok",
-            "GOSVCM: reap shell",
+            "GOSVCM: reap shell stopped",
+            "GOSVCM: stop pkgsvc",
             "GOSVCM: stop diagsvc",
             "GOSVCM: stop timesvc",
             "SVC: timesvc stopping",
@@ -55,9 +57,11 @@ def test_process_scheduler_runtime_v2_waits_reaps_and_restarts(qemu_serial_go):
     assert serial.count("SVC: shell starting") == 3
     assert serial.count("SVC: shell running") == 3
     assert serial.count("GOSH: recycle") == 2
+    assert serial.count("SVC: shell ready") == 1
     assert serial.count("SVC: shell failed") == 2
     assert serial.count("GOSVCM: restart shell") == 2
     assert serial.count("GOSVCM: reap shell") == 3
+    assert serial.count("GOSVCM: stop pkgsvc") == 1
     assert serial.count("SVC: timesvc stopped") == 1
     assert serial.count("GOSVCM: stop diagsvc") == 1
     assert serial.count("GOSVCM: stop timesvc") == 1

@@ -22,10 +22,10 @@ const (
 )
 
 const (
-	pkgMagicP = 'P'
-	pkgMagicS = 'S'
-	pkgMagicT = 'T'
-	pkgMagic1 = '1'
+	pkgMagicP      = 'P'
+	pkgMagicS      = 'S'
+	pkgMagicT      = 'T'
+	pkgMagic1      = '1'
 	platformMagicP = 'P'
 	platformMagicL = 'L'
 	platformMagicT = 'T'
@@ -74,26 +74,26 @@ var (
 
 	msgPkgSvcStart = [...]byte{'P', 'K', 'G', 'S', 'V', 'C', ':', ' ', 's', 't', 'a', 'r', 't', '\n'}
 	msgPkgSvcReady = [...]byte{'P', 'K', 'G', 'S', 'V', 'C', ':', ' ', 'r', 'e', 'a', 'd', 'y', '\n'}
-	msgPkgSvcStop = [...]byte{'P', 'K', 'G', 'S', 'V', 'C', ':', ' ', 's', 't', 'o', 'p', '\n'}
-	msgPkgSvcErr = [...]byte{'P', 'K', 'G', 'S', 'V', 'C', ':', ' ', 'e', 'r', 'r', '\n'}
+	msgPkgSvcStop  = [...]byte{'P', 'K', 'G', 'S', 'V', 'C', ':', ' ', 's', 't', 'o', 'p', '\n'}
+	msgPkgSvcErr   = [...]byte{'P', 'K', 'G', 'S', 'V', 'C', ':', ' ', 'e', 'r', 'r', '\n'}
 
 	msgUpdMetadata = [...]byte{'U', 'P', 'D', '3', ':', ' ', 'm', 'e', 't', 'a', 'd', 'a', 't', 'a', ' ', 'o', 'k', '\n'}
-	msgUpdRotate = [...]byte{'U', 'P', 'D', '3', ':', ' ', 'r', 'o', 't', 'a', 't', 'e', ' ', 'o', 'k', '\n'}
-	msgUpdApply = [...]byte{'U', 'P', 'D', '3', ':', ' ', 'a', 'p', 'p', 'l', 'y', ' ', 'o', 'k', '\n'}
+	msgUpdRotate   = [...]byte{'U', 'P', 'D', '3', ':', ' ', 'r', 'o', 't', 'a', 't', 'e', ' ', 'o', 'k', '\n'}
+	msgUpdApply    = [...]byte{'U', 'P', 'D', '3', ':', ' ', 'a', 'p', 'p', 'l', 'y', ' ', 'o', 'k', '\n'}
 	msgUpdRollback = [...]byte{'U', 'P', 'D', '3', ':', ' ', 'r', 'o', 'l', 'l', 'b', 'a', 'c', 'k', ' ', 'o', 'k', '\n'}
 
-	msgCatCatalog = [...]byte{'C', 'A', 'T', '3', ':', ' ', 'c', 'a', 't', 'a', 'l', 'o', 'g', ' ', 'o', 'k', '\n'}
-	msgCatInstallBase = [...]byte{'C', 'A', 'T', '3', ':', ' ', 'i', 'n', 's', 't', 'a', 'l', 'l', ' ', 'b', 'a', 's', 'e', ' ', 'o', 'k', '\n'}
-	msgCatInstallNet = [...]byte{'C', 'A', 'T', '3', ':', ' ', 'i', 'n', 's', 't', 'a', 'l', 'l', ' ', 'n', 'e', 't', ' ', 'o', 'k', '\n'}
+	msgCatCatalog      = [...]byte{'C', 'A', 'T', '3', ':', ' ', 'c', 'a', 't', 'a', 'l', 'o', 'g', ' ', 'o', 'k', '\n'}
+	msgCatInstallBase  = [...]byte{'C', 'A', 'T', '3', ':', ' ', 'i', 'n', 's', 't', 'a', 'l', 'l', ' ', 'b', 'a', 's', 'e', ' ', 'o', 'k', '\n'}
+	msgCatInstallNet   = [...]byte{'C', 'A', 'T', '3', ':', ' ', 'i', 'n', 's', 't', 'a', 'l', 'l', ' ', 'n', 'e', 't', ' ', 'o', 'k', '\n'}
 	msgCatInstallMedia = [...]byte{'C', 'A', 'T', '3', ':', ' ', 'i', 'n', 's', 't', 'a', 'l', 'l', ' ', 'm', 'e', 'd', 'i', 'a', ' ', 'o', 'k', '\n'}
-	msgCatStage = [...]byte{'C', 'A', 'T', '3', ':', ' ', 's', 't', 'a', 'g', 'e', ' ', 'o', 'k', '\n'}
-	msgCatTelemetry = [...]byte{'C', 'A', 'T', '3', ':', ' ', 't', 'e', 'l', 'e', 'm', 'e', 't', 'r', 'y', ' ', 'o', 'k', '\n'}
+	msgCatStage        = [...]byte{'C', 'A', 'T', '3', ':', ' ', 's', 't', 'a', 'g', 'e', ' ', 'o', 'k', '\n'}
+	msgCatTelemetry    = [...]byte{'C', 'A', 'T', '3', ':', ' ', 't', 'e', 'l', 'e', 'm', 'e', 't', 'r', 'y', ' ', 'o', 'k', '\n'}
 
 	msgStorX3Snapshot = [...]byte{'S', 'T', 'O', 'R', 'X', '3', ':', ' ', 's', 'n', 'a', 'p', 's', 'h', 'o', 't', ' ', 'o', 'k', '\n'}
-	msgStorX3Resize = [...]byte{'S', 'T', 'O', 'R', 'X', '3', ':', ' ', 'r', 'e', 's', 'i', 'z', 'e', ' ', 'o', 'k', '\n'}
-	msgStorX3Xattr = [...]byte{'S', 'T', 'O', 'R', 'X', '3', ':', ' ', 'x', 'a', 't', 't', 'r', ' ', 'o', 'k', '\n'}
-	msgStorX3Reflink = [...]byte{'S', 'T', 'O', 'R', 'X', '3', ':', ' ', 'r', 'e', 'f', 'l', 'i', 'n', 'k', ' ', 'o', 'k', '\n'}
-	msgStorX3Cap = [...]byte{'S', 'T', 'O', 'R', 'X', '3', ':', ' ', 'c', 'a', 'p', ' ', 'o', 'k', '\n'}
+	msgStorX3Resize   = [...]byte{'S', 'T', 'O', 'R', 'X', '3', ':', ' ', 'r', 'e', 's', 'i', 'z', 'e', ' ', 'o', 'k', '\n'}
+	msgStorX3Xattr    = [...]byte{'S', 'T', 'O', 'R', 'X', '3', ':', ' ', 'x', 'a', 't', 't', 'r', ' ', 'o', 'k', '\n'}
+	msgStorX3Reflink  = [...]byte{'S', 'T', 'O', 'R', 'X', '3', ':', ' ', 'r', 'e', 'f', 'l', 'i', 'n', 'k', ' ', 'o', 'k', '\n'}
+	msgStorX3Cap      = [...]byte{'S', 'T', 'O', 'R', 'X', '3', ':', ' ', 'c', 'a', 'p', ' ', 'o', 'k', '\n'}
 
 	msgShellPkg = [...]byte{'G', 'O', 'S', 'H', ':', ' ', 'p', 'k', 'g', ' ', 'o', 'k', '\n'}
 )
@@ -141,6 +141,7 @@ func pkgServiceMain() {
 
 	setServiceState(servicePkg, stateRunning)
 	log(msgPkgSvcReady[:])
+	setServiceState(servicePkg, stateReady)
 
 	for bootFailed == 0 {
 		var req [8]byte

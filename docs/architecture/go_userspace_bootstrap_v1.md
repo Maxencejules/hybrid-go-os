@@ -1,108 +1,146 @@
 # Go Userspace Bootstrap v1
 
-Date: 2026-03-11  
-Status: canonical demo path  
-Architecture ID: `rugo.go_userspace_bootstrap.v1`
+Date: 2026-03-19
+Status: active default-lane boot contract
+Contract ID: `rugo.go_boot_contract.v1`
 
 ## Goal
 
-Make the default Go lane prove a real boot-to-userspace story instead of a
-single marker binary.
+Make the default Rust-kernel plus Go-userspace lane boot like a small,
+deterministic base OS instead of a demo-shaped launch sequence.
 
-## Current bootstrap shape
+## Current Audit
 
-- Kernel mechanisms stay in Rust under `kernel_rs/`.
-- Userspace policy stays in Go under `services/go/`.
-- `go_test` is the canonical TinyGo-first demo lane.
-- The current bootstrap is one Go image loaded by the kernel, using the
-  existing R4 cooperative task, IPC, and service-registry kernel path.
+Kernel-to-userspace handoff was already real:
 
-Current task graph:
+1. `kmain` logs `RUGO: boot ok`, enables paging, initializes descriptor tables,
+   maps the single Go user image, seeds task `0`, and enters ring 3.
+2. `goinit` is the first userspace task and obtains the kernel-provided spawn
+   entry through `sysSpawnEntry`.
+3. `gosvcm` already existed as the default Go service manager with a manifest,
+   restart loop, shutdown path, and diagnostic snapshots.
 
-1. `goinit` is the first Go task entered from the kernel.
-2. `gosvcm` is spawned by `goinit` and acts as the service manager.
-3. `timesvc` is launched by `gosvcm`, creates an IPC endpoint, and registers
-   itself through `sys_svc_register`.
-4. `diagsvc` is launched after `timesvc`, exposes a small diagnostic/control
-   endpoint, and reports live service-manager accounting from the default lane.
-5. `pkgsvc` is launched after `timesvc`, exposes a package/update endpoint, and
-   persists signed package/platform state on the default runtime media path.
-6. `gosh` is launched after service registration, resolves `timesvc`,
-   `diagsvc`, and `pkgsvc` through `sys_svc_lookup`, exercises policy-denial
-   paths, requests time service work, consumes a diagnostic snapshot, triggers
-   the package/update flow, and then drives bounded shutdown.
+The gaps were mostly contract clarity:
 
-This is intentionally a bootstrap-grade userspace stack, not a fake simulation:
-the shell-to-service path crosses the kernel syscall boundary for registry,
-endpoint creation, IPC, scheduling, time reads, and runtime file I/O.
+- service roles were implicit in code, not declared as part of boot policy
+- `running` doubled as both "task is alive" and "service is usable"
+- shell launch lived in the same broad phase as the supporting base services
+- restart budgets and required-service behavior were present but implicit
+- serial output showed state changes, but not the boot plan or phase contract
 
-## Why this is credible
+## Boot Contract
 
-- `goinit`, `gosvcm`, `gosh`, `timesvc`, `diagsvc`, and `pkgsvc` are all real
-  Go code paths.
-- Boot sequencing is deterministic and visible on serial.
-- The stack uses actual kernel syscalls:
-  - `sys_ipc_endpoint_create`
-  - `sys_svc_register`
-  - `sys_svc_lookup`
-  - `sys_ipc_send`
-  - `sys_ipc_recv`
-  - `sys_time_now`
-  - `sys_open`
-  - `sys_read`
-  - `sys_write`
-  - `sys_fsync`
-  - `sys_thread_spawn`
-  - `sys_thread_exit`
-  - `sys_yield`
-- The kernel still owns all mechanism:
-  task slots, IPC buffering, registry validation, context switching, and halt.
+Boot phases on the default lane:
 
-## Current limits
+1. `kernel entry`
+   `kmain` completes early kernel init, maps the Go image, seeds task `0`, and
+   transfers to userspace.
+2. `goinit bootstrap`
+   `goinit` validates the kernel handoff, builds the deterministic start plan,
+   and starts `gosvcm`.
+3. `gosvcm contract declaration`
+   `gosvcm` declares every default service and logs its role, phase,
+   dependency set, restart policy, and required or optional class.
+4. `core phase`
+   `timesvc` must reach `ready`.
+5. `base phase`
+   `diagsvc` and `pkgsvc` must reach `ready`.
+6. `session phase`
+   `shell` starts only after all required base services are `ready`.
+7. `bounded shutdown`
+   After shell completion, `gosvcm` stops services in reverse dependency order
+   and reaps every child before `GOINIT: ready`.
 
-- This is a single-address-space bootstrap image, not a full multiprocess
-  `spawn+exec` userspace.
-- The current TinyGo lane still relies on a bounded bootstrap image mapped into
-  six contiguous 4 KiB user pages (`24 KiB` total).
-- The stack is cooperative because it uses the existing R4 task model.
+## Default Service Roles
 
-## Serial contract
+- `goinit`: first userspace task and bootstrap coordinator
+- `gosvcm`: service manager for the default manifest
+- `timesvc`: required time service, critical scheduler class
+- `diagsvc`: required diagnostics and operator snapshot service
+- `pkgsvc`: required package or platform state service for the default lane
+- `shell`: required session entrypoint, started after base services are ready
 
-Expected boot markers for the canonical path:
+## Lifecycle Model
 
-- `GOINIT: start`
-- `GOINIT: svcmgr up`
-- `GOSVCM: start`
-- `TIMESVC: start`
+Service lifecycle states on the default lane:
+
+- `declared`
+- `blocked`
+- `starting`
+- `running`
+- `ready`
+- `failed`
+- `stopping`
+- `stopped`
+
+Interpretation:
+
+- `running` means the task is alive inside its init path
+- `ready` means the service contract is usable by dependents
+- `failed` means bring-up or runtime failed and restart policy applies
+- `stopped` means ordered shutdown completed before reap
+
+The manager also emits reap markers with terminal context such as
+`GOSVCM: reap shell failed` and `GOSVCM: reap timesvc stopped`.
+
+## Dependency And Restart Policy
+
+Default manifest:
+
+- `timesvc`: no dependencies, `phase=core`, `required`, `restart=on-failure/3`
+- `diagsvc`: depends on `timesvc`, `phase=base`, `required`, `restart=on-failure/3`
+- `pkgsvc`: depends on `timesvc`, `phase=base`, `required`, `restart=on-failure/3`
+- `shell`: depends on `timesvc`, `diagsvc`, and `pkgsvc`, `phase=session`,
+  `required`, `restart=on-failure/2`
+
+Policy rules:
+
+- required services exhaust their restart budget => boot fails
+- optional services may fail closed without failing the boot contract
+- scheduler class and requiredness are separate:
+  `timesvc` is `critical`; the other default services are `best-effort`
+
+## Serial Contract
+
+Key markers on the default lane:
+
+- `GOSVCM: plan ...`
+- `GOSVCM: phase core`
 - `TIMESVC: ready`
-- `DIAGSVC: start`
+- `SVC: timesvc ready`
+- `GOSVCM: phase base`
 - `DIAGSVC: ready`
-- `PKGSVC: start`
 - `PKGSVC: ready`
-- `GOSVCM: shell`
-- `GOSH: start`
-- `GOSH: lookup ok`
-- `TIMESVC: req ok`
-- `TIMESVC: time ok`
-- `DIAGSVC: snapshot`
-- `GOSH: diag ok`
-- `GOSH: pkg ok`
-- `GOSH: reply ok`
+- `GOINIT: operational`
+- `GOSVCM: phase session`
+- `SVC: shell ready`
+- `GOSVCM: reap ... failed|stopped`
 - `GOINIT: ready`
 
-The QEMU acceptance gate is `tests/go/test_go_user_service.py`.
+These markers are intentionally small and serial-friendly. They are sufficient
+to prove deterministic ordering, readiness, restart behavior, and shutdown on
+the public default lane without inventing a larger orchestration framework.
 
-## Demo and verification
+## Validation
 
-Demo command:
-
-```bash
-make demo-go
-```
-
-Targeted validation:
+Primary commands:
 
 ```bash
-make image-go
-python -m pytest tests/go/test_go_user_service.py -v
+mingw32-make image-demo
+mingw32-make boot-demo
+mingw32-make smoke-demo
+python -m pytest tests/go/test_go_user_service.py tests/runtime/test_service_boot_runtime_v2.py tests/runtime/test_process_scheduler_runtime_v2.py tests/runtime/test_service_control_runtime_v1.py -v
 ```
+
+Fixture-backed tooling checks:
+
+```bash
+python tools/collect_booted_runtime_v1.py --fixture --out out/booted-runtime-v1-bootcontract.json
+python tools/run_perf_baseline_v1.py --runtime-capture out/booted-runtime-v1-bootcontract.json --out out/perf-baseline-v1-bootcontract.json
+```
+
+## Next Step
+
+The next bounded improvement is to separate ordered service shutdown from
+session shutdown with an explicit init-owned shutdown result code, while still
+keeping the single-image Rust-kernel plus Go-userspace lane intact.

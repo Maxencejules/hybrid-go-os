@@ -66,6 +66,7 @@ func timeServiceMain() {
 
 	setServiceState(serviceTime, stateRunning)
 	log(msgTimeSvcReady[:])
+	setServiceState(serviceTime, stateReady)
 
 	for bootFailed == 0 {
 		var req [8]byte
@@ -116,6 +117,7 @@ func diagServiceMain() {
 
 	setServiceState(serviceDiag, stateRunning)
 	log(msgDiagSvcReady[:])
+	setServiceState(serviceDiag, stateReady)
 
 	for bootFailed == 0 {
 		var req [8]byte
@@ -169,11 +171,12 @@ func diagServiceMain() {
 
 func shellMain() {
 	log(msgShellStart[:])
+	setServiceState(serviceShell, stateRunning)
 
 	if shellRecycles < 2 {
 		shellRecycles++
-		setServiceState(serviceShell, stateRunning)
 		log(msgShellRecycle[:])
+		setServiceState(serviceShell, stateFailed)
 		sysThreadExit()
 		fail(msgShellErr[:])
 	}
@@ -210,19 +213,25 @@ func shellMain() {
 		fail(msgShellErr[:])
 	}
 
-	setServiceState(serviceShell, stateRunning)
+	diagEP := sysSvcLookup(&nameDiagSvc[0], uintptr(len(nameDiagSvc)))
+	if diagEP == sysErr {
+		setServiceState(serviceShell, stateFailed)
+		fail(msgShellErr[:])
+	}
+
+	pkgEP := sysSvcLookup(&namePkgSvc[0], uintptr(len(namePkgSvc)))
+	if pkgEP == sysErr {
+		setServiceState(serviceShell, stateFailed)
+		fail(msgShellErr[:])
+	}
+
+	setServiceState(serviceShell, stateReady)
 
 	if !requestTime(timeEP, replyEP) {
 		setServiceState(serviceShell, stateFailed)
 		fail(msgShellErr[:])
 	}
 	log(msgShellReply[:])
-
-	diagEP := sysSvcLookup(&nameDiagSvc[0], uintptr(len(nameDiagSvc)))
-	if diagEP == sysErr {
-		setServiceState(serviceShell, stateFailed)
-		fail(msgShellErr[:])
-	}
 
 	if !requestDiag(diagEP, replyEP) {
 		setServiceState(serviceShell, stateFailed)
@@ -243,12 +252,6 @@ func shellMain() {
 			setServiceState(serviceShell, stateFailed)
 			fail(msgShellErr[:])
 		}
-	}
-
-	pkgEP := sysSvcLookup(&namePkgSvc[0], uintptr(len(namePkgSvc)))
-	if pkgEP == sysErr {
-		setServiceState(serviceShell, stateFailed)
-		fail(msgShellErr[:])
 	}
 	if pkgRuntimeAvailable() {
 		if !requestPkg(pkgEP, replyEP) {

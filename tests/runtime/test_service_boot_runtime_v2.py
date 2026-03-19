@@ -20,36 +20,51 @@ def test_userspace_model_v2_boots_manifest_driven_go_runtime(qemu_serial_go):
             "GOINIT: svcmgr up",
             "GOSVCM: start",
             "SVC: timesvc declared",
+            "GOSVCM: plan timesvc role=time",
+            "SVC: diagsvc declared",
+            "GOSVCM: plan diagsvc role=diag",
+            "SVC: pkgsvc declared",
+            "GOSVCM: plan pkgsvc role=pkg",
             "SVC: shell declared",
+            "GOSVCM: plan shell role=shell",
+            "GOSVCM: phase core",
             "SVC: timesvc starting",
             "GOSVCM: class timesvc critical",
             "TIMESVC: start",
             "SVC: timesvc running",
             "TIMESVC: ready",
+            "SVC: timesvc ready",
+            "GOSVCM: phase base",
+            "DIAGSVC: ready",
+            "SVC: diagsvc ready",
+            "PKGSVC: ready",
+            "SVC: pkgsvc ready",
             "GOINIT: operational",
+            "GOSVCM: phase session",
             "GOSVCM: shell",
             "SVC: shell starting",
             "GOSVCM: class shell best-effort",
             "GOSH: start",
             "GOSH: recycle",
-            "GOSVCM: reap shell",
             "SVC: shell failed",
+            "GOSVCM: reap shell failed",
             "GOSVCM: restart shell",
             "SVC: shell starting",
             "GOSVCM: class shell best-effort",
             "GOSH: start",
             "GOSH: recycle",
-            "GOSVCM: reap shell",
             "SVC: shell failed",
+            "GOSVCM: reap shell failed",
             "GOSVCM: restart shell",
             "SVC: shell starting",
             "GOSVCM: class shell best-effort",
             "GOSH: start",
+            "SVC: shell running",
             "GOSH: lookup ok",
             "GOSH: recv deny",
             "GOSH: reg deny",
             "GOSH: spawn deny",
-            "SVC: shell running",
+            "SVC: shell ready",
             "TIMESVC: req ok",
             "TIMESVC: time ok",
             "GOSH: reply ok",
@@ -62,7 +77,9 @@ def test_userspace_model_v2_boots_manifest_driven_go_runtime(qemu_serial_go):
             "SVC: shell stopping",
             "SVC: shell stopped",
             "ISOC5: cleanup ok",
-            "GOSVCM: reap shell",
+            "GOSVCM: reap shell stopped",
+            "GOSVCM: stop pkgsvc",
+            "SVC: pkgsvc stopping",
             "GOSVCM: stop diagsvc",
             "SVC: diagsvc stopping",
             "GOSVCM: stop timesvc",
@@ -72,11 +89,14 @@ def test_userspace_model_v2_boots_manifest_driven_go_runtime(qemu_serial_go):
             "SVC: diagsvc stopped",
             "GOSVCM: reap timesvc",
             "GOSVCM: reap diagsvc",
+            "GOSVCM: reap pkgsvc",
             "GOINIT: ready",
             "RUGO: halt ok",
         ],
     )
 
+    assert serial.count("GOSVCM: plan ") == 4
+    assert serial.count("GOSVCM: phase ") == 3
     assert serial.count("SVC: shell starting") == 3
     assert serial.count("GOSVCM: class shell best-effort") == 3
     assert serial.count("GOSVCM: class timesvc critical") == 1
@@ -87,12 +107,16 @@ def test_userspace_model_v2_boots_manifest_driven_go_runtime(qemu_serial_go):
 
     assert serial.count("SVC: timesvc starting") == 1
     assert serial.count("SVC: timesvc running") == 1
+    assert serial.count("SVC: timesvc ready") == 1
     assert serial.count("SVC: shell running") == 3
+    assert serial.count("SVC: shell ready") == 1
     assert serial.count("SVC: shell stopped") == 1
     assert serial.count("SVC: timesvc stopped") == 1
+    assert serial.count("GOSVCM: stop pkgsvc") == 1
     assert serial.count("GOSVCM: stop diagsvc") == 1
     assert serial.count("GOSVCM: stop timesvc") == 1
     assert serial.count("SVC: diagsvc stopped") == 1
+    assert serial.count("SVC: pkgsvc stopped") == 1
 
     for error_marker in (
         "GOINIT: err",

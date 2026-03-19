@@ -660,6 +660,7 @@ smoke-demo: image-demo
 		--expect "GOSVCM: start" \
 		--expect "TIMESVC: ready" \
 		--expect "GOSH: start" \
+		--expect "SVC: shell ready" \
 		--expect "GOINIT: ready" \
 		--expect "RUGO: halt ok"
 

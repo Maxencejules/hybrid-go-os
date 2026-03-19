@@ -24,7 +24,7 @@ Current physical implementation:
 | Bucket | Current paths | Notes |
 |--------|---------------|-------|
 | Core runtime | `arch/`, `boot/`, `kernel_rs/src/` | This is the actual kernel lane. |
-| Userspace runtime | `services/go/` | Canonical TinyGo bootstrap lane: Go init, service manager, shell, and syscall-backed service. |
+| Userspace runtime | `services/go/` | Canonical TinyGo bootstrap lane: Go init, service manager, time, diag, pkg, and shell services with an explicit boot contract. |
 | Supported non-default runtime | `services/go_std/` | Stock-Go build, boot, and ABI qualification lane. |
 | Tooling and support | `tools/`, `.github/`, `vendor/`, `Makefile`, `Dockerfile` | Important, but not the product identity. |
 | Validation | `tests/` | Mix of live QEMU proofs, contract checks, and aggregate gate wiring. |

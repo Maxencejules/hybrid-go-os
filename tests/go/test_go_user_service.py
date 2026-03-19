@@ -24,19 +24,27 @@ def test_go_userspace_bootstrap(qemu_serial_go):
             "GOINIT: svcmgr up",
             "GOSVCM: start",
             "SVC: timesvc declared",
+            "GOSVCM: plan timesvc role=time",
             "SVC: shell declared",
+            "GOSVCM: plan shell role=shell",
+            "GOSVCM: phase core",
             "SVC: timesvc starting",
             "TIMESVC: start",
             "SVC: timesvc running",
             "TIMESVC: ready",
+            "SVC: timesvc ready",
+            "GOSVCM: phase base",
             "GOINIT: operational",
+            "GOSVCM: phase session",
             "GOSVCM: shell",
             "GOSH: recycle",
+            "SVC: shell failed",
             "GOSVCM: restart shell",
             "GOSH: lookup ok",
             "GOSH: recv deny",
             "GOSH: reg deny",
             "GOSH: spawn deny",
+            "SVC: shell ready",
             "TIMESVC: req ok",
             "TIMESVC: time ok",
             "GOSH: reply ok",
@@ -50,6 +58,8 @@ def test_go_userspace_bootstrap(qemu_serial_go):
         "Expected two shell recycle attempts before the successful run.\n"
         f"Full output:\n{serial}"
     )
+    assert serial.count("GOSVCM: plan ") == 4
+    assert serial.count("SVC: shell ready") == 1
 
     for error_marker in (
         "GOINIT: err",

@@ -30,6 +30,7 @@ const (
 const (
 	phaseCore = iota
 	phaseServices
+	phaseSession
 )
 
 const (
@@ -37,23 +38,31 @@ const (
 	stateBlocked
 	stateStarting
 	stateRunning
+	stateReady
 	stateFailed
 	stateStopping
 	stateStopped
 )
 
-const maxServiceRestarts = 3
 const stateUnset = 0xFF
 const taskUnset = 0xFF
 
+const (
+	requiredOptional = iota
+	requiredBoot
+)
+
 type serviceSpec struct {
-	name        []byte
-	class       byte
-	policy      byte
-	deps        byte
-	phase       byte
-	startBudget byte
-	stopCmd     byte
+	name         []byte
+	role         []byte
+	class        byte
+	policy       byte
+	required     byte
+	deps         byte
+	phase        byte
+	startBudget  byte
+	restartLimit byte
+	stopCmd      byte
 }
 
 var (
@@ -83,45 +92,61 @@ var (
 	nameDiagSvc = [...]byte{'d', 'i', 'a', 'g', 's', 'v', 'c'}
 	nameShell   = [...]byte{'s', 'h', 'e', 'l', 'l'}
 	nameHijack  = [...]byte{'h', 'i', 'j', 'a', 'c', 'k'}
+	roleTime    = [...]byte{'t', 'i', 'm', 'e'}
+	roleDiag    = [...]byte{'d', 'i', 'a', 'g'}
+	roleShell   = [...]byte{'s', 'h', 'e', 'l', 'l'}
+	rolePkg     = [...]byte{'p', 'k', 'g'}
 	replyOK     = [...]byte{'O', 'K'}
 )
 
 var serviceManifest = [...]serviceSpec{
 	{
-		name:        nameTimeSvc[:],
-		class:       classCritical,
-		policy:      restartOnFailure,
-		deps:        0,
-		phase:       phaseCore,
-		startBudget: 8,
-		stopCmd:     cmdStop,
+		name:         nameTimeSvc[:],
+		role:         roleTime[:],
+		class:        classCritical,
+		policy:       restartOnFailure,
+		required:     requiredBoot,
+		deps:         0,
+		phase:        phaseCore,
+		startBudget:  8,
+		restartLimit: 3,
+		stopCmd:      cmdStop,
 	},
 	{
-		name:        nameDiagSvc[:],
-		class:       classBestEffort,
-		policy:      restartOnFailure,
-		deps:        1 << serviceTime,
-		phase:       phaseServices,
-		startBudget: 8,
-		stopCmd:     cmdStop,
+		name:         nameDiagSvc[:],
+		role:         roleDiag[:],
+		class:        classBestEffort,
+		policy:       restartOnFailure,
+		required:     requiredBoot,
+		deps:         1 << serviceTime,
+		phase:        phaseServices,
+		startBudget:  8,
+		restartLimit: 3,
+		stopCmd:      cmdStop,
 	},
 	{
-		name:        nameShell[:],
-		class:       classBestEffort,
-		policy:      restartOnFailure,
-		deps:        (1 << serviceTime) | (1 << servicePkg),
-		phase:       phaseServices,
-		startBudget: 8,
-		stopCmd:     0,
+		name:         nameShell[:],
+		role:         roleShell[:],
+		class:        classBestEffort,
+		policy:       restartOnFailure,
+		required:     requiredBoot,
+		deps:         (1 << serviceTime) | (1 << serviceDiag) | (1 << servicePkg),
+		phase:        phaseSession,
+		startBudget:  12,
+		restartLimit: 2,
+		stopCmd:      0,
 	},
 	{
-		name:        namePkgSvc[:],
-		class:       classBestEffort,
-		policy:      restartOnFailure,
-		deps:        1 << serviceTime,
-		phase:       phaseServices,
-		startBudget: 8,
-		stopCmd:     cmdStop,
+		name:         namePkgSvc[:],
+		role:         rolePkg[:],
+		class:        classBestEffort,
+		policy:       restartOnFailure,
+		required:     requiredBoot,
+		deps:         1 << serviceTime,
+		phase:        phaseServices,
+		startBudget:  8,
+		restartLimit: 3,
+		stopCmd:      cmdStop,
 	},
 }
 
@@ -142,6 +167,8 @@ var (
 	msgSvcMgrStop  = [...]byte{'G', 'O', 'S', 'V', 'C', 'M', ':', ' ', 's', 't', 'o', 'p', ' '}
 	msgSvcMgrWedge = [...]byte{'G', 'O', 'S', 'V', 'C', 'M', ':', ' ', 'w', 'e', 'd', 'g', 'e', ' '}
 	msgSvcMgrClass = [...]byte{'G', 'O', 'S', 'V', 'C', 'M', ':', ' ', 'c', 'l', 'a', 's', 's', ' '}
+	msgSvcMgrPlan  = [...]byte{'G', 'O', 'S', 'V', 'C', 'M', ':', ' ', 'p', 'l', 'a', 'n', ' '}
+	msgSvcMgrPhase = [...]byte{'G', 'O', 'S', 'V', 'C', 'M', ':', ' ', 'p', 'h', 'a', 's', 'e', ' '}
 	msgSvcMgrErr   = [...]byte{'G', 'O', 'S', 'V', 'C', 'M', ':', ' ', 'e', 'r', 'r', '\n'}
 
 	msgServicePrefix = [...]byte{'S', 'V', 'C', ':', ' '}
@@ -166,13 +193,22 @@ var (
 	msgMetricCap     = [...]byte{'c', 'a', 'p', '='}
 	msgMetricFd      = [...]byte{'f', 'd', '='}
 	msgMetricSock    = [...]byte{'s', 'o', 'c', 'k', '='}
+	msgMetricSvc     = [...]byte{'s', 'v', 'c', '='}
+	msgMetricRole    = [...]byte{'r', 'o', 'l', 'e', '='}
+	msgMetricPhase   = [...]byte{'p', 'h', 'a', 's', 'e', '='}
+	msgMetricNeed    = [...]byte{'n', 'e', 'e', 'd', '='}
+	msgMetricDeps    = [...]byte{'d', 'e', 'p', 's', '='}
+	msgMetricPolicy  = [...]byte{'r', 's', 't', '='}
 	msgSpace         = [...]byte{' '}
+	msgComma         = [...]byte{','}
+	msgSlash         = [...]byte{'/'}
 	msgNewline       = [...]byte{'\n'}
 
 	msgStateDeclared    = [...]byte{'d', 'e', 'c', 'l', 'a', 'r', 'e', 'd'}
 	msgStateBlocked     = [...]byte{'b', 'l', 'o', 'c', 'k', 'e', 'd'}
 	msgStateStarting    = [...]byte{'s', 't', 'a', 'r', 't', 'i', 'n', 'g'}
 	msgStateRunning     = [...]byte{'r', 'u', 'n', 'n', 'i', 'n', 'g'}
+	msgStateReady       = [...]byte{'r', 'e', 'a', 'd', 'y'}
 	msgStateFailed      = [...]byte{'f', 'a', 'i', 'l', 'e', 'd'}
 	msgStateStopping    = [...]byte{'s', 't', 'o', 'p', 'p', 'i', 'n', 'g'}
 	msgStateStopped     = [...]byte{'s', 't', 'o', 'p', 'p', 'e', 'd'}
@@ -182,6 +218,15 @@ var (
 	msgTaskStateDead    = [...]byte{'d', 'e', 'a', 'd'}
 	msgClassCritical    = [...]byte{'c', 'r', 'i', 't', 'i', 'c', 'a', 'l'}
 	msgClassBestEffort  = [...]byte{'b', 'e', 's', 't', '-', 'e', 'f', 'f', 'o', 'r', 't'}
+	msgNeedRequired     = [...]byte{'r', 'e', 'q', 'u', 'i', 'r', 'e', 'd'}
+	msgNeedOptional     = [...]byte{'o', 'p', 't', 'i', 'o', 'n', 'a', 'l'}
+	msgPolicyNever      = [...]byte{'n', 'e', 'v', 'e', 'r'}
+	msgPolicyFail       = [...]byte{'o', 'n', '-', 'f', 'a', 'i', 'l', 'u', 'r', 'e'}
+	msgPolicyAlways     = [...]byte{'a', 'l', 'w', 'a', 'y', 's'}
+	msgPhaseCore        = [...]byte{'c', 'o', 'r', 'e'}
+	msgPhaseServices    = [...]byte{'b', 'a', 's', 'e'}
+	msgPhaseSession     = [...]byte{'s', 'e', 's', 's', 'i', 'o', 'n'}
+	msgDepsNone         = [...]byte{'n', 'o', 'n', 'e'}
 )
 
 func bootRuntime() {
@@ -207,18 +252,39 @@ func serviceManagerMain(order [serviceCount]byte) {
 	log(msgSvcMgrStart[:])
 
 	var idx uintptr
+	var phaseLogged [3]byte
 	for idx = 0; idx < serviceCount; idx++ {
-		setServiceState(uintptr(order[idx]), stateDeclared)
+		serviceID := uintptr(order[idx])
+		setServiceState(serviceID, stateDeclared)
+		logServicePlan(serviceID)
 	}
 
-	liveChildren := launchPhase(order, phaseCore)
-	liveChildren += launchPhase(order, phaseServices)
+	var liveChildren uintptr
+	for bootFailed == 0 {
+		liveChildren += launchEligibleServices(order, bootOperational != 0, &phaseLogged)
 
-	for liveChildren != 0 && bootFailed == 0 {
+		if bootOperational == 0 && allBootServicesReady() {
+			bootOperational = 1
+			log(msgGoInitOperational[:])
+			continue
+		}
+
+		if shellComplete != 0 && shutdownStarted == 0 {
+			shutdownStarted = 1
+			if !beginShutdown(order) {
+				fail(msgSvcMgrErr[:])
+			}
+		}
+
+		if liveChildren == 0 {
+			break
+		}
+
 		serviceID, restart, ok := reapService()
 		if !ok {
 			fail(msgSvcMgrErr[:])
 		}
+		liveChildren--
 
 		if restart {
 			logServiceAction(msgSvcMgrRetry[:], serviceID)
@@ -226,24 +292,10 @@ func serviceManagerMain(order [serviceCount]byte) {
 				if serviceNeedsSuccess(serviceID) {
 					fail(msgSvcMgrErr[:])
 				}
-				liveChildren--
 				continue
 			}
-			if !launchService(serviceID) {
-				if serviceNeedsSuccess(serviceID) {
-					fail(msgSvcMgrErr[:])
-				}
-				liveChildren--
-			}
+			setServiceState(serviceID, stateDeclared)
 			continue
-		}
-
-		liveChildren--
-		if shellComplete != 0 && shutdownStarted == 0 {
-			shutdownStarted = 1
-			if !beginShutdown(order) {
-				fail(msgSvcMgrErr[:])
-			}
 		}
 	}
 
@@ -269,24 +321,25 @@ func serviceManagerMain(order [serviceCount]byte) {
 	fail(msgSvcMgrErr[:])
 }
 
-func launchPhase(order [serviceCount]byte, phase byte) uintptr {
+func launchEligibleServices(order [serviceCount]byte, sessionAllowed bool, phaseLogged *[3]byte) uintptr {
 	var idx uintptr
 	var liveChildren uintptr
 
 	for idx = 0; idx < serviceCount; idx++ {
 		serviceID := uintptr(order[idx])
 		spec := serviceManifest[serviceID]
-		if spec.phase != phase {
+		if !phaseAllowed(spec.phase, sessionAllowed) {
 			continue
 		}
-		if !depsRunning(spec.deps) {
+		if !serviceLaunchable(serviceID) {
+			continue
+		}
+		if !depsReady(spec.deps) {
 			setServiceState(serviceID, stateBlocked)
-			if spec.class == classCritical {
-				fail(msgSvcMgrErr[:])
-			}
 			continue
 		}
 
+		logManagerPhase(spec.phase, phaseLogged)
 		if serviceID == serviceShell {
 			log(msgSvcMgrShell[:])
 		}
@@ -298,14 +351,42 @@ func launchPhase(order [serviceCount]byte, phase byte) uintptr {
 			continue
 		}
 		liveChildren++
-
-		if bootOperational == 0 && allCriticalRunning() {
-			bootOperational = 1
-			log(msgGoInitOperational[:])
-		}
 	}
 
 	return liveChildren
+}
+
+func phaseAllowed(phase byte, sessionAllowed bool) bool {
+	if phase == phaseSession {
+		return sessionAllowed
+	}
+	return true
+}
+
+func serviceLaunchable(serviceID uintptr) bool {
+	if serviceTasks[serviceID] != taskUnset {
+		return false
+	}
+	switch serviceStates[serviceID] {
+	case stateDeclared, stateBlocked:
+		return true
+	default:
+		return false
+	}
+}
+
+func allBootServicesReady() bool {
+	var serviceID uintptr
+	for serviceID = 0; serviceID < serviceCount; serviceID++ {
+		spec := serviceManifest[serviceID]
+		if spec.required != requiredBoot || spec.phase == phaseSession {
+			continue
+		}
+		if serviceStates[serviceID] != stateReady {
+			return false
+		}
+	}
+	return true
 }
 
 func buildStartPlan(order *[serviceCount]byte) bool {
@@ -380,26 +461,13 @@ func compareNames(left []byte, right []byte) int {
 	return 0
 }
 
-func depsRunning(mask byte) bool {
+func depsReady(mask byte) bool {
 	var serviceID uintptr
 	for serviceID = 0; serviceID < serviceCount; serviceID++ {
 		if mask&(1<<serviceID) == 0 {
 			continue
 		}
-		if serviceStates[serviceID] != stateRunning {
-			return false
-		}
-	}
-	return true
-}
-
-func allCriticalRunning() bool {
-	var serviceID uintptr
-	for serviceID = 0; serviceID < serviceCount; serviceID++ {
-		if serviceManifest[serviceID].class != classCritical {
-			continue
-		}
-		if serviceStates[serviceID] != stateRunning {
+		if serviceStates[serviceID] != stateReady {
 			return false
 		}
 	}
@@ -425,7 +493,7 @@ func launchService(serviceID uintptr) bool {
 		}
 
 		budget := uintptr(serviceManifest[serviceID].startBudget)
-		for serviceStates[serviceID] == stateStarting && bootFailed == 0 {
+		for serviceStates[serviceID] != stateReady && serviceStates[serviceID] != stateFailed && bootFailed == 0 {
 			if budget == 0 {
 				logServiceAction(msgSvcMgrWedge[:], serviceID)
 				setServiceState(serviceID, stateFailed)
@@ -438,9 +506,12 @@ func launchService(serviceID uintptr) bool {
 		}
 
 		switch serviceStates[serviceID] {
-		case stateRunning:
+		case stateReady:
 			return true
 		case stateFailed:
+			if serviceTasks[serviceID] != taskUnset {
+				return true
+			}
 			if !scheduleRestart(serviceID) {
 				return false
 			}
@@ -467,15 +538,17 @@ func reapService() (uintptr, bool, bool) {
 
 	serviceTasks[serviceID] = taskUnset
 	serviceReaps[serviceID]++
-	logServiceAction(msgSvcMgrReap[:], serviceID)
 
 	switch serviceStates[serviceID] {
 	case stateStopped:
+		logServiceStateAction(msgSvcMgrReap[:], serviceID, stateStopped)
 		return serviceID, false, true
 	case stateFailed:
+		logServiceStateAction(msgSvcMgrReap[:], serviceID, stateFailed)
 		return serviceID, true, true
 	default:
 		setServiceState(serviceID, stateFailed)
+		logServiceStateAction(msgSvcMgrReap[:], serviceID, stateFailed)
 		return serviceID, true, true
 	}
 }
@@ -511,7 +584,7 @@ func serviceByTask(tid uintptr) uintptr {
 }
 
 func serviceNeedsSuccess(serviceID uintptr) bool {
-	return serviceManifest[serviceID].class == classCritical || serviceID == serviceShell
+	return serviceManifest[serviceID].required == requiredBoot
 }
 
 func scheduleRestart(serviceID uintptr) bool {
@@ -519,7 +592,7 @@ func scheduleRestart(serviceID uintptr) bool {
 	if policy == restartNever {
 		return false
 	}
-	if serviceRestarts[serviceID] >= maxServiceRestarts {
+	if serviceRestarts[serviceID] >= serviceManifest[serviceID].restartLimit {
 		return false
 	}
 
@@ -546,10 +619,10 @@ func beginShutdown(order [serviceCount]byte) bool {
 		if serviceID == serviceShell {
 			continue
 		}
-		if serviceStates[serviceID] != stateRunning {
+		if !serviceIsActive(serviceID) {
 			continue
 		}
-		if !requestServiceStop(serviceID) && serviceManifest[serviceID].class == classCritical {
+		if !requestServiceStop(serviceID) && serviceNeedsSuccess(serviceID) {
 			return false
 		}
 	}
@@ -610,6 +683,14 @@ func logServiceAction(prefix []byte, serviceID uintptr) {
 	log(msgNewline[:])
 }
 
+func logServiceStateAction(prefix []byte, serviceID uintptr, state byte) {
+	log(prefix)
+	log(serviceManifest[serviceID].name)
+	log(msgSpace[:])
+	log(stateLabel(state))
+	log(msgNewline[:])
+}
+
 func applyServiceIsolation(serviceID uintptr, tid uintptr) bool {
 	cfg := isolationConfig{}
 
@@ -650,6 +731,61 @@ func applyServiceScheduling(serviceID uintptr, tid uintptr) bool {
 	return true
 }
 
+func logManagerPhase(phase byte, phaseLogged *[3]byte) {
+	if phaseLogged[phase] != 0 {
+		return
+	}
+	phaseLogged[phase] = 1
+	log(msgSvcMgrPhase[:])
+	log(phaseLabel(phase))
+	log(msgNewline[:])
+}
+
+func logServicePlan(serviceID uintptr) {
+	spec := serviceManifest[serviceID]
+
+	log(msgSvcMgrPlan[:])
+	log(spec.name)
+	log(msgSpace[:])
+	log(msgMetricRole[:])
+	log(spec.role)
+	log(msgSpace[:])
+	log(msgMetricPhase[:])
+	log(phaseLabel(spec.phase))
+	log(msgSpace[:])
+	log(msgMetricNeed[:])
+	log(requiredLabel(spec.required))
+	log(msgSpace[:])
+	log(msgMetricDeps[:])
+	logDeps(spec.deps)
+	log(msgSpace[:])
+	log(msgMetricPolicy[:])
+	log(policyLabel(spec.policy))
+	log(msgSlash[:])
+	logUint(uintptr(spec.restartLimit))
+	log(msgNewline[:])
+}
+
+func logDeps(mask byte) {
+	if mask == 0 {
+		log(msgDepsNone[:])
+		return
+	}
+
+	first := true
+	var serviceID uintptr
+	for serviceID = 0; serviceID < serviceCount; serviceID++ {
+		if mask&(1<<serviceID) == 0 {
+			continue
+		}
+		if !first {
+			log(msgComma[:])
+		}
+		log(serviceManifest[serviceID].name)
+		first = false
+	}
+}
+
 func stateLabel(state byte) []byte {
 	switch state {
 	case stateDeclared:
@@ -660,6 +796,8 @@ func stateLabel(state byte) []byte {
 		return msgStateStarting[:]
 	case stateRunning:
 		return msgStateRunning[:]
+	case stateReady:
+		return msgStateReady[:]
 	case stateStopping:
 		return msgStateStopping[:]
 	case stateStopped:
@@ -681,6 +819,40 @@ func schedClassLabel(class uintptr) []byte {
 		return msgClassCritical[:]
 	}
 	return msgClassBestEffort[:]
+}
+
+func requiredLabel(required byte) []byte {
+	if required == requiredBoot {
+		return msgNeedRequired[:]
+	}
+	return msgNeedOptional[:]
+}
+
+func policyLabel(policy byte) []byte {
+	switch policy {
+	case restartNever:
+		return msgPolicyNever[:]
+	case restartAlways:
+		return msgPolicyAlways[:]
+	default:
+		return msgPolicyFail[:]
+	}
+}
+
+func phaseLabel(phase byte) []byte {
+	switch phase {
+	case phaseCore:
+		return msgPhaseCore[:]
+	case phaseSession:
+		return msgPhaseSession[:]
+	default:
+		return msgPhaseServices[:]
+	}
+}
+
+func serviceIsActive(serviceID uintptr) bool {
+	state := serviceStates[serviceID]
+	return state == stateRunning || state == stateReady
 }
 
 func taskStateLabel(state uint64) []byte {
@@ -742,6 +914,9 @@ func logServiceSnapshot(serviceID uintptr) {
 	log(msgSpace[:])
 	log(msgMetricTick[:])
 	logUint(serviceLastTick[serviceID])
+	log(msgSpace[:])
+	log(msgMetricSvc[:])
+	log(stateLabel(serviceStates[serviceID]))
 	log(msgNewline[:])
 }
 
