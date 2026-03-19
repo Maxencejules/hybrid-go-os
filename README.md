@@ -84,6 +84,12 @@ Visible proof paths:
   registry, firmware/SMP, and target-qualification bundle.
   Proof: `tests/hw/test_x2_hardware_gate_v1.py`,
   `tests/hw/test_x2_hardware_runtime_v1.py`
+- `make test-x3-platform-runtime-v1`
+  Aggregates the historical X3 package, storage-platform, and catalog backlog
+  into one boot-backed `pkgsvc` qualification bundle with signed metadata,
+  replay update flow, and persistent runtime-media evidence.
+  Proof: `tests/pkg/test_x3_platform_runtime_gate_v1.py`,
+  `tests/pkg/test_x3_platform_runtime_service_v1.py`
 - `make test-hw-matrix-v7`
   Emits the machine-readable M54 matrix bundle for q35 NVMe and i440fx AHCI
   coverage on top of the v6 baseline.

@@ -170,6 +170,19 @@ Make ecosystem scale and catalog health checks release-blocking.
   - `docs/STATUS.md`
   - `README.md`
 
+## X3 runtime-backed closure addendum (2026-03-18)
+
+- This backlog is now governed by the shared x3 platform and ecosystem runtime qualification lane.
+- The historical catalog simulation, install-success, and audit surface now
+  feeds the shared x3 platform and ecosystem runtime qualification gate instead
+  of remaining a standalone ecosystem-scale lane.
+- `make test-x3-platform-runtime-v1` binds catalog load, staged promotion,
+  install telemetry, rollback-safe replay flow, and audit linkage to the
+  default-lane `pkgsvc` runtime path.
+- Future catalog/distribution breadth must land through the same boot-backed
+  package service and runtime report before it is treated as a broader
+  ecosystem claim.
+
 ## Non-goals for M39 backlog
 
 - Immediate universal package/app compatibility across all workload classes.

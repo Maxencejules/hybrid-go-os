@@ -12,6 +12,7 @@ const (
 	serviceTime = iota
 	serviceDiag
 	serviceShell
+	servicePkg
 	serviceCount
 )
 
@@ -63,8 +64,8 @@ var (
 	shutdownStarted uintptr
 	shellComplete   uintptr
 
-	serviceStates = [serviceCount]byte{stateUnset, stateUnset, stateUnset}
-	serviceTasks  = [serviceCount]byte{taskUnset, taskUnset, taskUnset}
+	serviceStates = [serviceCount]byte{stateUnset, stateUnset, stateUnset, stateUnset}
+	serviceTasks  = [serviceCount]byte{taskUnset, taskUnset, taskUnset, taskUnset}
 
 	serviceRestarts [serviceCount]byte
 	serviceStarts   [serviceCount]byte
@@ -108,10 +109,19 @@ var serviceManifest = [...]serviceSpec{
 		name:        nameShell[:],
 		class:       classBestEffort,
 		policy:      restartOnFailure,
-		deps:        1 << serviceTime,
+		deps:        (1 << serviceTime) | (1 << servicePkg),
 		phase:       phaseServices,
 		startBudget: 8,
 		stopCmd:     0,
+	},
+	{
+		name:        namePkgSvc[:],
+		class:       classBestEffort,
+		policy:      restartOnFailure,
+		deps:        1 << serviceTime,
+		phase:       phaseServices,
+		startBudget: 8,
+		stopCmd:     cmdStop,
 	},
 }
 
@@ -242,6 +252,9 @@ func serviceManagerMain(order [serviceCount]byte) {
 	}
 
 	if serviceStates[serviceShell] != stateStopped {
+		fail(msgSvcMgrErr[:])
+	}
+	if serviceStates[servicePkg] != stateStopped {
 		fail(msgSvcMgrErr[:])
 	}
 	if serviceStates[serviceTime] != stateStopped {
@@ -613,6 +626,10 @@ func applyServiceIsolation(serviceID uintptr, tid uintptr) bool {
 		cfg.DomainID = 3
 		cfg.CapabilityFlags = taskCapStorage | taskCapNetwork
 		cfg.Limits = packIsolationLimits(2, 3, 2)
+	case servicePkg:
+		cfg.DomainID = 4
+		cfg.CapabilityFlags = taskCapStorage
+		cfg.Limits = packIsolationLimits(3, 0, 1)
 	default:
 		return false
 	}
@@ -796,6 +813,8 @@ func goSpawnedThreadMain() {
 		diagServiceMain()
 	case serviceShell:
 		shellMain()
+	case servicePkg:
+		pkgServiceMain()
 	default:
 		fail(msgGoInitErr[:])
 	}

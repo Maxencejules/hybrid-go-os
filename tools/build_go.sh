@@ -13,16 +13,51 @@ WINUSER="${USERNAME:-}"
 if [ -z "$WINUSER" ] && [[ "$ROOT" =~ ^/mnt/c/Users/([^/]+)/ ]]; then
     WINUSER="${BASH_REMATCH[1]}"
 fi
-if [ -d "/mnt/c/Progra~1/Go/bin" ]; then
-    PATH="/mnt/c/Progra~1/Go/bin:$PATH"
-elif [ -d "/mnt/c/Program Files/Go/bin" ]; then
-    PATH="/mnt/c/Program Files/Go/bin:$PATH"
+if [ -z "$WINUSER" ] && [[ "$ROOT" =~ ^/c/Users/([^/]+)/ ]]; then
+    WINUSER="${BASH_REMATCH[1]}"
+fi
+
+prepend_path_if_dir() {
+    if [ -d "$1" ]; then
+        PATH="$1:$PATH"
+    fi
+}
+
+prepend_compatible_go_sdk() {
+    local root
+    local candidate
+    for root in "$@"; do
+        [ -d "$root" ] || continue
+        for candidate in "$root"/go1.25.* "$root"/go1.24.* "$root"/go1.23.* "$root"/go1.22.*; do
+            if [ -d "$candidate/bin" ]; then
+                PATH="$candidate/bin:$PATH"
+                export GOTOOLCHAIN=local
+                return 0
+            fi
+        done
+    done
+    return 1
+}
+
+prepend_path_if_dir "/mnt/c/Progra~1/Go/bin"
+prepend_path_if_dir "/mnt/c/Program Files/Go/bin"
+prepend_path_if_dir "/c/Progra~1/Go/bin"
+prepend_path_if_dir "/c/Program Files/Go/bin"
+
+MINGW_WIN_BIN="/mnt/c/mingw64/mingw64/bin"
+MINGW_WIN_BIN_ALT="/c/mingw64/mingw64/bin"
+
+if [ -d "$MINGW_WIN_BIN" ]; then
+    PATH="$MINGW_WIN_BIN:$PATH"
+elif [ -d "$MINGW_WIN_BIN_ALT" ]; then
+    PATH="$MINGW_WIN_BIN_ALT:$PATH"
 fi
 if [ -n "$WINUSER" ]; then
     TINYGO_WIN_BIN="/mnt/c/Users/$WINUSER/AppData/Local/Microsoft/WinGet/Packages/tinygo-org.tinygo_Microsoft.Winget.Source_8wekyb3d8bbwe/tinygo/bin"
-    if [ -d "$TINYGO_WIN_BIN" ]; then
-        PATH="$TINYGO_WIN_BIN:$PATH"
-    fi
+    TINYGO_WIN_BIN_ALT="/c/Users/$WINUSER/AppData/Local/Microsoft/WinGet/Packages/tinygo-org.tinygo_Microsoft.Winget.Source_8wekyb3d8bbwe/tinygo/bin"
+    prepend_path_if_dir "$TINYGO_WIN_BIN"
+    prepend_path_if_dir "$TINYGO_WIN_BIN_ALT"
+    prepend_compatible_go_sdk "/mnt/c/Users/$WINUSER/sdk" "/c/Users/$WINUSER/sdk" || true
 fi
 export PATH
 
@@ -50,16 +85,25 @@ to_host_path() {
     fi
 }
 
+tool_uses_host_paths() {
+    case "$1" in
+        *.exe|/[a-zA-Z]/*)
+            return 0
+            ;;
+    esac
+    return 1
+}
+
 # --- Check prerequisites ---
 TINYGO_BIN="$(find_tool tinygo tinygo.exe "${TINYGO_WIN_BIN:-}/tinygo.exe")" || {
     echo "ERROR: tinygo not found in PATH"
     exit 1
 }
-NASM_BIN="$(find_tool nasm nasm.exe /mnt/c/mingw64/mingw64/bin/nasm.exe)" || {
+NASM_BIN="$(find_tool nasm nasm.exe "$MINGW_WIN_BIN/nasm.exe" "$MINGW_WIN_BIN_ALT/nasm.exe")" || {
     echo "ERROR: nasm not found in PATH"
     exit 1
 }
-OBJCOPY_BIN="$(find_tool objcopy objcopy.exe /mnt/c/mingw64/mingw64/bin/objcopy.exe)" || {
+OBJCOPY_BIN="$(find_tool objcopy objcopy.exe "$MINGW_WIN_BIN/objcopy.exe" "$MINGW_WIN_BIN_ALT/objcopy.exe")" || {
     echo "ERROR: objcopy not found in PATH"
     exit 1
 }
@@ -71,15 +115,15 @@ TINYGO_OUT="$OUT/gousr.elf"
 OBJCOPY_IN="$OUT/gousr.elf"
 OBJCOPY_OUT="$OUT/gousr.bin"
 
-if [[ "$NASM_BIN" == *.exe ]]; then
+if tool_uses_host_paths "$NASM_BIN"; then
     NASM_OUT="$(to_host_path "$NASM_OUT")"
     NASM_SRC="$(to_host_path "$NASM_SRC")"
 fi
-if [[ "$TINYGO_BIN" == *.exe ]]; then
+if tool_uses_host_paths "$TINYGO_BIN"; then
     TINYGO_TARGET="$(to_host_path "$TINYGO_TARGET")"
     TINYGO_OUT="$(to_host_path "$TINYGO_OUT")"
 fi
-if [[ "$OBJCOPY_BIN" == *.exe ]]; then
+if tool_uses_host_paths "$OBJCOPY_BIN"; then
     OBJCOPY_IN="$(to_host_path "$OBJCOPY_IN")"
     OBJCOPY_OUT="$(to_host_path "$OBJCOPY_OUT")"
 fi
@@ -93,7 +137,7 @@ echo "==> Assembling Go startup stubs..."
 # Use forward slashes which work on both Unix and Windows in LLD.
 START_OBJ="$OUT/go_start.o"
 LINKER_LD="$SVC/linker.ld"
-if [[ "$TINYGO_BIN" == *.exe ]]; then
+if tool_uses_host_paths "$TINYGO_BIN"; then
     START_OBJ="$(to_host_path "$START_OBJ")"
     LINKER_LD="$(to_host_path "$LINKER_LD")"
 fi
@@ -140,8 +184,8 @@ cd "$SVC"
 echo "==> Converting to flat binary..."
 "$OBJCOPY_BIN" -O binary "$OBJCOPY_IN" "$OBJCOPY_OUT"
 BIN_SIZE=$(stat -c%s "$OUT/gousr.bin" 2>/dev/null || stat -f%z "$OUT/gousr.bin" 2>/dev/null || wc -c < "$OUT/gousr.bin")
-if [ "$BIN_SIZE" -gt 16384 ]; then
-    echo "ERROR: Go user binary exceeds the current 16384-byte userspace image limit ($BIN_SIZE bytes)"
+if [ "$BIN_SIZE" -gt 24576 ]; then
+    echo "ERROR: Go user binary exceeds the current 24576-byte userspace image limit ($BIN_SIZE bytes)"
     exit 1
 fi
 echo "==> Go user binary: $OUT/gousr.bin ($BIN_SIZE bytes)"

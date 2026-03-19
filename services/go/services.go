@@ -137,6 +137,7 @@ func diagServiceMain() {
 		logServiceSnapshot(serviceTime)
 		logServiceSnapshot(serviceDiag)
 		logServiceSnapshot(serviceShell)
+		logServiceSnapshot(servicePkg)
 		if !logKernelTaskSnapshot(serviceTime) {
 			setServiceState(serviceDiag, stateFailed)
 			fail(msgDiagSvcErr[:])
@@ -146,6 +147,10 @@ func diagServiceMain() {
 			fail(msgDiagSvcErr[:])
 		}
 		if !logKernelTaskSnapshot(serviceShell) {
+			setServiceState(serviceDiag, stateFailed)
+			fail(msgDiagSvcErr[:])
+		}
+		if !logKernelTaskSnapshot(servicePkg) {
 			setServiceState(serviceDiag, stateFailed)
 			fail(msgDiagSvcErr[:])
 		}
@@ -234,11 +239,32 @@ func shellMain() {
 		fail(msgShellErr[:])
 	}
 
+	pkgEP := sysSvcLookup(&namePkgSvc[0], uintptr(len(namePkgSvc)))
+	if pkgEP == sysErr {
+		setServiceState(serviceShell, stateFailed)
+		fail(msgShellErr[:])
+	}
+	if pkgRuntimeAvailable() {
+		if !requestPkg(pkgEP, replyEP) {
+			setServiceState(serviceShell, stateFailed)
+			fail(msgShellErr[:])
+		}
+		log(msgShellPkg[:])
+	}
+
 	setServiceState(serviceShell, stateStopping)
 	shellComplete = 1
 	setServiceState(serviceShell, stateStopped)
 	sysThreadExit()
 	fail(msgShellErr[:])
+}
+
+func pkgRuntimeAvailable() bool {
+	fd := sysOpen(&pathPkgState[0], openReadWrite, 0)
+	if fd == sysErr {
+		return false
+	}
+	return sysClose(fd) != sysErr
 }
 
 func requestServiceCommand(serviceEP uintptr, replyEP uintptr, cmd byte) bool {
@@ -450,6 +476,19 @@ func verifyServiceProfiles(shellEndpointCount uint64) bool {
 		return false
 	}
 	if info.EndpointCount != shellEndpointCount || info.FdCount != 0 || info.SocketCount != 0 {
+		return false
+	}
+
+	if !loadServiceTaskInfo(servicePkg, &info) {
+		return false
+	}
+	if info.DomainID != 4 {
+		return false
+	}
+	if info.CapabilityFlags != uint64(taskCapStorage) {
+		return false
+	}
+	if info.EndpointCount != 1 || info.FdCount != 0 || info.SocketCount != 0 {
 		return false
 	}
 

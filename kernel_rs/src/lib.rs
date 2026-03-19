@@ -581,6 +581,14 @@ pub extern "C" fn trap_handler(frame: *mut u64) {
             13 => {
                 let cs = *frame.add(18);
                 if cs & 3 == 3 {
+                    #[cfg(feature = "go_test")]
+                    {
+                        serial_write(b"USERGPF: err=0x");
+                        serial_write_hex(error_code);
+                        serial_write(b" rip=0x");
+                        serial_write_hex(*frame.add(17));
+                        serial_write(b"\n");
+                    }
                     handle_user_fault(frame);
                     return;
                 }
@@ -593,6 +601,18 @@ pub extern "C" fn trap_handler(frame: *mut u64) {
             14 => {
                 let cs = *frame.add(18);
                 if cs & 3 == 3 {
+                    #[cfg(feature = "go_test")]
+                    {
+                        let cr2: u64;
+                        core::arch::asm!("mov {}, cr2", out(reg) cr2, options(nomem, nostack));
+                        serial_write(b"USERPF: addr=0x");
+                        serial_write_hex(cr2);
+                        serial_write(b" err=0x");
+                        serial_write_hex(error_code);
+                        serial_write(b" rip=0x");
+                        serial_write_hex(*frame.add(17));
+                        serial_write(b"\n");
+                    }
                     handle_user_fault(frame);
                     return;
                 }
@@ -1059,6 +1079,38 @@ cfg_m3! {
                 M8_FD_TABLE[fd as usize].rights = effective;
                 return fd;
             }
+            if r4_storage_available() && m8_path_matches(bytes, b"/runtime/pkgstate.bin") {
+                if !r4_current_has_cap(R4_TASK_CAP_STORAGE) {
+                    return 0xFFFF_FFFF_FFFF_FFFF;
+                }
+                let max = m10_rights_for_kind(M8FdKind::PkgStateFile);
+                let effective = requested | M10_RIGHT_POLL;
+                if effective & !max != 0 {
+                    return 0xFFFF_FFFF_FFFF_FFFF;
+                }
+                let fd = m8_alloc_fd(M8FdKind::PkgStateFile);
+                if fd == 0xFFFF_FFFF_FFFF_FFFF {
+                    return fd;
+                }
+                M8_FD_TABLE[fd as usize].rights = effective;
+                return fd;
+            }
+            if r4_storage_available() && m8_path_matches(bytes, b"/runtime/platform.bin") {
+                if !r4_current_has_cap(R4_TASK_CAP_STORAGE) {
+                    return 0xFFFF_FFFF_FFFF_FFFF;
+                }
+                let max = m10_rights_for_kind(M8FdKind::PlatformFile);
+                let effective = requested | M10_RIGHT_POLL;
+                if effective & !max != 0 {
+                    return 0xFFFF_FFFF_FFFF_FFFF;
+                }
+                let fd = m8_alloc_fd(M8FdKind::PlatformFile);
+                if fd == 0xFFFF_FFFF_FFFF_FFFF {
+                    return fd;
+                }
+                M8_FD_TABLE[fd as usize].rights = effective;
+                return fd;
+            }
         }
         0xFFFF_FFFF_FFFF_FFFF
     }
@@ -1115,6 +1167,54 @@ cfg_m3! {
                 M8_FD_TABLE[idx].offset += n;
                 n as u64
             }
+            #[cfg(feature = "go_test")]
+            M8FdKind::PkgStateFile => {
+                let total = r4_storage_runtime_len(R4StorageRuntimeFile::PkgState);
+                let off = M8_FD_TABLE[idx].offset;
+                if off >= total {
+                    return 0;
+                }
+                let req = len as usize;
+                let remaining = total - off;
+                let n = if req < remaining { req } else { remaining };
+                let mut kbuf = [0u8; R4_STORAGE_RUNTIME_FILE_MAX_BYTES];
+                if !r4_storage_runtime_copy(
+                    R4StorageRuntimeFile::PkgState,
+                    off,
+                    &mut kbuf[..n],
+                ) {
+                    return 0xFFFF_FFFF_FFFF_FFFF;
+                }
+                if copyout_user(buf, &kbuf[..n], n).is_err() {
+                    return 0xFFFF_FFFF_FFFF_FFFF;
+                }
+                M8_FD_TABLE[idx].offset += n;
+                n as u64
+            }
+            #[cfg(feature = "go_test")]
+            M8FdKind::PlatformFile => {
+                let total = r4_storage_runtime_len(R4StorageRuntimeFile::Platform);
+                let off = M8_FD_TABLE[idx].offset;
+                if off >= total {
+                    return 0;
+                }
+                let req = len as usize;
+                let remaining = total - off;
+                let n = if req < remaining { req } else { remaining };
+                let mut kbuf = [0u8; R4_STORAGE_RUNTIME_FILE_MAX_BYTES];
+                if !r4_storage_runtime_copy(
+                    R4StorageRuntimeFile::Platform,
+                    off,
+                    &mut kbuf[..n],
+                ) {
+                    return 0xFFFF_FFFF_FFFF_FFFF;
+                }
+                if copyout_user(buf, &kbuf[..n], n).is_err() {
+                    return 0xFFFF_FFFF_FFFF_FFFF;
+                }
+                M8_FD_TABLE[idx].offset += n;
+                n as u64
+            }
             #[cfg(not(feature = "go_test"))]
             _ => 0xFFFF_FFFF_FFFF_FFFF,
         }
@@ -1160,6 +1260,32 @@ cfg_m3! {
             }
             #[cfg(feature = "go_test")]
             M8FdKind::StateFile => 0xFFFF_FFFF_FFFF_FFFF,
+            #[cfg(feature = "go_test")]
+            M8FdKind::PkgStateFile => {
+                let n = len as usize;
+                let mut kbuf = [0u8; R4_STORAGE_RUNTIME_FILE_MAX_BYTES];
+                if copyin_user(&mut kbuf[..n], buf, n).is_err() {
+                    return 0xFFFF_FFFF_FFFF_FFFF;
+                }
+                if !r4_storage_runtime_write(R4StorageRuntimeFile::PkgState, &kbuf[..n]) {
+                    return 0xFFFF_FFFF_FFFF_FFFF;
+                }
+                M8_FD_TABLE[idx].offset = n;
+                len
+            }
+            #[cfg(feature = "go_test")]
+            M8FdKind::PlatformFile => {
+                let n = len as usize;
+                let mut kbuf = [0u8; R4_STORAGE_RUNTIME_FILE_MAX_BYTES];
+                if copyin_user(&mut kbuf[..n], buf, n).is_err() {
+                    return 0xFFFF_FFFF_FFFF_FFFF;
+                }
+                if !r4_storage_runtime_write(R4StorageRuntimeFile::Platform, &kbuf[..n]) {
+                    return 0xFFFF_FFFF_FFFF_FFFF;
+                }
+                M8_FD_TABLE[idx].offset = n;
+                len
+            }
             #[cfg(not(feature = "go_test"))]
             _ => 0xFFFF_FFFF_FFFF_FFFF,
         }
@@ -1179,6 +1305,13 @@ cfg_m3! {
                     return 0xFFFF_FFFF_FFFF_FFFF;
                 }
                 if r4_storage_fsync() { 0 } else { 0xFFFF_FFFF_FFFF_FFFF }
+            }
+            #[cfg(feature = "go_test")]
+            M8FdKind::PkgStateFile | M8FdKind::PlatformFile => {
+                if M8_FD_TABLE[idx].rights & M10_RIGHT_WRITE == 0 {
+                    return 0xFFFF_FFFF_FFFF_FFFF;
+                }
+                0
             }
             _ => 0xFFFF_FFFF_FFFF_FFFF,
         }
@@ -1303,6 +1436,32 @@ cfg_m3! {
                                 && M8_FD_TABLE[idx].offset < r4_storage_state_len()
                             {
                                 revents |= POLLIN;
+                            }
+                        }
+                        #[cfg(feature = "go_test")]
+                        M8FdKind::PkgStateFile => {
+                            if events & POLLIN != 0
+                                && rights & M10_RIGHT_READ != 0
+                                && M8_FD_TABLE[idx].offset
+                                    < r4_storage_runtime_len(R4StorageRuntimeFile::PkgState)
+                            {
+                                revents |= POLLIN;
+                            }
+                            if events & POLLOUT != 0 && rights & M10_RIGHT_WRITE != 0 {
+                                revents |= POLLOUT;
+                            }
+                        }
+                        #[cfg(feature = "go_test")]
+                        M8FdKind::PlatformFile => {
+                            if events & POLLIN != 0
+                                && rights & M10_RIGHT_READ != 0
+                                && M8_FD_TABLE[idx].offset
+                                    < r4_storage_runtime_len(R4StorageRuntimeFile::Platform)
+                            {
+                                revents |= POLLIN;
+                            }
+                            if events & POLLOUT != 0 && rights & M10_RIGHT_WRITE != 0 {
+                                revents |= POLLOUT;
                             }
                         }
                         #[cfg(not(feature = "go_test"))]
@@ -1664,7 +1823,15 @@ cfg_m3! {
     const M10_OPEN_RDWR: u64 = 2;
 
     #[derive(Clone, Copy, PartialEq)]
-    enum M8FdKind { Free, Console, CompatFile, JournalFile, StateFile }
+    enum M8FdKind {
+        Free,
+        Console,
+        CompatFile,
+        JournalFile,
+        StateFile,
+        PkgStateFile,
+        PlatformFile,
+    }
 
     #[derive(Clone, Copy)]
     struct M8FdEntry {
@@ -1858,6 +2025,9 @@ cfg_m3! {
             M8FdKind::CompatFile => M10_RIGHT_READ | M10_RIGHT_POLL,
             M8FdKind::JournalFile => M10_RIGHT_WRITE | M10_RIGHT_POLL,
             M8FdKind::StateFile => M10_RIGHT_READ | M10_RIGHT_POLL,
+            M8FdKind::PkgStateFile | M8FdKind::PlatformFile => {
+                M10_RIGHT_READ | M10_RIGHT_WRITE | M10_RIGHT_POLL
+            }
         }
     }
 
@@ -2084,6 +2254,10 @@ cfg_m3! {
             2 => Some(USER_CODE_PAGE_3.0.as_mut_ptr()),
             #[cfg(feature = "go_test")]
             3 => Some(USER_CODE_PAGE_4.0.as_mut_ptr()),
+            #[cfg(feature = "go_test")]
+            4 => Some(USER_CODE_PAGE_5.0.as_mut_ptr()),
+            #[cfg(feature = "go_test")]
+            5 => Some(USER_CODE_PAGE_6.0.as_mut_ptr()),
             _ => None,
         }
     }
@@ -2234,6 +2408,8 @@ cfg_m3! {
             *pt_code.add(1) = kv2p(USER_CODE_PAGE_2.0.as_ptr() as u64) | code_flags;
             *pt_code.add(2) = kv2p(USER_CODE_PAGE_3.0.as_ptr() as u64) | code_flags;
             *pt_code.add(3) = kv2p(USER_CODE_PAGE_4.0.as_ptr() as u64) | code_flags;
+            *pt_code.add(4) = kv2p(USER_CODE_PAGE_5.0.as_ptr() as u64) | code_flags;
+            *pt_code.add(5) = kv2p(USER_CODE_PAGE_6.0.as_ptr() as u64) | code_flags;
         }
 
         let pt_stack = USER_PT_STACK.0.as_mut_ptr() as *mut u64;
@@ -2514,6 +2690,10 @@ cfg_r4! {
     #[cfg(any(feature = "stress_ipc_test", feature = "go_test"))]
     static mut USER_STACK_PAGE_4: Page = Page([0; 4096]);
     #[cfg(feature = "go_test")]
+    static mut USER_CODE_PAGE_5:  Page = Page([0; 4096]);
+    #[cfg(feature = "go_test")]
+    static mut USER_CODE_PAGE_6:  Page = Page([0; 4096]);
+    #[cfg(feature = "go_test")]
     static mut USER_STACK_PAGE_5: Page = Page([0; 4096]);
     #[cfg(feature = "go_test")]
     static mut USER_STACK_PAGE_6: Page = Page([0; 4096]);
@@ -2577,7 +2757,7 @@ cfg_r4! {
     const R4_TASK_DEFAULT_ENDPOINT_LIMIT: u8 = 4;
 
     #[cfg(any(feature = "stress_ipc_test", feature = "go_test"))]
-    const R4_MAX_TASKS: usize = 4;
+    const R4_MAX_TASKS: usize = 6;
     #[cfg(not(any(feature = "stress_ipc_test", feature = "go_test")))]
     const R4_MAX_TASKS: usize = 2;
 
@@ -3656,6 +3836,8 @@ cfg_r4! {
         *pt_code.add(1) = kv2p(USER_CODE_PAGE_2.0.as_ptr() as u64) | code_flags;
         *pt_code.add(2) = kv2p(USER_CODE_PAGE_3.0.as_ptr() as u64) | code_flags;
         *pt_code.add(3) = kv2p(USER_CODE_PAGE_4.0.as_ptr() as u64) | code_flags;
+        *pt_code.add(4) = kv2p(USER_CODE_PAGE_5.0.as_ptr() as u64) | code_flags;
+        *pt_code.add(5) = kv2p(USER_CODE_PAGE_6.0.as_ptr() as u64) | code_flags;
 
         let pt_stack = USER_PT_STACK.0.as_mut_ptr() as *mut u64;
         *pt_stack.add(511) = kv2p(USER_STACK_PAGE.0.as_ptr() as u64) | 0x07;
@@ -3715,6 +3897,8 @@ cfg_r4! {
         *pt_code.add(1) = kv2p(USER_CODE_PAGE_2.0.as_ptr() as u64) | code_flags;
         *pt_code.add(2) = kv2p(USER_CODE_PAGE_3.0.as_ptr() as u64) | code_flags;
         *pt_code.add(3) = kv2p(USER_CODE_PAGE_4.0.as_ptr() as u64) | code_flags;
+        *pt_code.add(4) = kv2p(USER_CODE_PAGE_5.0.as_ptr() as u64) | code_flags;
+        *pt_code.add(5) = kv2p(USER_CODE_PAGE_6.0.as_ptr() as u64) | code_flags;
 
         let pt_stack = USER_PT_STACK.0.as_mut_ptr() as *mut u64;
         *pt_stack.add(511) = kv2p(USER_STACK_PAGE.0.as_ptr() as u64) | 0x07;
@@ -3736,18 +3920,24 @@ cfg_r4! {
         core::ptr::write_bytes(USER_CODE_PAGE_2.0.as_mut_ptr(), 0, runtime::process::GO_IMAGE_PAGE_SIZE);
         core::ptr::write_bytes(USER_CODE_PAGE_3.0.as_mut_ptr(), 0, runtime::process::GO_IMAGE_PAGE_SIZE);
         core::ptr::write_bytes(USER_CODE_PAGE_4.0.as_mut_ptr(), 0, runtime::process::GO_IMAGE_PAGE_SIZE);
+        core::ptr::write_bytes(USER_CODE_PAGE_5.0.as_mut_ptr(), 0, runtime::process::GO_IMAGE_PAGE_SIZE);
+        core::ptr::write_bytes(USER_CODE_PAGE_6.0.as_mut_ptr(), 0, runtime::process::GO_IMAGE_PAGE_SIZE);
 
         let chunks = [
             runtime::process::go_image_chunk(blob, 0),
             runtime::process::go_image_chunk(blob, 1),
             runtime::process::go_image_chunk(blob, 2),
             runtime::process::go_image_chunk(blob, 3),
+            runtime::process::go_image_chunk(blob, 4),
+            runtime::process::go_image_chunk(blob, 5),
         ];
         let pages = [
             USER_CODE_PAGE.0.as_mut_ptr(),
             USER_CODE_PAGE_2.0.as_mut_ptr(),
             USER_CODE_PAGE_3.0.as_mut_ptr(),
             USER_CODE_PAGE_4.0.as_mut_ptr(),
+            USER_CODE_PAGE_5.0.as_mut_ptr(),
+            USER_CODE_PAGE_6.0.as_mut_ptr(),
         ];
         for i in 0..runtime::process::GO_IMAGE_MAX_PAGES {
             if chunks[i].is_empty() {
@@ -5597,6 +5787,18 @@ const R4_STORAGE_JOURNAL_SECTOR: u64 = 8;
 const R4_STORAGE_STATE_SECTOR: u64 = 9;
 #[cfg(feature = "go_test")]
 const R4_STORAGE_MAX_BYTES: usize = 480;
+#[cfg(feature = "go_test")]
+const R4_STORAGE_RUNTIME_FILE_MAX_BYTES: usize = 64;
+#[cfg(feature = "go_test")]
+const R4_STORAGE_RUNTIME_FILE_COUNT: usize = 2;
+#[cfg(feature = "go_test")]
+const R4_STORAGE_PKGSTATE_MAGIC: u32 = 0x504B_4731;
+#[cfg(feature = "go_test")]
+const R4_STORAGE_PLATFORM_MAGIC: u32 = 0x5046_5431;
+#[cfg(feature = "go_test")]
+const R4_STORAGE_PKGSTATE_SECTOR: u64 = 10;
+#[cfg(feature = "go_test")]
+const R4_STORAGE_PLATFORM_SECTOR: u64 = 11;
 
 #[cfg(feature = "go_test")]
 static mut R4_STORAGE_READY: bool = false;
@@ -5612,6 +5814,16 @@ static mut R4_STORAGE_DURABLE: [u8; R4_STORAGE_MAX_BYTES] = [0; R4_STORAGE_MAX_B
 static mut R4_STORAGE_JOURNAL_LEN: usize = 0;
 #[cfg(feature = "go_test")]
 static mut R4_STORAGE_JOURNAL: [u8; R4_STORAGE_MAX_BYTES] = [0; R4_STORAGE_MAX_BYTES];
+#[cfg(feature = "go_test")]
+static mut R4_STORAGE_RUNTIME_FILE_LEN: [usize; R4_STORAGE_RUNTIME_FILE_COUNT] =
+    [0; R4_STORAGE_RUNTIME_FILE_COUNT];
+#[cfg(feature = "go_test")]
+static mut R4_STORAGE_RUNTIME_FILE_SEQ: [u32; R4_STORAGE_RUNTIME_FILE_COUNT] =
+    [0; R4_STORAGE_RUNTIME_FILE_COUNT];
+#[cfg(feature = "go_test")]
+static mut R4_STORAGE_RUNTIME_FILE_CACHE: [[u8; R4_STORAGE_RUNTIME_FILE_MAX_BYTES];
+    R4_STORAGE_RUNTIME_FILE_COUNT] = [[0; R4_STORAGE_RUNTIME_FILE_MAX_BYTES];
+    R4_STORAGE_RUNTIME_FILE_COUNT];
 
 #[cfg(feature = "go_test")]
 unsafe fn r4_storage_available() -> bool {
@@ -5633,6 +5845,128 @@ unsafe fn r4_storage_copy_state(offset: usize, dst: &mut [u8]) -> bool {
 }
 
 #[cfg(feature = "go_test")]
+#[derive(Clone, Copy)]
+enum R4StorageRuntimeFile {
+    PkgState = 0,
+    Platform = 1,
+}
+
+#[cfg(feature = "go_test")]
+unsafe fn r4_storage_runtime_magic(file: R4StorageRuntimeFile) -> u32 {
+    match file {
+        R4StorageRuntimeFile::PkgState => R4_STORAGE_PKGSTATE_MAGIC,
+        R4StorageRuntimeFile::Platform => R4_STORAGE_PLATFORM_MAGIC,
+    }
+}
+
+#[cfg(feature = "go_test")]
+unsafe fn r4_storage_runtime_sector(file: R4StorageRuntimeFile) -> u64 {
+    match file {
+        R4StorageRuntimeFile::PkgState => R4_STORAGE_PKGSTATE_SECTOR,
+        R4StorageRuntimeFile::Platform => R4_STORAGE_PLATFORM_SECTOR,
+    }
+}
+
+#[cfg(feature = "go_test")]
+unsafe fn r4_storage_runtime_index(file: R4StorageRuntimeFile) -> usize {
+    file as usize
+}
+
+#[cfg(feature = "go_test")]
+unsafe fn r4_storage_runtime_len(file: R4StorageRuntimeFile) -> usize {
+    R4_STORAGE_RUNTIME_FILE_LEN[r4_storage_runtime_index(file)]
+}
+
+#[cfg(feature = "go_test")]
+unsafe fn r4_storage_runtime_copy(
+    file: R4StorageRuntimeFile,
+    offset: usize,
+    dst: &mut [u8],
+) -> bool {
+    let idx = r4_storage_runtime_index(file);
+    let total = R4_STORAGE_RUNTIME_FILE_LEN[idx];
+    if offset > total || offset + dst.len() > total {
+        return false;
+    }
+    dst.copy_from_slice(&R4_STORAGE_RUNTIME_FILE_CACHE[idx][offset..offset + dst.len()]);
+    true
+}
+
+#[cfg(feature = "go_test")]
+unsafe fn r4_storage_runtime_load(file: R4StorageRuntimeFile) {
+    let idx = r4_storage_runtime_index(file);
+    R4_STORAGE_RUNTIME_FILE_LEN[idx] = 0;
+    R4_STORAGE_RUNTIME_FILE_SEQ[idx] = 0;
+    core::ptr::write_bytes(
+        R4_STORAGE_RUNTIME_FILE_CACHE[idx].as_mut_ptr(),
+        0,
+        R4_STORAGE_RUNTIME_FILE_CACHE[idx].len(),
+    );
+    if !virtio_blk_io(false, r4_storage_runtime_sector(file), 512) {
+        return;
+    }
+    let magic = u32::from_le_bytes([
+        BLK_DATA_PAGE.0[0],
+        BLK_DATA_PAGE.0[1],
+        BLK_DATA_PAGE.0[2],
+        BLK_DATA_PAGE.0[3],
+    ]);
+    if magic != r4_storage_runtime_magic(file) {
+        return;
+    }
+    let len = u32::from_le_bytes([
+        BLK_DATA_PAGE.0[8],
+        BLK_DATA_PAGE.0[9],
+        BLK_DATA_PAGE.0[10],
+        BLK_DATA_PAGE.0[11],
+    ]) as usize;
+    if len > R4_STORAGE_RUNTIME_FILE_MAX_BYTES {
+        return;
+    }
+    let seq = u32::from_le_bytes([
+        BLK_DATA_PAGE.0[12],
+        BLK_DATA_PAGE.0[13],
+        BLK_DATA_PAGE.0[14],
+        BLK_DATA_PAGE.0[15],
+    ]);
+    R4_STORAGE_RUNTIME_FILE_LEN[idx] = len;
+    R4_STORAGE_RUNTIME_FILE_SEQ[idx] = seq;
+    if len != 0 {
+        R4_STORAGE_RUNTIME_FILE_CACHE[idx][..len]
+            .copy_from_slice(&BLK_DATA_PAGE.0[16..16 + len]);
+    }
+}
+
+#[cfg(feature = "go_test")]
+unsafe fn r4_storage_runtime_write(file: R4StorageRuntimeFile, data: &[u8]) -> bool {
+    if !R4_STORAGE_READY || data.len() > R4_STORAGE_RUNTIME_FILE_MAX_BYTES {
+        return false;
+    }
+    let idx = r4_storage_runtime_index(file);
+    let seq = R4_STORAGE_RUNTIME_FILE_SEQ[idx].wrapping_add(1);
+    if !r4_storage_write_record(
+        r4_storage_runtime_sector(file),
+        r4_storage_runtime_magic(file),
+        0,
+        seq,
+        data,
+    ) {
+        return false;
+    }
+    R4_STORAGE_RUNTIME_FILE_SEQ[idx] = seq;
+    R4_STORAGE_RUNTIME_FILE_LEN[idx] = data.len();
+    core::ptr::write_bytes(
+        R4_STORAGE_RUNTIME_FILE_CACHE[idx].as_mut_ptr(),
+        0,
+        R4_STORAGE_RUNTIME_FILE_CACHE[idx].len(),
+    );
+    if !data.is_empty() {
+        R4_STORAGE_RUNTIME_FILE_CACHE[idx][..data.len()].copy_from_slice(data);
+    }
+    true
+}
+
+#[cfg(feature = "go_test")]
 unsafe fn r4_storage_reset_cache() {
     R4_STORAGE_READY = false;
     R4_STORAGE_RECOVERED = false;
@@ -5641,6 +5975,17 @@ unsafe fn r4_storage_reset_cache() {
     R4_STORAGE_JOURNAL_LEN = 0;
     core::ptr::write_bytes(R4_STORAGE_DURABLE.as_mut_ptr(), 0, R4_STORAGE_DURABLE.len());
     core::ptr::write_bytes(R4_STORAGE_JOURNAL.as_mut_ptr(), 0, R4_STORAGE_JOURNAL.len());
+    let mut idx = 0usize;
+    while idx < R4_STORAGE_RUNTIME_FILE_COUNT {
+        R4_STORAGE_RUNTIME_FILE_LEN[idx] = 0;
+        R4_STORAGE_RUNTIME_FILE_SEQ[idx] = 0;
+        core::ptr::write_bytes(
+            R4_STORAGE_RUNTIME_FILE_CACHE[idx].as_mut_ptr(),
+            0,
+            R4_STORAGE_RUNTIME_FILE_CACHE[idx].len(),
+        );
+        idx += 1;
+    }
 }
 
 #[cfg(feature = "go_test")]
@@ -5819,11 +6164,13 @@ unsafe fn r4_storage_boot_probe() {
     let _hhdm = (*hhdm_resp_ptr).offset;
     BLK_KV2P_DELTA = kphys.wrapping_sub(kvirt);
 
-    if let Some(iobase) = pci_find_virtio_blk() {
+        if let Some(iobase) = pci_find_virtio_blk() {
         if virtio_blk_init(iobase) {
             R4_STORAGE_READY = true;
             serial_write(b"STORC4: block ready\n");
             r4_storage_boot_recover();
+            r4_storage_runtime_load(R4StorageRuntimeFile::PkgState);
+            r4_storage_runtime_load(R4StorageRuntimeFile::Platform);
         }
     }
 }

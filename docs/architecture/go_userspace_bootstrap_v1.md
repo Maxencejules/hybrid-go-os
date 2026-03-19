@@ -25,26 +25,33 @@ Current task graph:
    itself through `sys_svc_register`.
 4. `diagsvc` is launched after `timesvc`, exposes a small diagnostic/control
    endpoint, and reports live service-manager accounting from the default lane.
-5. `gosh` is launched after service registration, resolves `timesvc` and
-   `diagsvc` through `sys_svc_lookup`, exercises policy-denial paths, requests
-   time service work, consumes a diagnostic snapshot, and then drives bounded
-   shutdown.
+5. `pkgsvc` is launched after `timesvc`, exposes a package/update endpoint, and
+   persists signed package/platform state on the default runtime media path.
+6. `gosh` is launched after service registration, resolves `timesvc`,
+   `diagsvc`, and `pkgsvc` through `sys_svc_lookup`, exercises policy-denial
+   paths, requests time service work, consumes a diagnostic snapshot, triggers
+   the package/update flow, and then drives bounded shutdown.
 
 This is intentionally a bootstrap-grade userspace stack, not a fake simulation:
 the shell-to-service path crosses the kernel syscall boundary for registry,
-endpoint creation, IPC, scheduling, and time reads.
+endpoint creation, IPC, scheduling, time reads, and runtime file I/O.
 
 ## Why this is credible
 
-- `goinit`, `gosvcm`, `gosh`, and `timesvc` are all real Go code paths.
+- `goinit`, `gosvcm`, `gosh`, `timesvc`, `diagsvc`, and `pkgsvc` are all real
+  Go code paths.
 - Boot sequencing is deterministic and visible on serial.
-- The service uses actual kernel syscalls:
+- The stack uses actual kernel syscalls:
   - `sys_ipc_endpoint_create`
   - `sys_svc_register`
   - `sys_svc_lookup`
   - `sys_ipc_send`
   - `sys_ipc_recv`
   - `sys_time_now`
+  - `sys_open`
+  - `sys_read`
+  - `sys_write`
+  - `sys_fsync`
   - `sys_thread_spawn`
   - `sys_thread_exit`
   - `sys_yield`
@@ -56,7 +63,7 @@ endpoint creation, IPC, scheduling, and time reads.
 - This is a single-address-space bootstrap image, not a full multiprocess
   `spawn+exec` userspace.
 - The current TinyGo lane still relies on a bounded bootstrap image mapped into
-  four contiguous 4 KiB user pages (`16 KiB` total).
+  six contiguous 4 KiB user pages (`24 KiB` total).
 - The stack is cooperative because it uses the existing R4 task model.
 
 ## Serial contract
@@ -70,6 +77,8 @@ Expected boot markers for the canonical path:
 - `TIMESVC: ready`
 - `DIAGSVC: start`
 - `DIAGSVC: ready`
+- `PKGSVC: start`
+- `PKGSVC: ready`
 - `GOSVCM: shell`
 - `GOSH: start`
 - `GOSH: lookup ok`
@@ -77,6 +86,7 @@ Expected boot markers for the canonical path:
 - `TIMESVC: time ok`
 - `DIAGSVC: snapshot`
 - `GOSH: diag ok`
+- `GOSH: pkg ok`
 - `GOSH: reply ok`
 - `GOINIT: ready`
 

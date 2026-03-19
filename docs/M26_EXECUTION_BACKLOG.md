@@ -186,6 +186,18 @@ Promote package/repo v3 and update-trust v1 checks to release-blocking status.
   - `docs/STATUS.md`
   - `README.md`
 
+## X3 runtime-backed closure addendum (2026-03-18)
+
+- This backlog is now governed by the shared x3 platform and ecosystem runtime qualification lane.
+- The historical package/repo, rebuild, and update-trust surface now feeds the
+  shared x3 platform and ecosystem runtime qualification gate instead of
+  remaining a standalone package-policy lane.
+- `make test-x3-platform-runtime-v1` binds signed metadata verification,
+  key rotation, persistent package state, and default-lane `pkgsvc` behavior to
+  the shared X3 runtime report.
+- Future package/repo breadth must land through the same boot-backed package
+  service path before it is treated as a broadened ecosystem claim.
+
 ## Non-goals for M26 backlog
 
 - Full third-party package ecosystem breadth parity.

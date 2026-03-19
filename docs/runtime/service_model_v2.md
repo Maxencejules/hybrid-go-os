@@ -13,7 +13,7 @@ Define deterministic userspace service lifecycle behavior for startup, shutdown,
 failure handling, and restart decisions.
 
 The live default Go lane now exercises this model with `timesvc`, `diagsvc`,
-and `shell` on the real `go_test` boot path.
+`pkgsvc`, and `shell` on the real `go_test` boot path.
 
 ## Lifecycle states
 
@@ -77,6 +77,7 @@ The default Go lane uses those fields to:
 - apply per-service scheduler class through `sys_sched_set`
 - request orderly shutdown of remaining services after the shell completes
 - expose kernel-backed task snapshots through `diagsvc` and `sys_proc_info`
+- enforce a storage-only isolation profile on the shipped `pkgsvc` path
 
 ## Enforcement
 
@@ -102,6 +103,8 @@ Runtime-backed default-lane evidence:
   run reaches `ready`.
 - The same boot path now launches `diagsvc`, services a live diagnostic request
   from `shell`, and performs bounded stop control on the remaining services.
+- The same boot path now launches `pkgsvc`, serves a live package/update flow,
+  and proves its storage-backed isolation profile on the shipped image.
 - The service manager now applies explicit scheduler class to each spawned
   service, and `diagsvc` snapshots kernel task identity/state/accounting from
   the live booted system.

@@ -170,6 +170,18 @@ Make advanced storage/platform feature checks release-blocking.
   - `docs/STATUS.md`
   - `README.md`
 
+## X3 runtime-backed closure addendum (2026-03-18)
+
+- This backlog is now governed by the shared x3 platform and ecosystem runtime qualification lane.
+- The historical storage/platform feature contracts now feed the shared x3
+  platform and ecosystem runtime qualification gate instead of remaining only a
+  deterministic feature-model lane.
+- `make test-x3-platform-runtime-v1` binds snapshot, resize, xattr, reflink,
+  and capability-negotiation behavior to the persistent runtime-media path used
+  by the default `pkgsvc` lane.
+- Future storage/platform breadth must extend the same boot-backed service and
+  media path before it is treated as a broadened runtime claim.
+
 ## Non-goals for M38 backlog
 
 - Broad storage feature claims outside declared contract scope.

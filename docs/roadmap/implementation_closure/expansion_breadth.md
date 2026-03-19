@@ -39,11 +39,16 @@ declared target-class qualification gate in
 
 ## X3: Platform And Ecosystem Feature Breadth
 
+The historical X3 platform and ecosystem backlog is now runtime-backed through
+the shared package/update/storage/catalog qualification bundle in
+`docs/pkg/x3_platform_ecosystem_runtime_qualification_v1.md` and
+`make test-x3-platform-runtime-v1`.
+
 | Backlog | Current class | Current repo reading | Literal implementation target | Still required |
 |---|---|---|---|---|
-| `M26 Package/Repo Ecosystem v3` | `Runtime-partial` | The repo has package and repo contracts, and the early lane can demonstrate a basic package flow, but not a broad ecosystem. | The system has a real repository client or server flow, reproducible packages, trust rotation, and update behavior used by the default lane. | Turn package handling into a full service path, implement signed metadata and key rotation in the live updater, and support non-trivial package catalogs. |
-| `M38 Storage + Platform Feature Expansion v1` | `Evidence-first` | Snapshots, resize, advanced fs ops, and platform feature profiles are mostly modeled rather than visibly implemented. | The filesystem and platform layers support the claimed advanced features in the real runtime. | Add snapshot, resize, xattr, reflink, and capability-negotiation behavior to the actual storage and service layers, then validate them on real media. |
-| `M39 Ecosystem Scale + Distribution Workflow v1` | `Evidence-first` | Catalog scale and distribution workflows are described through deterministic simulations. | The repo supports a real package catalog, distribution flow, and audit trail at the declared scale. | Build the catalog backend, distribution and replication logic, install telemetry, and rollback-safe promotion flow, then measure them on a real package corpus. |
+| `M26 Package/Repo Ecosystem v3` | `Runtime-backed` | The default lane now boots a real `pkgsvc` path that verifies signed metadata, persists package state, rotates trust material, and services shell-driven package work through the shared X3 runtime gate. | The system has a real repository client or server flow, reproducible packages, trust rotation, and update behavior used by the default lane. | Extend future package/repo breadth only through the same runtime-backed service path and real package corpus rather than reopening a policy-only lane. |
+| `M38 Storage + Platform Feature Expansion v1` | `Runtime-backed` | Snapshot, resize, xattr, reflink, and capability negotiation now execute on persistent runtime media through the booted package/platform service flow instead of only deterministic models. | The filesystem and platform layers support the claimed advanced features in the real runtime. | Broaden storage/platform claims only by extending the same runtime-backed media and service path with new real-media captures. |
+| `M39 Ecosystem Scale + Distribution Workflow v1` | `Runtime-backed` | Catalog load, staged promotion, install telemetry, audit linkage, and rollback-safe distribution now run through the live `pkgsvc` replay flow and the shared X3 aggregate gate. | The repo supports a real package catalog, distribution flow, and audit trail at the declared scale. | Add broader catalogs or replication tiers only after they join the same runtime-backed distribution lane with real package evidence. |
 
 ## X4: Desktop And Workflow Breadth
 

@@ -1125,6 +1125,28 @@ jobs:
             out/hw-claim-promotion-v1.json
             out/native-driver-diagnostics-v1.json
 
+      - name: X3 platform runtime v1 gate
+        run: |
+          make test-x3-platform-runtime-v1
+
+      - name: Upload X3 platform runtime v1 artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: x3-platform-runtime-v1-artifacts
+          path: |
+            out/pytest-x3-platform-runtime-v1.xml
+            out/booted-runtime-v1.json
+            out/x3-platform-runtime-v1.json
+            out/repo-policy-v3.json
+            out/pkg-rebuild-v3.json
+            out/update-trust-v1.json
+            out/storage-feature-v1.json
+            out/platform-feature-v1.json
+            out/app-catalog-sim-v1.json
+            out/pkg-install-success-v1.json
+            out/catalog-audit-v1.json
+
       - name: Native storage v1 gate
         run: |
           make test-native-storage-v1

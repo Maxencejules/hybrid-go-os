@@ -43,6 +43,11 @@ The historical X2 hardware backlog is closed on a shared runtime-backed qualific
 records `M9`, `M15`, `M23`, `M37`, `M43`, `M45`, `M46`, and `M47` as
 runtime-backed hardware closures through the X2 aggregate gate.
 
+The historical X3 platform and ecosystem backlog is closed on a shared runtime-backed qualification lane.
+[implementation_closure/expansion_breadth.md](implementation_closure/expansion_breadth.md)
+records `M26`, `M38`, and `M39` as runtime-backed platform/ecosystem closures
+through the X3 aggregate gate.
+
 ## Observable Core Progress
 
 The repo is closer to its goal only when the default lane can do more of the
