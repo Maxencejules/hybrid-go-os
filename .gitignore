@@ -20,6 +20,12 @@ kernel_rs/target/
 # Python
 __pycache__/
 .pytest_cache/
+.pytest_*/
+.tmp/
+codex_pytest_tmp/
+pytest_*/
+repo_tmp_pytest/
+x4_pytest_tmp_run/
 
 # OS junk
 .DS_Store
