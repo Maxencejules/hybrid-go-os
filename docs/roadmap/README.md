@@ -4,6 +4,8 @@ This is the architecture-first roadmap view. Use it to understand direction.
 Use [../../MILESTONES.md](../../MILESTONES.md) for the exhaustive completion
 matrix and [../archive/README.md](../archive/README.md) for historical
 execution records. Use
+[../RUGO_V1_PRODUCT.md](../RUGO_V1_PRODUCT.md) for the bounded `v1` product
+definition that turns the roadmap into a concrete shipping target. Use
 [MILESTONE_FRAMEWORK.md](MILESTONE_FRAMEWORK.md) for the full three-track
 taxonomy, old-to-new mapping, rename guidance, and archive/foreground rules.
 Use
